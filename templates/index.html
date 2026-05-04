@@ -243,7 +243,7 @@
 
 <header class="page-header">
   <h1>IVA Document Analyzer</h1>
-  <p>Upload IVA documents, ask a question, and get an AI-powered response</p>
+  <p>Upload IVA documents and run the completion calculation engine</p>
 </header>
 
 <form id="analyze-form" enctype="multipart/form-data">
@@ -337,14 +337,13 @@
       </div>
     </div>
 
-    <!-- Prompt + submit -->
+    <!-- Notes + submit -->
     <div class="card bottom-section">
-      <label class="field-label" for="prompt">Instructions / Prompt</label>
-      <textarea id="prompt" name="prompt"
-        placeholder="e.g. Summarise the key figures, check for discrepancies between the R&P and Contribution Schedule, list all creditor claims…"
-        required></textarea>
+      <label class="field-label" for="notes">Additional Notes <span style="font-weight:400;color:#888;">(optional)</span></label>
+      <textarea id="notes" name="notes"
+        placeholder="Any supplementary context for this case — CALCULATE fires automatically"></textarea>
       <button type="submit" id="submit-btn">
-        <span id="btn-label">Analyse Documents</span>
+        <span id="btn-label">Calculate</span>
       </button>
     </div>
 
@@ -443,20 +442,17 @@
   form.addEventListener('submit', async e => {
     e.preventDefault();
 
-    const prompt = document.getElementById('prompt').value.trim();
-    if (!prompt) { alert('Please enter a prompt.'); return; }
-
     const totalFiles = slots.reduce((n, s) => n + fileMap[s].length, 0);
     if (!totalFiles) { alert('Please upload at least one document.'); return; }
 
     const fd = new FormData();
-    fd.append('prompt', prompt);
+    fd.append('notes', document.getElementById('notes').value.trim());
     fd.append('eos_from_vmoc', document.querySelector('input[name="eos_from_vmoc"]:checked').value);
     slots.forEach(slot => fileMap[slot].forEach(f => fd.append(slot, f)));
 
     // Loading
     submitBtn.disabled = true;
-    btnLabel.textContent = 'Analysing…';
+    btnLabel.textContent = 'Calculating…';
     const spinner = document.createElement('div');
     spinner.className = 'spinner';
     submitBtn.appendChild(spinner);
@@ -485,7 +481,7 @@
       responseText.textContent = '⚠️ Network error. Please try again.';
     } finally {
       submitBtn.disabled = false;
-      btnLabel.textContent = 'Analyse Documents';
+      btnLabel.textContent = 'Calculate';
       submitBtn.removeChild(spinner);
     }
   });
