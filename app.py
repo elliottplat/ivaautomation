@@ -555,6 +555,14 @@ def admin_users_page():
     return render_template("admin_users.html")
 
 
+@app.route("/admin/corrections")
+@login_required
+def admin_corrections_page():
+    if current_user.role != "admin":
+        return redirect(url_for("home"))
+    return render_template("admin_corrections.html")
+
+
 # ---------------------------------------------------------------------------
 # User management API (admin only)
 # ---------------------------------------------------------------------------
@@ -685,6 +693,38 @@ def mark_all_read():
         conn.commit()
         conn.close()
         return jsonify({"ok": True})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+# ---------------------------------------------------------------------------
+# Corrections API (admin)
+# ---------------------------------------------------------------------------
+@app.route("/api/corrections")
+@login_required
+def list_corrections():
+    if current_user.role != "admin":
+        return jsonify({"error": "Forbidden"}), 403
+    try:
+        conn = get_db_conn()
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute("""
+                SELECT id, case_number, created_at, result,
+                       cashier_instruction_override, cashier_instruction_reasoning
+                FROM cases
+                WHERE cashier_instruction_override IS NOT NULL
+                ORDER BY created_at DESC
+            """)
+            rows = cur.fetchall()
+        conn.close()
+        return jsonify([{
+            "id": r["id"],
+            "case_number": r["case_number"],
+            "created_at": r["created_at"].isoformat(),
+            "original": extract_cashier_instruction(r["result"] or ""),
+            "edited": r["cashier_instruction_override"],
+            "reasoning": r["cashier_instruction_reasoning"] or "",
+        } for r in rows])
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
