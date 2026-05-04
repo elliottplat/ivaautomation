@@ -758,9 +758,10 @@
   const store = {};
 
   function extractCashierSection(text) {
-    const markers = ['FINAL CASHIER INSTRUCTION', '🔒 FINAL CASHIER'];
+    const lower = text.toLowerCase();
+    const markers = ['final cashier instruction', '🔒 final cashier'];
     for (const marker of markers) {
-      const idx = text.indexOf(marker);
+      const idx = lower.indexOf(marker);
       if (idx !== -1) {
         // Skip the heading line — find newline after the marker
         const afterHeading = text.indexOf('\n', idx);
@@ -772,10 +773,10 @@
           contentStart++;
         }
         // Stop at SECTION 4 / RISKS
-        const stopMarkers = ['SECTION 4', 'RISKS / FLAGS', 'RISKS/FLAGS'];
+        const stopMarkers = ['section 4', 'risks / flags', 'risks/flags'];
         let end = text.length;
         for (const stop of stopMarkers) {
-          const si = text.indexOf(stop, contentStart);
+          const si = lower.indexOf(stop, contentStart);
           if (si !== -1 && si < end) end = si;
         }
         return text.slice(contentStart, end).trim();

@@ -475,21 +475,19 @@ def encode_file(file):
 
 
 def extract_cashier_instruction(text):
-    for marker in ["FINAL CASHIER INSTRUCTION", "🔒 FINAL CASHIER"]:
-        idx = text.find(marker)
+    lower = text.lower()
+    for marker in ["final cashier instruction", "🔒 final cashier"]:
+        idx = lower.find(marker)
         if idx != -1:
-            # Find the instruction text — skip the heading line itself
             after_heading = text.find("\n", idx)
             if after_heading == -1:
                 return text[idx:].strip()
-            # Skip blank lines after the heading
             content_start = after_heading
             while content_start < len(text) and text[content_start] in "\n\r ":
                 content_start += 1
-            # Stop at SECTION 4 / RISKS / end of first paragraph
             end = len(text)
-            for stop in ["SECTION 4", "RISKS / FLAGS", "RISKS/FLAGS"]:
-                si = text.find(stop, content_start)
+            for stop in ["section 4", "risks / flags", "risks/flags"]:
+                si = lower.find(stop, content_start)
                 if si != -1 and si < end:
                     end = si
             return text[content_start:end].strip()
