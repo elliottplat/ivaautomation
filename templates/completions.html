@@ -1,0 +1,710 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Completions – Omni Group</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #f0f2f5;
+      color: #1a1a2e;
+      min-height: 100vh;
+    }
+
+    /* ── Top bar ── */
+    .topbar {
+      background: #fff;
+      border-bottom: 1px solid #e5e7eb;
+      padding: 0.75rem 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+    .topbar a.back {
+      text-decoration: none;
+      color: #6366f1;
+      font-size: 0.88rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 0.3rem;
+    }
+    .topbar a.back:hover { color: #4f46e5; }
+    .topbar img { height: 36px; width: auto; }
+    .topbar h1 {
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: #1a1a2e;
+    }
+    .topbar-spacer { flex: 1; }
+
+    /* ── Layout ── */
+    .shell {
+      display: grid;
+      grid-template-columns: 260px 1fr;
+      min-height: calc(100vh - 57px);
+    }
+
+    @media (max-width: 768px) {
+      .shell { grid-template-columns: 1fr; }
+      .sidebar { order: 2; border-top: 1px solid #e5e7eb; }
+      .main-col { order: 1; }
+    }
+
+    /* ── Sidebar ── */
+    .sidebar {
+      background: #fff;
+      border-right: 1px solid #e5e7eb;
+      padding: 1.25rem 1rem;
+      overflow-y: auto;
+    }
+
+    .sidebar h2 {
+      font-size: 0.78rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      color: #999;
+      margin-bottom: 0.75rem;
+      padding: 0 0.25rem;
+    }
+
+    .case-list { display: flex; flex-direction: column; gap: 0.3rem; }
+
+    .case-item {
+      padding: 0.6rem 0.75rem;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.15s;
+      border: 1.5px solid transparent;
+    }
+    .case-item:hover { background: #f5f5ff; }
+    .case-item.active { background: #ede9fe; border-color: #6366f1; }
+
+    .case-item .cn {
+      font-size: 0.88rem;
+      font-weight: 600;
+      color: #1a1a2e;
+    }
+    .case-item .dt {
+      font-size: 0.74rem;
+      color: #999;
+      margin-top: 0.15rem;
+    }
+
+    .sidebar-empty {
+      font-size: 0.82rem;
+      color: #bbb;
+      text-align: center;
+      padding: 2rem 0.5rem;
+    }
+
+    /* ── Main column ── */
+    .main-col {
+      padding: 1.5rem 1.25rem 3rem;
+      overflow-y: auto;
+    }
+
+    .content-wrap {
+      max-width: 860px;
+      margin: 0 auto;
+    }
+
+    /* ── Case number bar ── */
+    .case-bar {
+      background: #fff;
+      border-radius: 10px;
+      box-shadow: 0 1px 6px rgba(0,0,0,0.07);
+      padding: 1rem 1.25rem;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 1.25rem;
+    }
+    .case-bar label {
+      font-weight: 700;
+      font-size: 0.88rem;
+      white-space: nowrap;
+      color: #333;
+    }
+    .case-bar input {
+      flex: 1;
+      border: 1.5px solid #d0d5dd;
+      border-radius: 8px;
+      padding: 0.55rem 0.75rem;
+      font-size: 0.9rem;
+      font-family: inherit;
+      transition: border-color 0.2s;
+    }
+    .case-bar input:focus { outline: none; border-color: #6366f1; }
+    .case-bar input::placeholder { color: #bbb; }
+
+    /* ── Document grid ── */
+    .layout {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.25rem;
+    }
+    @media (max-width: 600px) { .layout { grid-template-columns: 1fr; } }
+
+    .card {
+      background: #fff;
+      border-radius: 10px;
+      box-shadow: 0 1px 6px rgba(0,0,0,0.07);
+      padding: 1.25rem;
+    }
+
+    .slot-label {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-weight: 600;
+      font-size: 0.88rem;
+      margin-bottom: 0.6rem;
+      color: #333;
+    }
+    .slot-label .dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: #d0d5dd;
+      flex-shrink: 0;
+      transition: background 0.2s;
+    }
+    .slot-label .dot.filled { background: #6366f1; }
+
+    .upload-area {
+      border: 1.5px dashed #d0d5dd;
+      border-radius: 8px;
+      padding: 0.9rem;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+      text-align: center;
+      font-size: 0.82rem;
+      color: #999;
+      position: relative;
+    }
+    .upload-area:hover, .upload-area.drag-over {
+      border-color: #6366f1; background: #f5f5ff; color: #6366f1;
+    }
+    .upload-area.has-files {
+      border-color: #6366f1; border-style: solid; background: #f5f5ff;
+    }
+    .upload-area input[type="file"] {
+      position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
+    }
+
+    .file-list { margin-top: 0.5rem; display: flex; flex-direction: column; gap: 0.3rem; }
+    .file-item {
+      display: flex; align-items: center; justify-content: space-between;
+      background: #f3f4f6; border-radius: 5px;
+      padding: 0.3rem 0.5rem; font-size: 0.78rem; color: #444;
+    }
+    .file-item .fname {
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 150px;
+    }
+    .file-item button {
+      border: none; background: none; color: #ef4444;
+      cursor: pointer; font-size: 1rem; line-height: 1; padding: 0 0.2rem; flex-shrink: 0;
+    }
+
+    .eos-card { grid-column: 1 / -1; }
+    .eos-inner {
+      display: grid; grid-template-columns: 1fr auto; gap: 1rem; align-items: start;
+    }
+    @media (max-width: 600px) { .eos-inner { grid-template-columns: 1fr; } }
+
+    .vmoc-block {
+      border: 1.5px solid #e5e7eb; border-radius: 8px;
+      padding: 0.9rem 1rem; min-width: 180px;
+    }
+    .vmoc-block p { font-size: 0.82rem; font-weight: 600; color: #444; margin-bottom: 0.6rem; }
+    .vmoc-options { display: flex; gap: 0.5rem; }
+    .vmoc-options label {
+      flex: 1; display: flex; align-items: center; justify-content: center;
+      gap: 0.35rem; padding: 0.5rem;
+      border: 1.5px solid #d0d5dd; border-radius: 6px;
+      cursor: pointer; font-size: 0.85rem; font-weight: 600;
+      transition: border-color 0.15s, background 0.15s, color 0.15s;
+    }
+    .vmoc-options input[type="radio"] { display: none; }
+    .vmoc-options label.selected-yes { border-color: #6366f1; background: #6366f1; color: #fff; }
+    .vmoc-options label.selected-no  { border-color: #6366f1; background: #fff; color: #6366f1; }
+
+    .bottom-section { grid-column: 1 / -1; }
+    .field-label {
+      font-weight: 600; font-size: 0.88rem; margin-bottom: 0.5rem;
+      display: block; color: #333;
+    }
+    textarea {
+      width: 100%; border: 1.5px solid #d0d5dd; border-radius: 8px;
+      padding: 0.75rem; font-size: 0.9rem; font-family: inherit;
+      resize: vertical; min-height: 80px; transition: border-color 0.2s;
+    }
+    textarea:focus { outline: none; border-color: #6366f1; }
+
+    button[type="submit"] {
+      margin-top: 0.9rem; width: 100%; padding: 0.85rem;
+      background: #6366f1; color: #fff; border: none; border-radius: 8px;
+      font-size: 1rem; font-weight: 600; cursor: pointer;
+      transition: background 0.2s;
+      display: flex; align-items: center; justify-content: center; gap: 0.5rem;
+    }
+    button[type="submit"]:hover:not(:disabled) { background: #4f46e5; }
+    button[type="submit"]:disabled { opacity: 0.6; cursor: not-allowed; }
+
+    .spinner {
+      width: 18px; height: 18px;
+      border: 3px solid rgba(255,255,255,0.4);
+      border-top-color: #fff; border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Result card ── */
+    #result-card {
+      margin-top: 1.25rem;
+      display: none;
+    }
+    #result-card h2 { font-size: 0.95rem; font-weight: 700; margin-bottom: 0.75rem; color: #444; }
+    #response-text { white-space: pre-wrap; line-height: 1.75; font-size: 0.92rem; }
+    .error-text { color: #dc2626; }
+
+    .result-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 0.75rem;
+    }
+    .result-header h2 { margin: 0; }
+    .case-tag {
+      font-size: 0.78rem; font-weight: 600; color: #6366f1;
+      background: #ede9fe; padding: 0.25rem 0.6rem; border-radius: 6px;
+    }
+
+    .usage-row {
+      display: flex; flex-wrap: wrap; gap: 0.5rem;
+      margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #f0f0f0;
+    }
+    .badge {
+      background: #f3f4f6; border-radius: 6px;
+      padding: 0.3rem 0.6rem; font-size: 0.78rem; color: #555;
+    }
+    .badge strong { color: #333; }
+    .badge.cache-hit { background: #ecfdf5; color: #065f46; }
+  </style>
+</head>
+<body>
+
+<!-- Top bar -->
+<div class="topbar">
+  <a class="back" href="/">&#8592; Home</a>
+  <img src="/static/logo.png" alt="Omni Group" />
+  <h1>Completions</h1>
+  <div class="topbar-spacer"></div>
+</div>
+
+<div class="shell">
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <h2>Past Cases</h2>
+    <div class="case-list" id="case-list">
+      <div class="sidebar-empty" id="sidebar-empty">No cases yet</div>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <div class="main-col">
+    <div class="content-wrap">
+
+      <!-- Case number -->
+      <div class="case-bar">
+        <label for="case-number">Case Number</label>
+        <input type="text" id="case-number" placeholder="e.g. IVA-00123" autocomplete="off" />
+      </div>
+
+      <form id="analyze-form" enctype="multipart/form-data">
+        <div class="layout">
+
+          <!-- Contribution Schedule -->
+          <div class="card">
+            <div class="slot-label">
+              <span class="dot" id="dot-contribution_schedule"></span>
+              Contribution Schedule
+            </div>
+            <div class="upload-area" id="area-contribution_schedule">
+              <span class="area-text">Click or drag images here</span>
+              <input type="file" name="contribution_schedule" id="inp-contribution_schedule" accept="image/*" multiple />
+            </div>
+            <div class="file-list" id="list-contribution_schedule"></div>
+          </div>
+
+          <!-- Modifications -->
+          <div class="card">
+            <div class="slot-label">
+              <span class="dot" id="dot-modifications"></span>
+              Modifications
+            </div>
+            <div class="upload-area" id="area-modifications">
+              <span class="area-text">Click or drag images here</span>
+              <input type="file" name="modifications" id="inp-modifications" accept="image/*" multiple />
+            </div>
+            <div class="file-list" id="list-modifications"></div>
+          </div>
+
+          <!-- R&P -->
+          <div class="card">
+            <div class="slot-label">
+              <span class="dot" id="dot-rp"></span>
+              Receipts &amp; Payments (R&amp;P)
+            </div>
+            <div class="upload-area" id="area-rp">
+              <span class="area-text">Click or drag images here</span>
+              <input type="file" name="rp" id="inp-rp" accept="image/*" multiple />
+            </div>
+            <div class="file-list" id="list-rp"></div>
+          </div>
+
+          <!-- Creditor Claims -->
+          <div class="card">
+            <div class="slot-label">
+              <span class="dot" id="dot-creditor_claims"></span>
+              Creditor Claims
+            </div>
+            <div class="upload-area" id="area-creditor_claims">
+              <span class="area-text">Click or drag images here</span>
+              <input type="file" name="creditor_claims" id="inp-creditor_claims" accept="image/*" multiple />
+            </div>
+            <div class="file-list" id="list-creditor_claims"></div>
+          </div>
+
+          <!-- EOS — full width, with VMOC toggle -->
+          <div class="card eos-card">
+            <div class="slot-label">
+              <span class="dot" id="dot-eos"></span>
+              Estimated Outcome Statement (EOS)
+            </div>
+            <div class="eos-inner">
+              <div>
+                <div class="upload-area" id="area-eos">
+                  <span class="area-text">Click or drag images here</span>
+                  <input type="file" name="eos" id="inp-eos" accept="image/*" multiple />
+                </div>
+                <div class="file-list" id="list-eos"></div>
+              </div>
+              <div class="vmoc-block">
+                <p>Is this EOS from a VMOC?</p>
+                <div class="vmoc-options">
+                  <label id="lbl-yes">
+                    <input type="radio" name="eos_from_vmoc" value="yes" />
+                    <span>Yes</span>
+                  </label>
+                  <label id="lbl-no" class="selected-no">
+                    <input type="radio" name="eos_from_vmoc" value="no" checked />
+                    <span>No</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Notes + submit -->
+          <div class="card bottom-section">
+            <label class="field-label" for="notes">Additional Notes <span style="font-weight:400;color:#888;">(optional)</span></label>
+            <textarea id="notes" name="notes" placeholder="Any supplementary context for this case — CALCULATE fires automatically"></textarea>
+            <button type="submit" id="submit-btn">
+              <span id="btn-label">Calculate</span>
+            </button>
+          </div>
+
+        </div><!-- /layout -->
+      </form>
+
+      <!-- Result -->
+      <div id="result-card" class="card">
+        <div class="result-header">
+          <h2>Result</h2>
+          <span class="case-tag" id="result-case-tag" style="display:none;"></span>
+        </div>
+        <div id="response-text"></div>
+        <div class="usage-row" id="usage-row" style="display:none;"></div>
+      </div>
+
+    </div><!-- /content-wrap -->
+  </div><!-- /main-col -->
+
+</div><!-- /shell -->
+
+<script>
+  // ── File management ──────────────────────────────────────────────────────
+  const slots = ['contribution_schedule', 'eos', 'modifications', 'rp', 'creditor_claims'];
+  const fileMap = {};
+  slots.forEach(s => fileMap[s] = []);
+
+  function refreshSlot(slot) {
+    const files = fileMap[slot];
+    const area  = document.getElementById('area-' + slot);
+    const list  = document.getElementById('list-' + slot);
+    const dot   = document.getElementById('dot-' + slot);
+    const text  = area.querySelector('.area-text');
+    if (files.length) {
+      area.classList.add('has-files'); dot.classList.add('filled');
+      text.textContent = files.length + ' file(s) selected';
+    } else {
+      area.classList.remove('has-files'); dot.classList.remove('filled');
+      text.textContent = 'Click or drag images here';
+    }
+    list.innerHTML = '';
+    files.forEach((f, i) => {
+      const item = document.createElement('div');
+      item.className = 'file-item';
+      item.innerHTML = `<span class="fname" title="${f.name}">${f.name}</span>
+        <button type="button" data-slot="${slot}" data-idx="${i}" title="Remove">×</button>`;
+      list.appendChild(item);
+    });
+  }
+
+  document.addEventListener('click', e => {
+    if (e.target.matches('.file-item button')) {
+      const { slot, idx } = e.target.dataset;
+      fileMap[slot].splice(Number(idx), 1);
+      refreshSlot(slot);
+    }
+  });
+
+  function compressImage(file) {
+    return new Promise(resolve => {
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        const MAX = 1600;
+        let { width, height } = img;
+        if (width > MAX || height > MAX) {
+          if (width > height) { height = Math.round(height * MAX / width); width = MAX; }
+          else { width = Math.round(width * MAX / height); height = MAX; }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width; canvas.height = height;
+        canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+        canvas.toBlob(
+          blob => resolve(new File([blob], file.name.replace(/\.\w+$/, '.jpg'), { type: 'image/jpeg' })),
+          'image/jpeg', 0.82
+        );
+      };
+      img.src = url;
+    });
+  }
+
+  async function addFiles(slot, files) {
+    const compressed = await Promise.all([...files].map(compressImage));
+    fileMap[slot].push(...compressed);
+    refreshSlot(slot);
+  }
+
+  slots.forEach(slot => {
+    const inp  = document.getElementById('inp-' + slot);
+    const area = document.getElementById('area-' + slot);
+    inp.addEventListener('change', () => { addFiles(slot, inp.files); inp.value = ''; });
+    area.addEventListener('dragover', e => { e.preventDefault(); area.classList.add('drag-over'); });
+    area.addEventListener('dragleave', () => area.classList.remove('drag-over'));
+    area.addEventListener('drop', e => {
+      e.preventDefault(); area.classList.remove('drag-over');
+      const dropped = [...e.dataTransfer.files].filter(f => f.type.startsWith('image/'));
+      addFiles(slot, dropped);
+    });
+  });
+
+  // ── VMOC radio styling ───────────────────────────────────────────────────
+  document.querySelectorAll('input[name="eos_from_vmoc"]').forEach(radio => {
+    radio.addEventListener('change', () => {
+      document.getElementById('lbl-yes').className = '';
+      document.getElementById('lbl-no').className  = '';
+      if (radio.value === 'yes') document.getElementById('lbl-yes').classList.add('selected-yes');
+      else document.getElementById('lbl-no').classList.add('selected-no');
+    });
+  });
+
+  // ── Sidebar ──────────────────────────────────────────────────────────────
+  let activeCaseId = null;
+
+  async function loadCaseList() {
+    try {
+      const res = await fetch('/api/cases');
+      const cases = await res.json();
+      renderCaseList(cases);
+    } catch {}
+  }
+
+  function renderCaseList(cases) {
+    const list  = document.getElementById('case-list');
+    const empty = document.getElementById('sidebar-empty');
+    if (!cases.length) { empty.style.display = ''; return; }
+    empty.style.display = 'none';
+    list.innerHTML = '';
+    cases.forEach(c => {
+      const el = document.createElement('div');
+      el.className = 'case-item' + (c.id === activeCaseId ? ' active' : '');
+      el.dataset.id = c.id;
+      const dt = new Date(c.created_at);
+      el.innerHTML = `<div class="cn">${c.case_number}</div>
+        <div class="dt">${dt.toLocaleDateString('en-GB', {day:'2-digit',month:'short',year:'numeric'})} ${dt.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}</div>`;
+      el.addEventListener('click', () => openCase(c.id, c.case_number));
+      list.appendChild(el);
+    });
+  }
+
+  async function openCase(id, caseNumber) {
+    activeCaseId = id;
+    document.querySelectorAll('.case-item').forEach(el => {
+      el.classList.toggle('active', Number(el.dataset.id) === id);
+    });
+    try {
+      const res  = await fetch(`/api/cases/${id}`);
+      const data = await res.json();
+      showResult(data.result, caseNumber, {
+        input_tokens: data.input_tokens,
+        output_tokens: data.output_tokens,
+        cache_creation_tokens: data.cache_creation_tokens,
+        cache_read_tokens: data.cache_read_tokens,
+      });
+    } catch (e) {
+      showError('Failed to load case.');
+    }
+  }
+
+  function showResult(text, caseNumber, usage) {
+    const resultCard = document.getElementById('result-card');
+    const responseText = document.getElementById('response-text');
+    const tag = document.getElementById('result-case-tag');
+    const usageRow = document.getElementById('usage-row');
+
+    resultCard.style.display = 'block';
+    responseText.className = '';
+    responseText.textContent = text;
+
+    if (caseNumber) {
+      tag.textContent = caseNumber;
+      tag.style.display = '';
+    } else {
+      tag.style.display = 'none';
+    }
+
+    usageRow.innerHTML = '';
+    usageRow.style.display = 'none';
+    renderUsage(usage);
+    resultCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function showError(msg) {
+    const resultCard = document.getElementById('result-card');
+    const responseText = document.getElementById('response-text');
+    resultCard.style.display = 'block';
+    responseText.className = 'error-text';
+    responseText.textContent = '⚠️ ' + msg;
+  }
+
+  // ── Form submit ──────────────────────────────────────────────────────────
+  const form      = document.getElementById('analyze-form');
+  const submitBtn = document.getElementById('submit-btn');
+  const btnLabel  = document.getElementById('btn-label');
+
+  form.addEventListener('submit', async e => {
+    e.preventDefault();
+
+    const totalFiles = slots.reduce((n, s) => n + fileMap[s].length, 0);
+    if (!totalFiles) { alert('Please upload at least one document.'); return; }
+
+    const caseNumber = document.getElementById('case-number').value.trim();
+
+    const fd = new FormData();
+    fd.append('notes', document.getElementById('notes').value.trim());
+    fd.append('case_number', caseNumber);
+    fd.append('eos_from_vmoc', document.querySelector('input[name="eos_from_vmoc"]:checked').value);
+    slots.forEach(slot => fileMap[slot].forEach(f => fd.append(slot, f)));
+
+    submitBtn.disabled = true;
+    btnLabel.textContent = 'Calculating…';
+    const spinner = document.createElement('div');
+    spinner.className = 'spinner';
+    submitBtn.appendChild(spinner);
+
+    const resultCard   = document.getElementById('result-card');
+    const responseText = document.getElementById('response-text');
+    const usageRow     = document.getElementById('usage-row');
+    const tag          = document.getElementById('result-case-tag');
+
+    responseText.className = '';
+    responseText.textContent = '';
+    usageRow.style.display = 'none';
+    usageRow.innerHTML = '';
+    tag.style.display = 'none';
+    resultCard.style.display = 'block';
+    resultCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+    try {
+      const res = await fetch('/analyze', { method: 'POST', body: fd });
+      if (!res.ok) throw new Error('Server error ' + res.status);
+
+      const reader  = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop();
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          const data = JSON.parse(line.slice(6));
+          if (data.error) {
+            responseText.className = 'error-text';
+            responseText.textContent = '⚠️ ' + data.error;
+          } else if (data.done) {
+            renderUsage(data.usage);
+            if (caseNumber) { tag.textContent = caseNumber; tag.style.display = ''; }
+            if (data.case_id) {
+              activeCaseId = data.case_id;
+              loadCaseList();
+            }
+          } else if (data.text) {
+            responseText.textContent += data.text;
+          }
+        }
+      }
+    } catch (err) {
+      responseText.className = 'error-text';
+      responseText.textContent = '⚠️ ' + (err.message || 'Network error. Please try again.');
+    } finally {
+      submitBtn.disabled = false;
+      btnLabel.textContent = 'Calculate';
+      submitBtn.removeChild(spinner);
+    }
+  });
+
+  function renderUsage(u) {
+    if (!u) return;
+    const usageRow = document.getElementById('usage-row');
+    usageRow.style.display = 'flex';
+    const items = [
+      { label: 'Input tokens',  value: u.input_tokens },
+      { label: 'Output tokens', value: u.output_tokens },
+    ];
+    if (u.cache_creation_tokens) items.push({ label: 'Cache write', value: u.cache_creation_tokens });
+    if (u.cache_read_tokens)     items.push({ label: 'Cache hit',   value: u.cache_read_tokens, hit: true });
+    items.forEach(item => {
+      const b = document.createElement('span');
+      b.className = 'badge' + (item.hit ? ' cache-hit' : '');
+      b.innerHTML = `${item.label}: <strong>${(item.value||0).toLocaleString()}</strong>`;
+      usageRow.appendChild(b);
+    });
+  }
+
+  // Load sidebar on page load
+  loadCaseList();
+</script>
+</body>
+</html>

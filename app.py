@@ -2,6 +2,8 @@ import os
 import base64
 import json
 import anthropic
+import psycopg2
+from psycopg2.extras import RealDictCursor
 from flask import Flask, render_template, request, jsonify, Response, stream_with_context
 from dotenv import load_dotenv
 
@@ -295,13 +297,54 @@ ALLOWED_TYPES = {"image/jpeg", "image/png", "image/gif", "image/webp"}
 
 DOCUMENT_SLOTS = [
     ("contribution_schedule", "Contribution Schedule"),
-    ("eos", "End of Supervision (EOS)"),
+    ("eos", "Estimated Outcome Statement (EOS)"),
     ("modifications", "Modifications"),
     ("rp", "Receipts & Payments (R&P)"),
     ("creditor_claims", "Creditor Claims Screen"),
 ]
 
 
+# ---------------------------------------------------------------------------
+# Database
+# ---------------------------------------------------------------------------
+def get_db_conn():
+    url = os.environ.get("DATABASE_URL", "")
+    if url.startswith("postgres://"):
+        url = url.replace("postgres://", "postgresql://", 1)
+    return psycopg2.connect(url)
+
+
+def init_db():
+    conn = get_db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS cases (
+                    id SERIAL PRIMARY KEY,
+                    case_number VARCHAR(100) NOT NULL,
+                    created_at TIMESTAMP DEFAULT NOW(),
+                    result TEXT,
+                    input_tokens INTEGER DEFAULT 0,
+                    output_tokens INTEGER DEFAULT 0,
+                    cache_creation_tokens INTEGER DEFAULT 0,
+                    cache_read_tokens INTEGER DEFAULT 0
+                )
+            """)
+        conn.commit()
+    finally:
+        conn.close()
+
+
+if os.environ.get("DATABASE_URL"):
+    try:
+        init_db()
+    except Exception as e:
+        print(f"Warning: DB init failed: {e}")
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
 def encode_file(file):
     media_type = file.content_type or "image/jpeg"
     if media_type not in ALLOWED_TYPES:
@@ -309,15 +352,70 @@ def encode_file(file):
     return base64.standard_b64encode(file.read()).decode("utf-8"), media_type
 
 
+# ---------------------------------------------------------------------------
+# Routes
+# ---------------------------------------------------------------------------
 @app.route("/")
-def index():
-    return render_template("index.html")
+def home():
+    return render_template("home.html")
+
+
+@app.route("/completions")
+def completions():
+    return render_template("completions.html")
+
+
+@app.route("/api/cases")
+def list_cases():
+    if not os.environ.get("DATABASE_URL"):
+        return jsonify([])
+    try:
+        conn = get_db_conn()
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute(
+                "SELECT id, case_number, created_at FROM cases ORDER BY created_at DESC LIMIT 100"
+            )
+            rows = cur.fetchall()
+        conn.close()
+        return jsonify([
+            {"id": r["id"], "case_number": r["case_number"], "created_at": r["created_at"].isoformat()}
+            for r in rows
+        ])
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/cases/<int:case_id>")
+def get_case(case_id):
+    if not os.environ.get("DATABASE_URL"):
+        return jsonify({"error": "No database configured"}), 503
+    try:
+        conn = get_db_conn()
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute("SELECT * FROM cases WHERE id = %s", (case_id,))
+            row = cur.fetchone()
+        conn.close()
+        if not row:
+            return jsonify({"error": "Not found"}), 404
+        return jsonify({
+            "id": row["id"],
+            "case_number": row["case_number"],
+            "created_at": row["created_at"].isoformat(),
+            "result": row["result"],
+            "input_tokens": row["input_tokens"],
+            "output_tokens": row["output_tokens"],
+            "cache_creation_tokens": row["cache_creation_tokens"],
+            "cache_read_tokens": row["cache_read_tokens"],
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 @app.route("/analyze", methods=["POST"])
 def analyze():
     eos_from_vmoc = request.form.get("eos_from_vmoc", "no").lower() == "yes"
     additional_notes = request.form.get("notes", "").strip()
+    case_number = request.form.get("case_number", "").strip()
 
     content = []
     any_document = False
@@ -356,20 +454,16 @@ def analyze():
     if not any_document:
         return jsonify({"error": "Please upload at least one document."}), 400
 
-    # Build the trigger message that the prompt engine expects
     trigger_parts = []
-
     if eos_from_vmoc:
         trigger_parts.append("EOS IS VMOC")
-
     if additional_notes:
         trigger_parts.append(additional_notes)
-
     trigger_parts.append("CALCULATE")
-
     content.append({"type": "text", "text": "\n\n".join(trigger_parts)})
 
     def generate():
+        full_text = []
         try:
             with client.messages.stream(
                 model="claude-sonnet-4-6",
@@ -384,11 +478,39 @@ def analyze():
                 messages=[{"role": "user", "content": content}],
             ) as stream:
                 for text in stream.text_stream:
+                    full_text.append(text)
                     yield f"data: {json.dumps({'text': text})}\n\n"
 
                 msg = stream.get_final_message()
                 usage = msg.usage
-                yield f"data: {json.dumps({'done': True, 'usage': {'input_tokens': usage.input_tokens, 'output_tokens': usage.output_tokens, 'cache_creation_tokens': getattr(usage, 'cache_creation_input_tokens', 0), 'cache_read_tokens': getattr(usage, 'cache_read_input_tokens', 0)}})}\n\n"
+
+                case_id = None
+                if case_number and os.environ.get("DATABASE_URL"):
+                    try:
+                        conn = get_db_conn()
+                        with conn.cursor() as cur:
+                            cur.execute(
+                                """INSERT INTO cases
+                                   (case_number, result, input_tokens, output_tokens,
+                                    cache_creation_tokens, cache_read_tokens)
+                                   VALUES (%s, %s, %s, %s, %s, %s) RETURNING id""",
+                                (
+                                    case_number,
+                                    "".join(full_text),
+                                    usage.input_tokens,
+                                    usage.output_tokens,
+                                    getattr(usage, "cache_creation_input_tokens", 0),
+                                    getattr(usage, "cache_read_input_tokens", 0),
+                                ),
+                            )
+                            case_id = cur.fetchone()[0]
+                        conn.commit()
+                        conn.close()
+                    except Exception as e:
+                        print(f"Failed to save case: {e}")
+
+                yield f"data: {json.dumps({'done': True, 'case_id': case_id, 'usage': {'input_tokens': usage.input_tokens, 'output_tokens': usage.output_tokens, 'cache_creation_tokens': getattr(usage, 'cache_creation_input_tokens', 0), 'cache_read_tokens': getattr(usage, 'cache_read_input_tokens', 0)}})}\n\n"
+
         except anthropic.APIError as e:
             yield f"data: {json.dumps({'error': str(e)})}\n\n"
 
