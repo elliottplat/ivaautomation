@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>IVA – Image &amp; Prompt Analyzer</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #f5f7fa;
+      color: #1a1a2e;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 2rem 1rem;
+    }
+
+    h1 {
+      font-size: 1.8rem;
+      font-weight: 700;
+      margin-bottom: 0.25rem;
+      letter-spacing: -0.5px;
+    }
+    .subtitle { color: #666; margin-bottom: 2rem; font-size: 0.95rem; }
+
+    .card {
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+      padding: 2rem;
+      width: 100%;
+      max-width: 720px;
+    }
+
+    /* Drop zone */
+    #drop-zone {
+      border: 2px dashed #c0c8d8;
+      border-radius: 8px;
+      padding: 2rem;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+      margin-bottom: 1.25rem;
+    }
+    #drop-zone.drag-over { border-color: #6366f1; background: #f0f0ff; }
+    #drop-zone svg { display: block; margin: 0 auto 0.75rem; opacity: 0.4; }
+    #drop-zone p { color: #777; font-size: 0.9rem; }
+    #drop-zone span { color: #6366f1; font-weight: 600; cursor: pointer; }
+    #file-input { display: none; }
+
+    /* Previews */
+    #preview-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.6rem;
+      margin-bottom: 1.25rem;
+    }
+    .preview-item {
+      position: relative;
+      width: 80px;
+      height: 80px;
+    }
+    .preview-item img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      border-radius: 6px;
+      border: 1px solid #e0e0e0;
+    }
+    .remove-btn {
+      position: absolute;
+      top: -6px;
+      right: -6px;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: #ef4444;
+      color: #fff;
+      border: none;
+      font-size: 12px;
+      cursor: pointer;
+      line-height: 20px;
+      text-align: center;
+    }
+
+    /* Prompt */
+    label { display: block; font-weight: 600; margin-bottom: 0.4rem; font-size: 0.9rem; }
+    textarea {
+      width: 100%;
+      border: 1.5px solid #d0d5dd;
+      border-radius: 8px;
+      padding: 0.75rem;
+      font-size: 0.95rem;
+      font-family: inherit;
+      resize: vertical;
+      min-height: 100px;
+      transition: border-color 0.2s;
+    }
+    textarea:focus { outline: none; border-color: #6366f1; }
+
+    /* Button */
+    button[type="submit"] {
+      margin-top: 1rem;
+      width: 100%;
+      padding: 0.85rem;
+      background: #6366f1;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+    }
+    button[type="submit"]:hover:not(:disabled) { background: #4f46e5; }
+    button[type="submit"]:disabled { opacity: 0.6; cursor: not-allowed; }
+
+    /* Spinner */
+    .spinner {
+      width: 18px;
+      height: 18px;
+      border: 3px solid rgba(255,255,255,0.4);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Response */
+    #result-card {
+      margin-top: 1.5rem;
+      width: 100%;
+      max-width: 720px;
+      display: none;
+    }
+    #result-card .card { padding: 1.5rem; }
+    #result-card h2 { font-size: 1rem; font-weight: 700; margin-bottom: 0.75rem; color: #444; }
+    #response-text {
+      white-space: pre-wrap;
+      line-height: 1.7;
+      font-size: 0.95rem;
+      color: #1a1a2e;
+    }
+    .error-text { color: #dc2626; }
+
+    /* Usage badges */
+    .usage-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-top: 1rem;
+      padding-top: 1rem;
+      border-top: 1px solid #f0f0f0;
+    }
+    .badge {
+      background: #f3f4f6;
+      border-radius: 6px;
+      padding: 0.3rem 0.6rem;
+      font-size: 0.78rem;
+      color: #555;
+    }
+    .badge strong { color: #333; }
+    .badge.cache-hit { background: #ecfdf5; color: #065f46; }
+  </style>
+</head>
+<body>
+  <h1>IVA Analyzer</h1>
+  <p class="subtitle">Upload images and ask anything — powered by Claude</p>
+
+  <div class="card">
+    <form id="analyze-form" enctype="multipart/form-data">
+
+      <!-- Drop zone -->
+      <div id="drop-zone" role="button" aria-label="Upload images">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="17 8 12 3 7 8"/>
+          <line x1="12" y1="3" x2="12" y2="15"/>
+        </svg>
+        <p>Drag &amp; drop images here or <span id="browse-link">browse</span></p>
+        <p style="margin-top:0.3rem;font-size:0.8rem;">JPEG, PNG, GIF, WebP · max 20 MB total</p>
+        <input type="file" id="file-input" name="images" accept="image/jpeg,image/png,image/gif,image/webp" multiple />
+      </div>
+
+      <div id="preview-grid"></div>
+
+      <label for="prompt">Prompt</label>
+      <textarea id="prompt" name="prompt" placeholder="What do you see in these images? Or ask anything…" required></textarea>
+
+      <button type="submit" id="submit-btn">
+        <span id="btn-label">Analyze</span>
+      </button>
+    </form>
+  </div>
+
+  <div id="result-card">
+    <div class="card">
+      <h2>Response</h2>
+      <div id="response-text"></div>
+      <div class="usage-row" id="usage-row" style="display:none"></div>
+    </div>
+  </div>
+
+  <script>
+    const dropZone = document.getElementById('drop-zone');
+    const fileInput = document.getElementById('file-input');
+    const previewGrid = document.getElementById('preview-grid');
+    const form = document.getElementById('analyze-form');
+    const submitBtn = document.getElementById('submit-btn');
+    const btnLabel = document.getElementById('btn-label');
+    const resultCard = document.getElementById('result-card');
+    const responseText = document.getElementById('response-text');
+    const usageRow = document.getElementById('usage-row');
+
+    let selectedFiles = [];
+
+    // Browse link
+    document.getElementById('browse-link').addEventListener('click', () => fileInput.click());
+    dropZone.addEventListener('click', (e) => { if (e.target !== document.getElementById('browse-link')) fileInput.click(); });
+
+    // Drag events
+    dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+    dropZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropZone.classList.remove('drag-over');
+      addFiles([...e.dataTransfer.files]);
+    });
+
+    fileInput.addEventListener('change', () => {
+      addFiles([...fileInput.files]);
+      fileInput.value = '';
+    });
+
+    function addFiles(files) {
+      files.forEach(f => {
+        if (!f.type.startsWith('image/')) return;
+        selectedFiles.push(f);
+        renderPreview(f, selectedFiles.length - 1);
+      });
+    }
+
+    function renderPreview(file, idx) {
+      const wrap = document.createElement('div');
+      wrap.className = 'preview-item';
+      wrap.dataset.idx = idx;
+
+      const img = document.createElement('img');
+      img.src = URL.createObjectURL(file);
+      img.alt = file.name;
+
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'remove-btn';
+      btn.textContent = '×';
+      btn.addEventListener('click', () => {
+        selectedFiles.splice(idx, 1);
+        wrap.remove();
+        // Re-index remaining previews
+        [...previewGrid.children].forEach((el, i) => el.dataset.idx = i);
+      });
+
+      wrap.appendChild(img);
+      wrap.appendChild(btn);
+      previewGrid.appendChild(wrap);
+    }
+
+    // Submit
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const prompt = document.getElementById('prompt').value.trim();
+      if (!prompt) { alert('Please enter a prompt.'); return; }
+
+      // Build FormData
+      const fd = new FormData();
+      fd.append('prompt', prompt);
+      selectedFiles.forEach(f => fd.append('images', f));
+
+      // Loading state
+      submitBtn.disabled = true;
+      btnLabel.textContent = 'Analyzing…';
+      const spinner = document.createElement('div');
+      spinner.className = 'spinner';
+      submitBtn.appendChild(spinner);
+
+      responseText.className = '';
+      responseText.textContent = '';
+      usageRow.style.display = 'none';
+      usageRow.innerHTML = '';
+      resultCard.style.display = 'none';
+
+      try {
+        const res = await fetch('/analyze', { method: 'POST', body: fd });
+        const data = await res.json();
+
+        resultCard.style.display = 'block';
+        if (data.error) {
+          responseText.className = 'error-text';
+          responseText.textContent = '⚠️ ' + data.error;
+        } else {
+          responseText.textContent = data.response;
+          renderUsage(data.usage);
+        }
+      } catch (err) {
+        resultCard.style.display = 'block';
+        responseText.className = 'error-text';
+        responseText.textContent = '⚠️ Network error. Please try again.';
+      } finally {
+        submitBtn.disabled = false;
+        btnLabel.textContent = 'Analyze';
+        submitBtn.removeChild(spinner);
+      }
+    });
+
+    function renderUsage(u) {
+      if (!u) return;
+      usageRow.style.display = 'flex';
+      const items = [
+        { label: 'Input tokens', value: u.input_tokens },
+        { label: 'Output tokens', value: u.output_tokens },
+      ];
+      if (u.cache_creation_tokens) items.push({ label: 'Cache write', value: u.cache_creation_tokens });
+      if (u.cache_read_tokens) items.push({ label: 'Cache hit', value: u.cache_read_tokens, hit: true });
+
+      items.forEach(item => {
+        const badge = document.createElement('span');
+        badge.className = 'badge' + (item.hit ? ' cache-hit' : '');
+        badge.innerHTML = `${item.label}: <strong>${item.value.toLocaleString()}</strong>`;
+        usageRow.appendChild(badge);
+      });
+    }
+  </script>
+</body>
+</html>
