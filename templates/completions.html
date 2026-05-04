@@ -465,7 +465,7 @@
       const url = URL.createObjectURL(file);
       img.onload = () => {
         URL.revokeObjectURL(url);
-        const MAX = 1600;
+        const MAX = 2800;
         let { width, height } = img;
         if (width > MAX || height > MAX) {
           if (width > height) { height = Math.round(height * MAX / width); width = MAX; }
@@ -476,7 +476,7 @@
         canvas.getContext('2d').drawImage(img, 0, 0, width, height);
         canvas.toBlob(
           blob => resolve(new File([blob], file.name.replace(/\.\w+$/, '.jpg'), { type: 'image/jpeg' })),
-          'image/jpeg', 0.82
+          'image/jpeg', 0.97
         );
       };
       img.src = url;
