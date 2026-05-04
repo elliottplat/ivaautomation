@@ -411,6 +411,17 @@ def init_db():
                 END $$
             """)
             cur.execute("""
+                DO $$
+                BEGIN
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_name='cases' AND column_name='cashier_instruction_reasoning'
+                    ) THEN
+                        ALTER TABLE cases ADD COLUMN cashier_instruction_reasoning TEXT;
+                    END IF;
+                END $$
+            """)
+            cur.execute("""
                 CREATE TABLE IF NOT EXISTS notifications (
                     id SERIAL PRIMARY KEY,
                     user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
@@ -705,18 +716,19 @@ def export_cases():
     try:
         conn = get_db_conn()
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            cur.execute("SELECT case_number, created_at, result, cashier_instruction_override, input_tokens, output_tokens FROM cases ORDER BY created_at DESC")
+            cur.execute("SELECT case_number, created_at, result, cashier_instruction_override, cashier_instruction_reasoning, input_tokens, output_tokens FROM cases ORDER BY created_at DESC")
             rows = cur.fetchall()
         conn.close()
         output = io.StringIO()
         writer = csv.writer(output)
-        writer.writerow(["Case Number", "Date", "Cashier Instruction", "Input Tokens", "Output Tokens"])
+        writer.writerow(["Case Number", "Date", "Cashier Instruction", "Edit Reasoning", "Input Tokens", "Output Tokens"])
         for row in rows:
             cashier = row["cashier_instruction_override"] or extract_cashier_instruction(row["result"] or "")
             writer.writerow([
                 row["case_number"],
                 row["created_at"].strftime("%d/%m/%Y %H:%M"),
                 cashier,
+                row["cashier_instruction_reasoning"] or "",
                 row["input_tokens"],
                 row["output_tokens"],
             ])
@@ -760,12 +772,13 @@ def save_cashier_instruction(case_id):
         return jsonify({"error": "Forbidden"}), 403
     data = request.get_json()
     instruction = data.get("instruction", "").strip()
+    reasoning = data.get("reasoning", "").strip()
     try:
         conn = get_db_conn()
         with conn.cursor() as cur:
             cur.execute(
-                "UPDATE cases SET cashier_instruction_override = %s WHERE id = %s",
-                (instruction, case_id),
+                "UPDATE cases SET cashier_instruction_override = %s, cashier_instruction_reasoning = %s WHERE id = %s",
+                (instruction, reasoning or None, case_id),
             )
         conn.commit()
         conn.close()

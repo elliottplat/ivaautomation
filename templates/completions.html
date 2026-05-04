@@ -571,7 +571,32 @@
 
 </div><!-- /shell -->
 
-<!-- Modal -->
+<!-- Reasoning Modal -->
+<div class="modal-overlay" id="reasoning-modal-overlay">
+  <div class="modal-panel" style="max-width:480px;">
+    <div class="modal-header">
+      <div class="modal-header-left">
+        <h3>Reason for Edit</h3>
+      </div>
+      <div class="modal-header-right">
+        <button class="modal-close" id="reasoning-modal-close">×</button>
+      </div>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:0.85rem;color:#555;margin-bottom:0.85rem;line-height:1.5;">
+        Please explain why you are changing the cashier instruction. This reasoning is stored alongside the case and used to improve future calculations.
+      </p>
+      <div id="reasoning-error" style="display:none;font-size:0.82rem;color:#b91c1c;background:#fef2f2;border:1px solid #fecaca;border-radius:6px;padding:0.5rem 0.75rem;margin-bottom:0.75rem;"></div>
+      <textarea id="reasoning-text" placeholder="e.g. The AI incorrectly included a variation fee draw — no meeting was called so this should be omitted." style="min-height:120px;"></textarea>
+    </div>
+    <div class="modal-footer" style="justify-content:flex-end;">
+      <button class="btn-cancel-edit" id="reasoning-cancel" style="display:block;">Cancel</button>
+      <button class="btn-save-cashier" id="reasoning-confirm" style="display:block;">Confirm &amp; Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Main Modal -->
 <div class="modal-overlay" id="modal-overlay">
   <div class="modal-panel">
     <div class="modal-header">
@@ -930,20 +955,53 @@
     document.getElementById('btn-cancel-edit').style.display = 'none';
   });
 
-  document.getElementById('btn-save-cashier').addEventListener('click', async () => {
+  // "Save Instruction" → open reasoning modal
+  document.getElementById('btn-save-cashier').addEventListener('click', () => {
+    if (!currentModalKey) return;
+    document.getElementById('reasoning-text').value = '';
+    document.getElementById('reasoning-error').style.display = 'none';
+    document.getElementById('reasoning-modal-overlay').classList.add('open');
+    document.getElementById('reasoning-text').focus();
+  });
+
+  // Reasoning modal close/cancel
+  function closeReasoningModal() {
+    document.getElementById('reasoning-modal-overlay').classList.remove('open');
+  }
+  document.getElementById('reasoning-modal-close').addEventListener('click', closeReasoningModal);
+  document.getElementById('reasoning-cancel').addEventListener('click', closeReasoningModal);
+  document.getElementById('reasoning-modal-overlay').addEventListener('click', e => {
+    if (e.target === document.getElementById('reasoning-modal-overlay')) closeReasoningModal();
+  });
+
+  // Confirm & Save
+  document.getElementById('reasoning-confirm').addEventListener('click', async () => {
+    const reasoning = document.getElementById('reasoning-text').value.trim();
+    if (!reasoning) {
+      const errEl = document.getElementById('reasoning-error');
+      errEl.textContent = 'Please provide a reason for this edit before saving.';
+      errEl.style.display = '';
+      return;
+    }
     if (!currentModalKey) return;
     const instruction = document.getElementById('modal-edit-area').value.trim();
     try {
       const res = await fetch(`/api/cases/${currentModalKey}/cashier`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ instruction }),
+        body: JSON.stringify({ instruction, reasoning }),
       });
       const data = await res.json();
-      if (data.error) { alert('Save failed: ' + data.error); return; }
+      if (data.error) {
+        const errEl = document.getElementById('reasoning-error');
+        errEl.textContent = 'Save failed: ' + data.error;
+        errEl.style.display = '';
+        return;
+      }
       if (store[currentModalKey]) {
         store[currentModalKey].cashierOverride = instruction;
       }
+      closeReasoningModal();
       editMode = false;
       document.getElementById('modal-edit-area').style.display = 'none';
       document.getElementById('modal-text').textContent = instruction;
@@ -952,7 +1010,11 @@
       document.getElementById('btn-save-cashier').style.display = 'none';
       document.getElementById('btn-cancel-edit').style.display = 'none';
       document.getElementById('edited-tag').style.display = '';
-    } catch { alert('Save failed. Please try again.'); }
+    } catch {
+      const errEl = document.getElementById('reasoning-error');
+      errEl.textContent = 'Save failed. Please try again.';
+      errEl.style.display = '';
+    }
   });
 
   document.getElementById('modal-close').addEventListener('click', closeModal);
