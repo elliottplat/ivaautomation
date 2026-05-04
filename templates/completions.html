@@ -22,35 +22,29 @@
       display: flex;
       align-items: center;
       gap: 1rem;
+      position: sticky;
+      top: 0;
+      z-index: 10;
     }
     .topbar a.back {
-      text-decoration: none;
-      color: #6366f1;
-      font-size: 0.88rem;
-      font-weight: 600;
-      display: flex;
-      align-items: center;
-      gap: 0.3rem;
+      text-decoration: none; color: #6366f1;
+      font-size: 0.88rem; font-weight: 600;
+      display: flex; align-items: center; gap: 0.3rem;
     }
     .topbar a.back:hover { color: #4f46e5; }
     .topbar img { height: 36px; width: auto; }
-    .topbar h1 {
-      font-size: 1.05rem;
-      font-weight: 700;
-      color: #1a1a2e;
-    }
+    .topbar h1 { font-size: 1.05rem; font-weight: 700; }
     .topbar-spacer { flex: 1; }
 
-    /* ── Layout ── */
+    /* ── Shell ── */
     .shell {
       display: grid;
-      grid-template-columns: 260px 1fr;
-      min-height: calc(100vh - 57px);
+      grid-template-columns: 280px 1fr;
+      height: calc(100vh - 57px);
     }
-
     @media (max-width: 768px) {
-      .shell { grid-template-columns: 1fr; }
-      .sidebar { order: 2; border-top: 1px solid #e5e7eb; }
+      .shell { grid-template-columns: 1fr; height: auto; }
+      .sidebar { order: 2; max-height: 280px; border-top: 1px solid #e5e7eb; border-right: none; }
       .main-col { order: 1; }
     }
 
@@ -58,174 +52,148 @@
     .sidebar {
       background: #fff;
       border-right: 1px solid #e5e7eb;
-      padding: 1.25rem 1rem;
-      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
     }
-
-    .sidebar h2 {
-      font-size: 0.78rem;
+    .sidebar-header {
+      padding: 1rem 1rem 0.5rem;
+      font-size: 0.72rem;
       font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 0.6px;
       color: #999;
-      margin-bottom: 0.75rem;
-      padding: 0 0.25rem;
+      flex-shrink: 0;
     }
-
-    .case-list { display: flex; flex-direction: column; gap: 0.3rem; }
+    .case-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 0.25rem 0.5rem 1rem;
+    }
+    .sidebar-empty {
+      font-size: 0.82rem; color: #bbb;
+      text-align: center; padding: 2rem 0.5rem;
+    }
 
     .case-item {
-      padding: 0.6rem 0.75rem;
       border-radius: 8px;
-      cursor: pointer;
-      transition: background 0.15s;
-      border: 1.5px solid transparent;
+      padding: 0.65rem 0.75rem;
+      margin-bottom: 0.35rem;
+      border: 1.5px solid #f0f0f0;
+      background: #fafafa;
+      transition: border-color 0.15s;
     }
-    .case-item:hover { background: #f5f5ff; }
-    .case-item.active { background: #ede9fe; border-color: #6366f1; }
+    .case-item:hover { border-color: #d0d5ff; }
+    .case-item.active { border-color: #6366f1; background: #f5f5ff; }
 
-    .case-item .cn {
-      font-size: 0.88rem;
-      font-weight: 600;
-      color: #1a1a2e;
+    .case-item .ci-top {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 0.3rem;
     }
-    .case-item .dt {
+    .case-item .cn { font-size: 0.88rem; font-weight: 700; color: #1a1a2e; }
+    .case-item .dt { font-size: 0.72rem; color: #aaa; }
+
+    .case-item .ci-status {
+      font-size: 0.75rem; color: #aaa; display: flex; align-items: center; gap: 0.4rem;
+    }
+
+    .case-item .ci-actions { display: flex; gap: 0.4rem; margin-top: 0.5rem; }
+    .ci-btn {
+      flex: 1;
+      padding: 0.35rem 0.4rem;
+      border: 1.5px solid #d0d5dd;
+      border-radius: 6px;
+      background: #fff;
       font-size: 0.74rem;
-      color: #999;
-      margin-top: 0.15rem;
-    }
-
-    .sidebar-empty {
-      font-size: 0.82rem;
-      color: #bbb;
+      font-weight: 600;
+      color: #555;
+      cursor: pointer;
+      transition: border-color 0.15s, color 0.15s, background 0.15s;
       text-align: center;
-      padding: 2rem 0.5rem;
+    }
+    .ci-btn:hover:not(:disabled) { border-color: #6366f1; color: #6366f1; background: #f5f5ff; }
+    .ci-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .ci-btn.primary { border-color: #6366f1; color: #6366f1; }
+
+    .inline-spinner {
+      width: 11px; height: 11px;
+      border: 2px solid #d0d5dd;
+      border-top-color: #6366f1;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      display: inline-block;
     }
 
     /* ── Main column ── */
     .main-col {
-      padding: 1.5rem 1.25rem 3rem;
       overflow-y: auto;
+      padding: 1.5rem 1.25rem 3rem;
     }
-
-    .content-wrap {
-      max-width: 860px;
-      margin: 0 auto;
-    }
+    .content-wrap { max-width: 820px; margin: 0 auto; }
 
     /* ── Case number bar ── */
     .case-bar {
-      background: #fff;
-      border-radius: 10px;
+      background: #fff; border-radius: 10px;
       box-shadow: 0 1px 6px rgba(0,0,0,0.07);
       padding: 1rem 1.25rem;
-      display: flex;
-      align-items: center;
-      gap: 1rem;
+      display: flex; align-items: center; gap: 1rem;
       margin-bottom: 1.25rem;
     }
-    .case-bar label {
-      font-weight: 700;
-      font-size: 0.88rem;
-      white-space: nowrap;
-      color: #333;
-    }
+    .case-bar label { font-weight: 700; font-size: 0.88rem; white-space: nowrap; color: #333; }
     .case-bar input {
-      flex: 1;
-      border: 1.5px solid #d0d5dd;
-      border-radius: 8px;
-      padding: 0.55rem 0.75rem;
-      font-size: 0.9rem;
-      font-family: inherit;
+      flex: 1; border: 1.5px solid #d0d5dd; border-radius: 8px;
+      padding: 0.55rem 0.75rem; font-size: 0.9rem; font-family: inherit;
       transition: border-color 0.2s;
     }
     .case-bar input:focus { outline: none; border-color: #6366f1; }
     .case-bar input::placeholder { color: #bbb; }
 
     /* ── Document grid ── */
-    .layout {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 1.25rem;
-    }
+    .layout { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
     @media (max-width: 600px) { .layout { grid-template-columns: 1fr; } }
 
     .card {
-      background: #fff;
-      border-radius: 10px;
-      box-shadow: 0 1px 6px rgba(0,0,0,0.07);
-      padding: 1.25rem;
+      background: #fff; border-radius: 10px;
+      box-shadow: 0 1px 6px rgba(0,0,0,0.07); padding: 1.25rem;
     }
-
     .slot-label {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      font-weight: 600;
-      font-size: 0.88rem;
-      margin-bottom: 0.6rem;
-      color: #333;
+      display: flex; align-items: center; gap: 0.5rem;
+      font-weight: 600; font-size: 0.88rem; margin-bottom: 0.6rem; color: #333;
     }
     .slot-label .dot {
-      width: 8px; height: 8px;
-      border-radius: 50%;
-      background: #d0d5dd;
-      flex-shrink: 0;
-      transition: background 0.2s;
+      width: 8px; height: 8px; border-radius: 50%;
+      background: #d0d5dd; flex-shrink: 0; transition: background 0.2s;
     }
     .slot-label .dot.filled { background: #6366f1; }
 
     .upload-area {
-      border: 1.5px dashed #d0d5dd;
-      border-radius: 8px;
-      padding: 0.9rem;
-      cursor: pointer;
-      transition: border-color 0.2s, background 0.2s;
-      text-align: center;
-      font-size: 0.82rem;
-      color: #999;
-      position: relative;
+      border: 1.5px dashed #d0d5dd; border-radius: 8px; padding: 0.9rem;
+      cursor: pointer; transition: border-color 0.2s, background 0.2s;
+      text-align: center; font-size: 0.82rem; color: #999; position: relative;
     }
-    .upload-area:hover, .upload-area.drag-over {
-      border-color: #6366f1; background: #f5f5ff; color: #6366f1;
-    }
-    .upload-area.has-files {
-      border-color: #6366f1; border-style: solid; background: #f5f5ff;
-    }
-    .upload-area input[type="file"] {
-      position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
-    }
+    .upload-area:hover, .upload-area.drag-over { border-color: #6366f1; background: #f5f5ff; color: #6366f1; }
+    .upload-area.has-files { border-color: #6366f1; border-style: solid; background: #f5f5ff; }
+    .upload-area input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
 
     .file-list { margin-top: 0.5rem; display: flex; flex-direction: column; gap: 0.3rem; }
     .file-item {
       display: flex; align-items: center; justify-content: space-between;
-      background: #f3f4f6; border-radius: 5px;
-      padding: 0.3rem 0.5rem; font-size: 0.78rem; color: #444;
+      background: #f3f4f6; border-radius: 5px; padding: 0.3rem 0.5rem;
+      font-size: 0.78rem; color: #444;
     }
-    .file-item .fname {
-      overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 150px;
-    }
-    .file-item button {
-      border: none; background: none; color: #ef4444;
-      cursor: pointer; font-size: 1rem; line-height: 1; padding: 0 0.2rem; flex-shrink: 0;
-    }
+    .file-item .fname { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 150px; }
+    .file-item button { border: none; background: none; color: #ef4444; cursor: pointer; font-size: 1rem; line-height: 1; padding: 0 0.2rem; flex-shrink: 0; }
 
     .eos-card { grid-column: 1 / -1; }
-    .eos-inner {
-      display: grid; grid-template-columns: 1fr auto; gap: 1rem; align-items: start;
-    }
+    .eos-inner { display: grid; grid-template-columns: 1fr auto; gap: 1rem; align-items: start; }
     @media (max-width: 600px) { .eos-inner { grid-template-columns: 1fr; } }
 
-    .vmoc-block {
-      border: 1.5px solid #e5e7eb; border-radius: 8px;
-      padding: 0.9rem 1rem; min-width: 180px;
-    }
+    .vmoc-block { border: 1.5px solid #e5e7eb; border-radius: 8px; padding: 0.9rem 1rem; min-width: 180px; }
     .vmoc-block p { font-size: 0.82rem; font-weight: 600; color: #444; margin-bottom: 0.6rem; }
     .vmoc-options { display: flex; gap: 0.5rem; }
     .vmoc-options label {
       flex: 1; display: flex; align-items: center; justify-content: center;
-      gap: 0.35rem; padding: 0.5rem;
-      border: 1.5px solid #d0d5dd; border-radius: 6px;
+      gap: 0.35rem; padding: 0.5rem; border: 1.5px solid #d0d5dd; border-radius: 6px;
       cursor: pointer; font-size: 0.85rem; font-weight: 600;
       transition: border-color 0.15s, background 0.15s, color 0.15s;
     }
@@ -234,10 +202,7 @@
     .vmoc-options label.selected-no  { border-color: #6366f1; background: #fff; color: #6366f1; }
 
     .bottom-section { grid-column: 1 / -1; }
-    .field-label {
-      font-weight: 600; font-size: 0.88rem; margin-bottom: 0.5rem;
-      display: block; color: #333;
-    }
+    .field-label { font-weight: 600; font-size: 0.88rem; margin-bottom: 0.5rem; display: block; color: #333; }
     textarea {
       width: 100%; border: 1.5px solid #d0d5dd; border-radius: 8px;
       padding: 0.75rem; font-size: 0.9rem; font-family: inherit;
@@ -255,7 +220,7 @@
     button[type="submit"]:hover:not(:disabled) { background: #4f46e5; }
     button[type="submit"]:disabled { opacity: 0.6; cursor: not-allowed; }
 
-    .spinner {
+    .btn-spinner {
       width: 18px; height: 18px;
       border: 3px solid rgba(255,255,255,0.4);
       border-top-color: #fff; border-radius: 50%;
@@ -263,40 +228,80 @@
     }
     @keyframes spin { to { transform: rotate(360deg); } }
 
-    /* ── Result card ── */
-    #result-card {
-      margin-top: 1.25rem;
-      display: none;
+    /* ── Modal ── */
+    .modal-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.45);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 100; padding: 1rem;
+      opacity: 0; pointer-events: none;
+      transition: opacity 0.15s;
     }
-    #result-card h2 { font-size: 0.95rem; font-weight: 700; margin-bottom: 0.75rem; color: #444; }
-    #response-text { white-space: pre-wrap; line-height: 1.75; font-size: 0.92rem; }
-    .error-text { color: #dc2626; }
+    .modal-overlay.open { opacity: 1; pointer-events: all; }
 
-    .result-header {
+    .modal-panel {
+      background: #fff; border-radius: 14px;
+      width: 100%; max-width: 780px;
+      max-height: 85vh;
+      display: flex; flex-direction: column;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+      transform: translateY(12px);
+      transition: transform 0.15s;
+    }
+    .modal-overlay.open .modal-panel { transform: translateY(0); }
+
+    .modal-header {
+      padding: 1.1rem 1.25rem;
+      border-bottom: 1px solid #f0f0f0;
       display: flex; align-items: center; justify-content: space-between;
-      margin-bottom: 0.75rem;
+      flex-shrink: 0;
     }
-    .result-header h2 { margin: 0; }
-    .case-tag {
+    .modal-header h3 { font-size: 1rem; font-weight: 700; }
+    .modal-header .case-tag {
       font-size: 0.78rem; font-weight: 600; color: #6366f1;
-      background: #ede9fe; padding: 0.25rem 0.6rem; border-radius: 6px;
+      background: #ede9fe; padding: 0.2rem 0.6rem; border-radius: 6px;
+    }
+    .modal-close {
+      background: none; border: none; font-size: 1.4rem;
+      color: #999; cursor: pointer; line-height: 1; padding: 0 0.2rem;
+    }
+    .modal-close:hover { color: #333; }
+
+    .modal-body {
+      flex: 1; overflow-y: auto; padding: 1.25rem;
     }
 
-    .usage-row {
-      display: flex; flex-wrap: wrap; gap: 0.5rem;
-      margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #f0f0f0;
+    .modal-loading {
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: center; gap: 1rem; padding: 3rem;
+      color: #999; font-size: 0.88rem;
     }
-    .badge {
+    .modal-loading-spinner {
+      width: 32px; height: 32px;
+      border: 3px solid #e5e7eb;
+      border-top-color: #6366f1;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+
+    #modal-text { white-space: pre-wrap; line-height: 1.8; font-size: 0.9rem; color: #222; }
+
+    .modal-footer {
+      padding: 0.85rem 1.25rem;
+      border-top: 1px solid #f0f0f0;
+      display: flex; gap: 0.5rem; flex-wrap: wrap;
+      flex-shrink: 0;
+    }
+    .usage-badge {
       background: #f3f4f6; border-radius: 6px;
       padding: 0.3rem 0.6rem; font-size: 0.78rem; color: #555;
     }
-    .badge strong { color: #333; }
-    .badge.cache-hit { background: #ecfdf5; color: #065f46; }
+    .usage-badge strong { color: #333; }
+    .usage-badge.cache-hit { background: #ecfdf5; color: #065f46; }
   </style>
 </head>
 <body>
 
-<!-- Top bar -->
 <div class="topbar">
   <a class="back" href="/">&#8592; Home</a>
   <img src="/static/logo.png" alt="Omni Group" />
@@ -308,7 +313,7 @@
 
   <!-- Sidebar -->
   <aside class="sidebar">
-    <h2>Past Cases</h2>
+    <div class="sidebar-header">Worked Cases</div>
     <div class="case-list" id="case-list">
       <div class="sidebar-empty" id="sidebar-empty">No cases yet</div>
     </div>
@@ -318,7 +323,6 @@
   <div class="main-col">
     <div class="content-wrap">
 
-      <!-- Case number -->
       <div class="case-bar">
         <label for="case-number">Case Number</label>
         <input type="text" id="case-number" placeholder="e.g. IVA-00123" autocomplete="off" />
@@ -327,12 +331,8 @@
       <form id="analyze-form" enctype="multipart/form-data">
         <div class="layout">
 
-          <!-- Contribution Schedule -->
           <div class="card">
-            <div class="slot-label">
-              <span class="dot" id="dot-contribution_schedule"></span>
-              Contribution Schedule
-            </div>
+            <div class="slot-label"><span class="dot" id="dot-contribution_schedule"></span>Contribution Schedule</div>
             <div class="upload-area" id="area-contribution_schedule">
               <span class="area-text">Click or drag images here</span>
               <input type="file" name="contribution_schedule" id="inp-contribution_schedule" accept="image/*" multiple />
@@ -340,12 +340,8 @@
             <div class="file-list" id="list-contribution_schedule"></div>
           </div>
 
-          <!-- Modifications -->
           <div class="card">
-            <div class="slot-label">
-              <span class="dot" id="dot-modifications"></span>
-              Modifications
-            </div>
+            <div class="slot-label"><span class="dot" id="dot-modifications"></span>Modifications</div>
             <div class="upload-area" id="area-modifications">
               <span class="area-text">Click or drag images here</span>
               <input type="file" name="modifications" id="inp-modifications" accept="image/*" multiple />
@@ -353,12 +349,8 @@
             <div class="file-list" id="list-modifications"></div>
           </div>
 
-          <!-- R&P -->
           <div class="card">
-            <div class="slot-label">
-              <span class="dot" id="dot-rp"></span>
-              Receipts &amp; Payments (R&amp;P)
-            </div>
+            <div class="slot-label"><span class="dot" id="dot-rp"></span>Receipts &amp; Payments (R&amp;P)</div>
             <div class="upload-area" id="area-rp">
               <span class="area-text">Click or drag images here</span>
               <input type="file" name="rp" id="inp-rp" accept="image/*" multiple />
@@ -366,12 +358,8 @@
             <div class="file-list" id="list-rp"></div>
           </div>
 
-          <!-- Creditor Claims -->
           <div class="card">
-            <div class="slot-label">
-              <span class="dot" id="dot-creditor_claims"></span>
-              Creditor Claims
-            </div>
+            <div class="slot-label"><span class="dot" id="dot-creditor_claims"></span>Creditor Claims</div>
             <div class="upload-area" id="area-creditor_claims">
               <span class="area-text">Click or drag images here</span>
               <input type="file" name="creditor_claims" id="inp-creditor_claims" accept="image/*" multiple />
@@ -379,12 +367,8 @@
             <div class="file-list" id="list-creditor_claims"></div>
           </div>
 
-          <!-- EOS — full width, with VMOC toggle -->
           <div class="card eos-card">
-            <div class="slot-label">
-              <span class="dot" id="dot-eos"></span>
-              Estimated Outcome Statement (EOS)
-            </div>
+            <div class="slot-label"><span class="dot" id="dot-eos"></span>Estimated Outcome Statement (EOS)</div>
             <div class="eos-inner">
               <div>
                 <div class="upload-area" id="area-eos">
@@ -396,45 +380,47 @@
               <div class="vmoc-block">
                 <p>Is this EOS from a VMOC?</p>
                 <div class="vmoc-options">
-                  <label id="lbl-yes">
-                    <input type="radio" name="eos_from_vmoc" value="yes" />
-                    <span>Yes</span>
-                  </label>
-                  <label id="lbl-no" class="selected-no">
-                    <input type="radio" name="eos_from_vmoc" value="no" checked />
-                    <span>No</span>
-                  </label>
+                  <label id="lbl-yes"><input type="radio" name="eos_from_vmoc" value="yes" /><span>Yes</span></label>
+                  <label id="lbl-no" class="selected-no"><input type="radio" name="eos_from_vmoc" value="no" checked /><span>No</span></label>
                 </div>
               </div>
             </div>
           </div>
 
-          <!-- Notes + submit -->
           <div class="card bottom-section">
             <label class="field-label" for="notes">Additional Notes <span style="font-weight:400;color:#888;">(optional)</span></label>
-            <textarea id="notes" name="notes" placeholder="Any supplementary context for this case — CALCULATE fires automatically"></textarea>
+            <textarea id="notes" name="notes" placeholder="Any supplementary context — CALCULATE fires automatically"></textarea>
             <button type="submit" id="submit-btn">
               <span id="btn-label">Calculate</span>
             </button>
           </div>
 
-        </div><!-- /layout -->
+        </div>
       </form>
 
-      <!-- Result -->
-      <div id="result-card" class="card">
-        <div class="result-header">
-          <h2>Result</h2>
-          <span class="case-tag" id="result-case-tag" style="display:none;"></span>
-        </div>
-        <div id="response-text"></div>
-        <div class="usage-row" id="usage-row" style="display:none;"></div>
-      </div>
-
-    </div><!-- /content-wrap -->
-  </div><!-- /main-col -->
+    </div>
+  </div>
 
 </div><!-- /shell -->
+
+<!-- Modal -->
+<div class="modal-overlay" id="modal-overlay">
+  <div class="modal-panel">
+    <div class="modal-header">
+      <h3 id="modal-title">Full Log</h3>
+      <span class="case-tag" id="modal-case-tag"></span>
+      <button class="modal-close" id="modal-close">×</button>
+    </div>
+    <div class="modal-body" id="modal-body">
+      <div class="modal-loading" id="modal-loading">
+        <div class="modal-loading-spinner"></div>
+        <span>Calculating — results will appear here as they stream in…</span>
+      </div>
+      <div id="modal-text" style="display:none;"></div>
+    </div>
+    <div class="modal-footer" id="modal-footer" style="display:none;"></div>
+  </div>
+</div>
 
 <script>
   // ── File management ──────────────────────────────────────────────────────
@@ -460,7 +446,7 @@
       const item = document.createElement('div');
       item.className = 'file-item';
       item.innerHTML = `<span class="fname" title="${f.name}">${f.name}</span>
-        <button type="button" data-slot="${slot}" data-idx="${i}" title="Remove">×</button>`;
+        <button type="button" data-slot="${slot}" data-idx="${i}">×</button>`;
       list.appendChild(item);
     });
   }
@@ -507,16 +493,15 @@
     const inp  = document.getElementById('inp-' + slot);
     const area = document.getElementById('area-' + slot);
     inp.addEventListener('change', () => { addFiles(slot, inp.files); inp.value = ''; });
-    area.addEventListener('dragover', e => { e.preventDefault(); area.classList.add('drag-over'); });
-    area.addEventListener('dragleave', () => area.classList.remove('drag-over'));
+    area.addEventListener('dragover',  e => { e.preventDefault(); area.classList.add('drag-over'); });
+    area.addEventListener('dragleave', ()  => area.classList.remove('drag-over'));
     area.addEventListener('drop', e => {
       e.preventDefault(); area.classList.remove('drag-over');
-      const dropped = [...e.dataTransfer.files].filter(f => f.type.startsWith('image/'));
-      addFiles(slot, dropped);
+      addFiles(slot, [...e.dataTransfer.files].filter(f => f.type.startsWith('image/')));
     });
   });
 
-  // ── VMOC radio styling ───────────────────────────────────────────────────
+  // ── VMOC styling ─────────────────────────────────────────────────────────
   document.querySelectorAll('input[name="eos_from_vmoc"]').forEach(radio => {
     radio.addEventListener('change', () => {
       document.getElementById('lbl-yes').className = '';
@@ -526,86 +511,174 @@
     });
   });
 
-  // ── Sidebar ──────────────────────────────────────────────────────────────
-  let activeCaseId = null;
+  // ── Result store ─────────────────────────────────────────────────────────
+  // key -> { caseNumber, fullText, pending, usage }
+  const store = {};
 
-  async function loadCaseList() {
-    try {
-      const res = await fetch('/api/cases');
-      const cases = await res.json();
-      renderCaseList(cases);
-    } catch {}
-  }
-
-  function renderCaseList(cases) {
-    const list  = document.getElementById('case-list');
-    const empty = document.getElementById('sidebar-empty');
-    if (!cases.length) { empty.style.display = ''; return; }
-    empty.style.display = 'none';
-    list.innerHTML = '';
-    cases.forEach(c => {
-      const el = document.createElement('div');
-      el.className = 'case-item' + (c.id === activeCaseId ? ' active' : '');
-      el.dataset.id = c.id;
-      const dt = new Date(c.created_at);
-      el.innerHTML = `<div class="cn">${c.case_number}</div>
-        <div class="dt">${dt.toLocaleDateString('en-GB', {day:'2-digit',month:'short',year:'numeric'})} ${dt.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}</div>`;
-      el.addEventListener('click', () => openCase(c.id, c.case_number));
-      list.appendChild(el);
-    });
-  }
-
-  async function openCase(id, caseNumber) {
-    activeCaseId = id;
-    document.querySelectorAll('.case-item').forEach(el => {
-      el.classList.toggle('active', Number(el.dataset.id) === id);
-    });
-    try {
-      const res  = await fetch(`/api/cases/${id}`);
-      const data = await res.json();
-      showResult(data.result, caseNumber, {
-        input_tokens: data.input_tokens,
-        output_tokens: data.output_tokens,
-        cache_creation_tokens: data.cache_creation_tokens,
-        cache_read_tokens: data.cache_read_tokens,
-      });
-    } catch (e) {
-      showError('Failed to load case.');
+  function extractCashierSection(text) {
+    for (const marker of ['SECTION 2', 'OMNI NOTE']) {
+      const idx = text.indexOf(marker);
+      if (idx !== -1) return text.slice(idx).trim();
     }
+    return text.slice(Math.max(0, text.length - 3000)).trim();
   }
 
-  function showResult(text, caseNumber, usage) {
-    const resultCard = document.getElementById('result-card');
-    const responseText = document.getElementById('response-text');
-    const tag = document.getElementById('result-case-tag');
-    const usageRow = document.getElementById('usage-row');
+  // ── Sidebar ───────────────────────────────────────────────────────────────
+  function sidebarAddPending(key, caseNumber, dt) {
+    document.getElementById('sidebar-empty').style.display = 'none';
+    const list = document.getElementById('case-list');
+    const el = document.createElement('div');
+    el.className = 'case-item active';
+    el.id = 'case-item-' + key;
+    const label = caseNumber || 'Untitled';
+    const dateStr = dt.toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' })
+      + ' ' + dt.toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit' });
+    el.innerHTML = `
+      <div class="ci-top">
+        <span class="cn">${label}</span>
+        <span class="dt">${dateStr}</span>
+      </div>
+      <div class="ci-status"><span class="inline-spinner"></span> Calculating…</div>
+      <div class="ci-actions">
+        <button class="ci-btn" disabled data-key="${key}" data-type="full">Full Log</button>
+        <button class="ci-btn primary" disabled data-key="${key}" data-type="cashier">Cashier Instructions</button>
+      </div>`;
+    list.insertBefore(el, list.firstChild);
+  }
 
-    resultCard.style.display = 'block';
-    responseText.className = '';
-    responseText.textContent = text;
+  function sidebarMarkDone(key, newKey) {
+    const oldEl = document.getElementById('case-item-' + key);
+    if (!oldEl) return;
+    if (newKey && newKey !== key) {
+      oldEl.id = 'case-item-' + newKey;
+    }
+    const finalKey = newKey || key;
+    const status = oldEl.querySelector('.ci-status');
+    if (status) status.remove();
+    oldEl.querySelectorAll('.ci-btn').forEach(btn => {
+      btn.disabled = false;
+      btn.dataset.key = finalKey;
+    });
+  }
 
-    if (caseNumber) {
-      tag.textContent = caseNumber;
-      tag.style.display = '';
+  function sidebarAddStored(id, caseNumber, createdAt) {
+    document.getElementById('sidebar-empty').style.display = 'none';
+    const list = document.getElementById('case-list');
+    const el = document.createElement('div');
+    el.className = 'case-item';
+    el.id = 'case-item-' + id;
+    const dt = new Date(createdAt);
+    const dateStr = dt.toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' })
+      + ' ' + dt.toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit' });
+    el.innerHTML = `
+      <div class="ci-top">
+        <span class="cn">${caseNumber}</span>
+        <span class="dt">${dateStr}</span>
+      </div>
+      <div class="ci-actions">
+        <button class="ci-btn" data-key="${id}" data-type="full">Full Log</button>
+        <button class="ci-btn primary" data-key="${id}" data-type="cashier">Cashier Instructions</button>
+      </div>`;
+    list.appendChild(el);
+  }
+
+  document.getElementById('case-list').addEventListener('click', async e => {
+    const btn = e.target.closest('.ci-btn');
+    if (!btn || btn.disabled) return;
+    const key = btn.dataset.key;
+    const type = btn.dataset.type;
+
+    document.querySelectorAll('.case-item').forEach(el => el.classList.remove('active'));
+    document.getElementById('case-item-' + key)?.classList.add('active');
+
+    if (store[key]) {
+      openModal(key, type, store[key]);
     } else {
-      tag.style.display = 'none';
+      // Load from DB
+      openModalLoading(store[key]?.caseNumber || '');
+      try {
+        const res  = await fetch(`/api/cases/${key}`);
+        const data = await res.json();
+        store[key] = { caseNumber: data.case_number, fullText: data.result, pending: false, usage: {
+          input_tokens: data.input_tokens, output_tokens: data.output_tokens,
+          cache_creation_tokens: data.cache_creation_tokens, cache_read_tokens: data.cache_read_tokens,
+        }};
+        openModal(key, type, store[key]);
+      } catch {
+        setModalText('Failed to load case result.');
+      }
     }
+  });
 
-    usageRow.innerHTML = '';
-    usageRow.style.display = 'none';
-    renderUsage(usage);
-    resultCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  // ── Modal ─────────────────────────────────────────────────────────────────
+  let currentModalKey  = null;
+  let currentModalType = null;
+
+  function openModalLoading(caseNumber) {
+    document.getElementById('modal-title').textContent = 'Loading…';
+    document.getElementById('modal-case-tag').textContent = caseNumber;
+    document.getElementById('modal-loading').style.display = 'flex';
+    document.getElementById('modal-text').style.display = 'none';
+    document.getElementById('modal-text').textContent = '';
+    document.getElementById('modal-footer').style.display = 'none';
+    document.getElementById('modal-footer').innerHTML = '';
+    document.getElementById('modal-overlay').classList.add('open');
   }
 
-  function showError(msg) {
-    const resultCard = document.getElementById('result-card');
-    const responseText = document.getElementById('response-text');
-    resultCard.style.display = 'block';
-    responseText.className = 'error-text';
-    responseText.textContent = '⚠️ ' + msg;
+  function openModal(key, type, data) {
+    currentModalKey  = key;
+    currentModalType = type;
+    const title = type === 'full' ? 'Full Log' : 'Cashier Instructions';
+    const text  = type === 'full' ? data.fullText : extractCashierSection(data.fullText);
+    document.getElementById('modal-title').textContent = title;
+    document.getElementById('modal-case-tag').textContent = data.caseNumber || '';
+
+    if (data.pending) {
+      document.getElementById('modal-loading').style.display = 'flex';
+      document.getElementById('modal-text').style.display = 'none';
+      document.getElementById('modal-footer').style.display = 'none';
+    } else {
+      setModalText(text, data.usage);
+    }
+    document.getElementById('modal-overlay').classList.add('open');
   }
 
-  // ── Form submit ──────────────────────────────────────────────────────────
+  function setModalText(text, usage) {
+    document.getElementById('modal-loading').style.display = 'none';
+    const mt = document.getElementById('modal-text');
+    mt.style.display = '';
+    mt.textContent = text;
+    if (usage) {
+      const footer = document.getElementById('modal-footer');
+      footer.style.display = 'flex';
+      footer.innerHTML = '';
+      const items = [
+        { label: 'Input', value: usage.input_tokens },
+        { label: 'Output', value: usage.output_tokens },
+      ];
+      if (usage.cache_creation_tokens) items.push({ label: 'Cache write', value: usage.cache_creation_tokens });
+      if (usage.cache_read_tokens)     items.push({ label: 'Cache hit',   value: usage.cache_read_tokens, hit: true });
+      items.forEach(item => {
+        const b = document.createElement('span');
+        b.className = 'usage-badge' + (item.hit ? ' cache-hit' : '');
+        b.innerHTML = `${item.label}: <strong>${(item.value||0).toLocaleString()}</strong>`;
+        footer.appendChild(b);
+      });
+    }
+  }
+
+  function closeModal() {
+    document.getElementById('modal-overlay').classList.remove('open');
+    currentModalKey = currentModalType = null;
+  }
+
+  document.getElementById('modal-close').addEventListener('click', closeModal);
+  document.getElementById('modal-overlay').addEventListener('click', e => {
+    if (e.target === document.getElementById('modal-overlay')) closeModal();
+  });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+  // ── Form submit ───────────────────────────────────────────────────────────
   const form      = document.getElementById('analyze-form');
   const submitBtn = document.getElementById('submit-btn');
   const btnLabel  = document.getElementById('btn-label');
@@ -617,31 +690,22 @@
     if (!totalFiles) { alert('Please upload at least one document.'); return; }
 
     const caseNumber = document.getElementById('case-number').value.trim();
+    const tempKey    = 'temp-' + Date.now();
+
+    store[tempKey] = { caseNumber, fullText: '', pending: true, usage: null };
+    sidebarAddPending(tempKey, caseNumber, new Date());
 
     const fd = new FormData();
-    fd.append('notes', document.getElementById('notes').value.trim());
-    fd.append('case_number', caseNumber);
+    fd.append('notes',        document.getElementById('notes').value.trim());
+    fd.append('case_number',  caseNumber);
     fd.append('eos_from_vmoc', document.querySelector('input[name="eos_from_vmoc"]:checked').value);
     slots.forEach(slot => fileMap[slot].forEach(f => fd.append(slot, f)));
 
     submitBtn.disabled = true;
     btnLabel.textContent = 'Calculating…';
     const spinner = document.createElement('div');
-    spinner.className = 'spinner';
+    spinner.className = 'btn-spinner';
     submitBtn.appendChild(spinner);
-
-    const resultCard   = document.getElementById('result-card');
-    const responseText = document.getElementById('response-text');
-    const usageRow     = document.getElementById('usage-row');
-    const tag          = document.getElementById('result-case-tag');
-
-    responseText.className = '';
-    responseText.textContent = '';
-    usageRow.style.display = 'none';
-    usageRow.innerHTML = '';
-    tag.style.display = 'none';
-    resultCard.style.display = 'block';
-    resultCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
     try {
       const res = await fetch('/analyze', { method: 'POST', body: fd });
@@ -657,27 +721,53 @@
         buffer += decoder.decode(value, { stream: true });
         const lines = buffer.split('\n');
         buffer = lines.pop();
+
         for (const line of lines) {
           if (!line.startsWith('data: ')) continue;
           const data = JSON.parse(line.slice(6));
+
           if (data.error) {
-            responseText.className = 'error-text';
-            responseText.textContent = '⚠️ ' + data.error;
+            store[tempKey].fullText = '⚠️ ' + data.error;
+            store[tempKey].pending  = false;
+            sidebarMarkDone(tempKey, null);
+            if (currentModalKey === tempKey) setModalText(store[tempKey].fullText);
+
           } else if (data.done) {
-            renderUsage(data.usage);
-            if (caseNumber) { tag.textContent = caseNumber; tag.style.display = ''; }
+            store[tempKey].pending = false;
+            store[tempKey].usage   = data.usage;
+            const finalKey = data.case_id ? String(data.case_id) : tempKey;
             if (data.case_id) {
-              activeCaseId = data.case_id;
-              loadCaseList();
+              store[finalKey] = store[tempKey];
+              delete store[tempKey];
             }
+            sidebarMarkDone(tempKey, finalKey);
+            if (currentModalKey === tempKey || currentModalKey === finalKey) {
+              currentModalKey = finalKey;
+              const entry = store[finalKey];
+              const text  = currentModalType === 'full' ? entry.fullText : extractCashierSection(entry.fullText);
+              setModalText(text, entry.usage);
+            }
+
           } else if (data.text) {
-            responseText.textContent += data.text;
+            store[tempKey].fullText += data.text;
+            if (currentModalKey === tempKey) {
+              const mt = document.getElementById('modal-text');
+              document.getElementById('modal-loading').style.display = 'none';
+              mt.style.display = '';
+              if (currentModalType === 'full') {
+                mt.textContent = store[tempKey].fullText;
+              } else {
+                mt.textContent = extractCashierSection(store[tempKey].fullText);
+              }
+            }
           }
         }
       }
     } catch (err) {
-      responseText.className = 'error-text';
-      responseText.textContent = '⚠️ ' + (err.message || 'Network error. Please try again.');
+      store[tempKey].fullText = '⚠️ ' + (err.message || 'Network error');
+      store[tempKey].pending  = false;
+      sidebarMarkDone(tempKey, null);
+      if (currentModalKey === tempKey) setModalText(store[tempKey].fullText);
     } finally {
       submitBtn.disabled = false;
       btnLabel.textContent = 'Calculate';
@@ -685,25 +775,18 @@
     }
   });
 
-  function renderUsage(u) {
-    if (!u) return;
-    const usageRow = document.getElementById('usage-row');
-    usageRow.style.display = 'flex';
-    const items = [
-      { label: 'Input tokens',  value: u.input_tokens },
-      { label: 'Output tokens', value: u.output_tokens },
-    ];
-    if (u.cache_creation_tokens) items.push({ label: 'Cache write', value: u.cache_creation_tokens });
-    if (u.cache_read_tokens)     items.push({ label: 'Cache hit',   value: u.cache_read_tokens, hit: true });
-    items.forEach(item => {
-      const b = document.createElement('span');
-      b.className = 'badge' + (item.hit ? ' cache-hit' : '');
-      b.innerHTML = `${item.label}: <strong>${(item.value||0).toLocaleString()}</strong>`;
-      usageRow.appendChild(b);
-    });
+  // ── Load past cases from DB ───────────────────────────────────────────────
+  async function loadCaseList() {
+    try {
+      const res   = await fetch('/api/cases');
+      const cases = await res.json();
+      if (Array.isArray(cases) && cases.length) {
+        document.getElementById('sidebar-empty').style.display = 'none';
+        cases.forEach(c => sidebarAddStored(c.id, c.case_number, c.created_at));
+      }
+    } catch {}
   }
 
-  // Load sidebar on page load
   loadCaseList();
 </script>
 </body>
