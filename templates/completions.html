@@ -521,15 +521,18 @@
       const idx = text.indexOf(marker);
       if (idx !== -1) {
         const lineStart = text.lastIndexOf('\n', idx);
-        return text.slice(lineStart + 1).trim();
+        const from = lineStart + 1;
+        // Stop at SECTION 4 / RISKS / FLAGS
+        const stopMarkers = ['SECTION 4', 'RISKS / FLAGS', 'RISKS/FLAGS', '## SECTION 4', '### SECTION 4'];
+        let end = text.length;
+        for (const stop of stopMarkers) {
+          const si = text.indexOf(stop, from);
+          if (si !== -1 && si < end) end = si;
+        }
+        return text.slice(from, end).trim();
       }
     }
-    // Fallback to Section 3
-    for (const marker of ['SECTION 3', 'DECISION SUMMARY']) {
-      const idx = text.indexOf(marker);
-      if (idx !== -1) return text.slice(idx).trim();
-    }
-    return text.slice(Math.max(0, text.length - 2000)).trim();
+    return text.slice(Math.max(0, text.length - 1000)).trim();
   }
 
   // ── Sidebar ───────────────────────────────────────────────────────────────
