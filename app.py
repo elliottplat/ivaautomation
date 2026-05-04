@@ -1,7 +1,8 @@
 import os
 import base64
+import json
 import anthropic
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, Response, stream_with_context
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -368,34 +369,30 @@ def analyze():
 
     content.append({"type": "text", "text": "\n\n".join(trigger_parts)})
 
-    try:
-        response = client.messages.create(
-            model="claude-sonnet-4-6",
-            max_tokens=8192,
-            system=[
-                {
-                    "type": "text",
-                    "text": SYSTEM_PROMPT,
-                    "cache_control": {"type": "ephemeral"},
-                }
-            ],
-            messages=[{"role": "user", "content": content}],
-        )
-    except anthropic.APIError as e:
-        return jsonify({"error": str(e)}), 500
+    def generate():
+        try:
+            with client.messages.stream(
+                model="claude-sonnet-4-6",
+                max_tokens=8192,
+                system=[
+                    {
+                        "type": "text",
+                        "text": SYSTEM_PROMPT,
+                        "cache_control": {"type": "ephemeral"},
+                    }
+                ],
+                messages=[{"role": "user", "content": content}],
+            ) as stream:
+                for text in stream.text_stream:
+                    yield f"data: {json.dumps({'text': text})}\n\n"
 
-    usage = response.usage
-    return jsonify(
-        {
-            "response": response.content[0].text,
-            "usage": {
-                "input_tokens": usage.input_tokens,
-                "output_tokens": usage.output_tokens,
-                "cache_creation_tokens": getattr(usage, "cache_creation_input_tokens", 0),
-                "cache_read_tokens": getattr(usage, "cache_read_input_tokens", 0),
-            },
-        }
-    )
+                msg = stream.get_final_message()
+                usage = msg.usage
+                yield f"data: {json.dumps({'done': True, 'usage': {'input_tokens': usage.input_tokens, 'output_tokens': usage.output_tokens, 'cache_creation_tokens': getattr(usage, 'cache_creation_input_tokens', 0), 'cache_read_tokens': getattr(usage, 'cache_read_input_tokens', 0)}})}\n\n"
+        except anthropic.APIError as e:
+            yield f"data: {json.dumps({'error': str(e)})}\n\n"
+
+    return Response(stream_with_context(generate()), mimetype="text/event-stream")
 
 
 if __name__ == "__main__":
