@@ -397,14 +397,40 @@
     }
   });
 
+  function compressImage(file) {
+    return new Promise(resolve => {
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        const MAX = 1600;
+        let { width, height } = img;
+        if (width > MAX || height > MAX) {
+          if (width > height) { height = Math.round(height * MAX / width); width = MAX; }
+          else { width = Math.round(width * MAX / height); height = MAX; }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width; canvas.height = height;
+        canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+        canvas.toBlob(blob => resolve(new File([blob], file.name.replace(/\.\w+$/, '.jpg'), { type: 'image/jpeg' })), 'image/jpeg', 0.82);
+      };
+      img.src = url;
+    });
+  }
+
+  async function addFiles(slot, files) {
+    const compressed = await Promise.all([...files].map(compressImage));
+    fileMap[slot].push(...compressed);
+    refreshSlot(slot);
+  }
+
   slots.forEach(slot => {
     const inp  = document.getElementById('inp-' + slot);
     const area = document.getElementById('area-' + slot);
 
     inp.addEventListener('change', () => {
-      fileMap[slot].push(...inp.files);
+      addFiles(slot, inp.files);
       inp.value = '';
-      refreshSlot(slot);
     });
 
     area.addEventListener('dragover', e => { e.preventDefault(); area.classList.add('drag-over'); });
@@ -413,8 +439,7 @@
       e.preventDefault();
       area.classList.remove('drag-over');
       const dropped = [...e.dataTransfer.files].filter(f => f.type.startsWith('image/'));
-      fileMap[slot].push(...dropped);
-      refreshSlot(slot);
+      addFiles(slot, dropped);
     });
   });
 
