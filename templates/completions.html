@@ -35,6 +35,76 @@
     .topbar img { height: 36px; width: auto; }
     .topbar h1 { font-size: 1.05rem; font-weight: 700; }
     .topbar-spacer { flex: 1; }
+    .topbar-right {
+      display: flex; align-items: center; gap: 0.85rem;
+    }
+    .topbar-user { font-size: 0.82rem; color: #777; }
+    .topbar-user strong { color: #333; }
+    .topbar-link {
+      font-size: 0.82rem; font-weight: 600;
+      color: #6366f1; text-decoration: none;
+    }
+    .topbar-link:hover { color: #4f46e5; }
+    .topbar-btn {
+      font-size: 0.82rem; font-weight: 600;
+      color: #6366f1; background: none; border: none;
+      cursor: pointer; padding: 0;
+    }
+    .topbar-btn:hover { color: #4f46e5; }
+
+    /* ── Notification bell ── */
+    .notif-wrap { position: relative; }
+    .notif-btn {
+      background: none; border: none;
+      font-size: 1.2rem; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      padding: 0.2rem; position: relative;
+    }
+    .notif-badge {
+      position: absolute; top: -3px; right: -5px;
+      background: #ef4444; color: #fff;
+      font-size: 0.65rem; font-weight: 700;
+      border-radius: 10px; min-width: 16px; height: 16px;
+      display: none; align-items: center; justify-content: center;
+      padding: 0 3px;
+    }
+    .notif-dropdown {
+      position: absolute; top: calc(100% + 8px); right: 0;
+      background: #fff; border-radius: 12px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+      border: 1px solid #e5e7eb;
+      width: 300px; max-height: 380px;
+      flex-direction: column; overflow: hidden;
+      display: none; z-index: 200;
+    }
+    .notif-dropdown.open { display: flex; }
+    .notif-dropdown-header {
+      padding: 0.75rem 1rem; border-bottom: 1px solid #f0f0f0;
+      display: flex; align-items: center; justify-content: space-between;
+      flex-shrink: 0;
+    }
+    .notif-dropdown-header span { font-size: 0.85rem; font-weight: 700; color: #333; }
+    .notif-mark-all {
+      font-size: 0.75rem; color: #6366f1; cursor: pointer;
+      background: none; border: none; font-weight: 600;
+    }
+    .notif-mark-all:hover { color: #4f46e5; }
+    .notif-list { flex: 1; overflow-y: auto; }
+    .notif-empty { padding: 1.5rem; text-align: center; color: #bbb; font-size: 0.82rem; }
+    .notif-item {
+      padding: 0.75rem 1rem; border-bottom: 1px solid #f5f5f5;
+      cursor: pointer; transition: background 0.1s;
+      display: flex; align-items: flex-start; gap: 0.5rem;
+    }
+    .notif-item:hover { background: #f5f5ff; }
+    .notif-item.unread { background: #fafafe; }
+    .notif-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: #6366f1; flex-shrink: 0; margin-top: 5px;
+    }
+    .notif-item.read .notif-dot { background: transparent; }
+    .notif-item-text { font-size: 0.82rem; color: #333; line-height: 1.4; }
+    .notif-item-time { font-size: 0.72rem; color: #aaa; margin-top: 0.2rem; }
 
     /* ── Shell ── */
     .shell {
@@ -97,7 +167,7 @@
       font-size: 0.75rem; color: #aaa; display: flex; align-items: center; gap: 0.4rem;
     }
 
-    .case-item .ci-actions { display: flex; gap: 0.4rem; margin-top: 0.5rem; }
+    .case-item .ci-actions { display: flex; gap: 0.4rem; margin-top: 0.5rem; flex-wrap: wrap; }
     .ci-btn {
       flex: 1;
       padding: 0.35rem 0.4rem;
@@ -114,6 +184,8 @@
     .ci-btn:hover:not(:disabled) { border-color: #6366f1; color: #6366f1; background: #f5f5ff; }
     .ci-btn:disabled { opacity: 0.4; cursor: not-allowed; }
     .ci-btn.primary { border-color: #6366f1; color: #6366f1; }
+    .ci-btn.danger { border-color: #fca5a5; color: #ef4444; }
+    .ci-btn.danger:hover:not(:disabled) { border-color: #ef4444; background: #fef2f2; }
 
     .inline-spinner {
       width: 11px; height: 11px;
@@ -228,6 +300,15 @@
     }
     @keyframes spin { to { transform: rotate(360deg); } }
 
+    /* ── Reviewer-only notice ── */
+    .reviewer-notice {
+      background: #fff; border-radius: 10px;
+      box-shadow: 0 1px 6px rgba(0,0,0,0.07);
+      padding: 2rem 1.5rem; text-align: center;
+      color: #888; font-size: 0.9rem;
+    }
+    .reviewer-notice strong { display: block; font-size: 1.05rem; color: #333; margin-bottom: 0.5rem; }
+
     /* ── Modal ── */
     .modal-overlay {
       position: fixed; inset: 0;
@@ -257,15 +338,27 @@
       flex-shrink: 0;
     }
     .modal-header h3 { font-size: 1rem; font-weight: 700; }
+    .modal-header-left { display: flex; align-items: center; gap: 0.6rem; }
     .modal-header .case-tag {
       font-size: 0.78rem; font-weight: 600; color: #6366f1;
       background: #ede9fe; padding: 0.2rem 0.6rem; border-radius: 6px;
     }
+    .modal-header-right { display: flex; align-items: center; gap: 0.5rem; }
     .modal-close {
       background: none; border: none; font-size: 1.4rem;
       color: #999; cursor: pointer; line-height: 1; padding: 0 0.2rem;
     }
     .modal-close:hover { color: #333; }
+
+    .btn-edit-cashier {
+      padding: 0.35rem 0.85rem;
+      border: 1.5px solid #6366f1; border-radius: 6px;
+      background: #fff; color: #6366f1;
+      font-size: 0.78rem; font-weight: 600; cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+      display: none;
+    }
+    .btn-edit-cashier:hover { background: #6366f1; color: #fff; }
 
     .modal-body {
       flex: 1; overflow-y: auto; padding: 1.25rem;
@@ -286,10 +379,28 @@
 
     #modal-text { white-space: pre-wrap; line-height: 1.8; font-size: 0.9rem; color: #222; }
 
+    #modal-edit-area {
+      width: 100%; min-height: 180px;
+      border: 1.5px solid #6366f1; border-radius: 8px;
+      padding: 0.85rem; font-size: 0.9rem; font-family: inherit;
+      line-height: 1.7; color: #222; resize: vertical;
+      display: none;
+    }
+    #modal-edit-area:focus { outline: none; }
+
+    .edited-tag {
+      display: inline-block;
+      background: #ecfdf5; color: #065f46;
+      font-size: 0.72rem; font-weight: 700;
+      padding: 0.15rem 0.5rem; border-radius: 10px;
+      margin-left: 0.4rem; vertical-align: middle;
+      display: none;
+    }
+
     .modal-footer {
       padding: 0.85rem 1.25rem;
       border-top: 1px solid #f0f0f0;
-      display: flex; gap: 0.5rem; flex-wrap: wrap;
+      display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center;
       flex-shrink: 0;
     }
     .usage-badge {
@@ -298,6 +409,25 @@
     }
     .usage-badge strong { color: #333; }
     .usage-badge.cache-hit { background: #ecfdf5; color: #065f46; }
+
+    .footer-spacer { flex: 1; }
+
+    .btn-save-cashier {
+      padding: 0.4rem 1rem;
+      background: #6366f1; color: #fff;
+      border: none; border-radius: 6px;
+      font-size: 0.82rem; font-weight: 600; cursor: pointer;
+      transition: background 0.2s; display: none;
+    }
+    .btn-save-cashier:hover { background: #4f46e5; }
+    .btn-cancel-edit {
+      padding: 0.4rem 0.85rem;
+      background: #fff; color: #555;
+      border: 1.5px solid #d0d5dd; border-radius: 6px;
+      font-size: 0.82rem; font-weight: 600; cursor: pointer;
+      display: none;
+    }
+    .btn-cancel-edit:hover { border-color: #999; }
   </style>
 </head>
 <body>
@@ -307,6 +437,33 @@
   <img src="/static/logo.png" alt="Omni Group" />
   <h1>Completions</h1>
   <div class="topbar-spacer"></div>
+  <div class="topbar-right">
+    {% if current_user.role == 'admin' %}
+    <a href="/api/cases/export" class="topbar-link" id="csv-export-link">Export CSV</a>
+    <a href="/admin/users" class="topbar-link">Users</a>
+    {% endif %}
+
+    {% if current_user.role in ['reviewer', 'admin'] %}
+    <div class="notif-wrap">
+      <button class="notif-btn" id="notif-btn" title="Notifications">
+        🔔
+        <span class="notif-badge" id="notif-badge"></span>
+      </button>
+      <div class="notif-dropdown" id="notif-dropdown">
+        <div class="notif-dropdown-header">
+          <span>Notifications</span>
+          <button class="notif-mark-all" id="notif-mark-all">Mark all read</button>
+        </div>
+        <div class="notif-list" id="notif-list">
+          <div class="notif-empty">No notifications</div>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    <span class="topbar-user">Signed in as <strong>{{ current_user.username }}</strong></span>
+    <a href="/logout" class="topbar-link">Sign out</a>
+  </div>
 </div>
 
 <div class="shell">
@@ -322,6 +479,8 @@
   <!-- Main -->
   <div class="main-col">
     <div class="content-wrap">
+
+      {% if current_user.role in ['uploader', 'admin'] %}
 
       <div class="case-bar">
         <label for="case-number">Case Number</label>
@@ -398,6 +557,15 @@
         </div>
       </form>
 
+      {% else %}
+
+      <div class="reviewer-notice">
+        <strong>Review Mode</strong>
+        Select a case from the sidebar to view the full log or cashier instructions.
+      </div>
+
+      {% endif %}
+
     </div>
   </div>
 
@@ -407,9 +575,15 @@
 <div class="modal-overlay" id="modal-overlay">
   <div class="modal-panel">
     <div class="modal-header">
-      <h3 id="modal-title">Full Log</h3>
-      <span class="case-tag" id="modal-case-tag"></span>
-      <button class="modal-close" id="modal-close">×</button>
+      <div class="modal-header-left">
+        <h3 id="modal-title">Full Log</h3>
+        <span class="case-tag" id="modal-case-tag"></span>
+        <span class="edited-tag" id="edited-tag">Edited</span>
+      </div>
+      <div class="modal-header-right">
+        <button class="btn-edit-cashier" id="btn-edit-cashier">Edit</button>
+        <button class="modal-close" id="modal-close">×</button>
+      </div>
     </div>
     <div class="modal-body" id="modal-body">
       <div class="modal-loading" id="modal-loading">
@@ -417,13 +591,24 @@
         <span>Calculating — results will appear here as they stream in…</span>
       </div>
       <div id="modal-text" style="display:none;"></div>
+      <textarea id="modal-edit-area" placeholder="Edit cashier instruction…"></textarea>
     </div>
-    <div class="modal-footer" id="modal-footer" style="display:none;"></div>
+    <div class="modal-footer" id="modal-footer">
+      <div id="usage-badges" style="display:flex;gap:0.5rem;flex-wrap:wrap;"></div>
+      <div class="footer-spacer"></div>
+      <button class="btn-cancel-edit" id="btn-cancel-edit">Cancel</button>
+      <button class="btn-save-cashier" id="btn-save-cashier">Save Instruction</button>
+    </div>
   </div>
 </div>
 
 <script>
+  const USER_ROLE = "{{ current_user.role }}";
+  const CAN_EDIT_CASHIER = (USER_ROLE === 'reviewer' || USER_ROLE === 'admin');
+  const IS_ADMIN = (USER_ROLE === 'admin');
+
   // ── File management ──────────────────────────────────────────────────────
+  {% if current_user.role in ['uploader', 'admin'] %}
   const slots = ['contribution_schedule', 'eos', 'modifications', 'rp', 'creditor_claims'];
   const fileMap = {};
   slots.forEach(s => fileMap[s] = []);
@@ -459,20 +644,16 @@
     }
   });
 
-  async function addFiles(slot, files) {
-    fileMap[slot].push(...files);
-    refreshSlot(slot);
-  }
-
   slots.forEach(slot => {
     const inp  = document.getElementById('inp-' + slot);
     const area = document.getElementById('area-' + slot);
-    inp.addEventListener('change', () => { addFiles(slot, inp.files); inp.value = ''; });
+    inp.addEventListener('change', () => { fileMap[slot].push(...inp.files); refreshSlot(slot); inp.value = ''; });
     area.addEventListener('dragover',  e => { e.preventDefault(); area.classList.add('drag-over'); });
     area.addEventListener('dragleave', ()  => area.classList.remove('drag-over'));
     area.addEventListener('drop', e => {
       e.preventDefault(); area.classList.remove('drag-over');
-      addFiles(slot, [...e.dataTransfer.files].filter(f => f.type.startsWith('image/')));
+      fileMap[slot].push(...[...e.dataTransfer.files].filter(f => f.type.startsWith('image/')));
+      refreshSlot(slot);
     });
   });
 
@@ -485,9 +666,10 @@
       else document.getElementById('lbl-no').classList.add('selected-no');
     });
   });
+  {% endif %}
 
   // ── Result store ─────────────────────────────────────────────────────────
-  // key -> { caseNumber, fullText, pending, usage }
+  // key -> { caseNumber, fullText, pending, usage, cashierOverride }
   const store = {};
 
   function extractCashierSection(text) {
@@ -495,19 +677,34 @@
     for (const marker of markers) {
       const idx = text.indexOf(marker);
       if (idx !== -1) {
-        const lineStart = text.lastIndexOf('\n', idx);
-        const from = lineStart + 1;
-        // Stop at SECTION 4 / RISKS / FLAGS
-        const stopMarkers = ['SECTION 4', 'RISKS / FLAGS', 'RISKS/FLAGS', '## SECTION 4', '### SECTION 4'];
+        // Skip the heading line — find newline after the marker
+        const afterHeading = text.indexOf('\n', idx);
+        if (afterHeading === -1) return text.slice(idx).trim();
+        // Skip blank lines after heading
+        let contentStart = afterHeading;
+        while (contentStart < text.length &&
+               (text[contentStart] === '\n' || text[contentStart] === '\r' || text[contentStart] === ' ')) {
+          contentStart++;
+        }
+        // Stop at SECTION 4 / RISKS
+        const stopMarkers = ['SECTION 4', 'RISKS / FLAGS', 'RISKS/FLAGS'];
         let end = text.length;
         for (const stop of stopMarkers) {
-          const si = text.indexOf(stop, from);
+          const si = text.indexOf(stop, contentStart);
           if (si !== -1 && si < end) end = si;
         }
-        return text.slice(from, end).trim();
+        return text.slice(contentStart, end).trim();
       }
     }
-    return text.slice(Math.max(0, text.length - 1000)).trim();
+    return '';
+  }
+
+  function getCashierText(entry) {
+    return entry.cashierOverride != null ? entry.cashierOverride : extractCashierSection(entry.fullText || '');
+  }
+
+  function escHtml(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   }
 
   // ── Sidebar ───────────────────────────────────────────────────────────────
@@ -528,7 +725,7 @@
       <div class="ci-status"><span class="inline-spinner"></span> Calculating…</div>
       <div class="ci-actions">
         <button class="ci-btn" disabled data-key="${key}" data-type="full">Full Log</button>
-        <button class="ci-btn primary" disabled data-key="${key}" data-type="cashier">Cashier Instructions</button>
+        <button class="ci-btn primary" disabled data-key="${key}" data-type="cashier">Cashier</button>
       </div>`;
     list.insertBefore(el, list.firstChild);
   }
@@ -536,9 +733,7 @@
   function sidebarMarkDone(key, newKey) {
     const oldEl = document.getElementById('case-item-' + key);
     if (!oldEl) return;
-    if (newKey && newKey !== key) {
-      oldEl.id = 'case-item-' + newKey;
-    }
+    if (newKey && newKey !== key) oldEl.id = 'case-item-' + newKey;
     const finalKey = newKey || key;
     const status = oldEl.querySelector('.ci-status');
     if (status) status.remove();
@@ -546,6 +741,19 @@
       btn.disabled = false;
       btn.dataset.key = finalKey;
     });
+    if (IS_ADMIN) addDeleteBtn(oldEl, finalKey);
+  }
+
+  function addDeleteBtn(el, key) {
+    if (el.querySelector('[data-type="delete"]')) return;
+    const actions = el.querySelector('.ci-actions');
+    const btn = document.createElement('button');
+    btn.className = 'ci-btn danger';
+    btn.style.flex = '0 0 auto';
+    btn.dataset.key = key;
+    btn.dataset.type = 'delete';
+    btn.textContent = 'Delete';
+    actions.appendChild(btn);
   }
 
   function sidebarAddStored(id, caseNumber, createdAt) {
@@ -559,21 +767,37 @@
       + ' ' + dt.toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit' });
     el.innerHTML = `
       <div class="ci-top">
-        <span class="cn">${caseNumber}</span>
+        <span class="cn">${escHtml(caseNumber)}</span>
         <span class="dt">${dateStr}</span>
       </div>
       <div class="ci-actions">
         <button class="ci-btn" data-key="${id}" data-type="full">Full Log</button>
-        <button class="ci-btn primary" data-key="${id}" data-type="cashier">Cashier Instructions</button>
+        <button class="ci-btn primary" data-key="${id}" data-type="cashier">Cashier</button>
+        ${IS_ADMIN ? `<button class="ci-btn danger" style="flex:0 0 auto" data-key="${id}" data-type="delete">Delete</button>` : ''}
       </div>`;
     list.appendChild(el);
   }
 
   document.getElementById('case-list').addEventListener('click', async e => {
-    const btn = e.target.closest('.ci-btn');
-    if (!btn || btn.disabled) return;
-    const key = btn.dataset.key;
+    const btn = e.target.closest('[data-key]');
+    if (!btn) return;
+    const key  = btn.dataset.key;
     const type = btn.dataset.type;
+
+    if (type === 'delete') {
+      if (!confirm('Delete this case? This cannot be undone.')) return;
+      try {
+        await fetch(`/api/cases/${key}`, { method: 'DELETE' });
+        document.getElementById('case-item-' + key)?.remove();
+        delete store[key];
+        if (document.querySelectorAll('#case-list .case-item').length === 0) {
+          document.getElementById('sidebar-empty').style.display = '';
+        }
+      } catch { alert('Failed to delete case.'); }
+      return;
+    }
+
+    if (btn.disabled) return;
 
     document.querySelectorAll('.case-item').forEach(el => el.classList.remove('active'));
     document.getElementById('case-item-' + key)?.classList.add('active');
@@ -581,15 +805,22 @@
     if (store[key]) {
       openModal(key, type, store[key]);
     } else {
-      // Load from DB
-      openModalLoading(store[key]?.caseNumber || '');
+      openModalLoading('');
       try {
         const res  = await fetch(`/api/cases/${key}`);
         const data = await res.json();
-        store[key] = { caseNumber: data.case_number, fullText: data.result, pending: false, usage: {
-          input_tokens: data.input_tokens, output_tokens: data.output_tokens,
-          cache_creation_tokens: data.cache_creation_tokens, cache_read_tokens: data.cache_read_tokens,
-        }};
+        store[key] = {
+          caseNumber: data.case_number,
+          fullText: data.result,
+          pending: false,
+          usage: {
+            input_tokens: data.input_tokens,
+            output_tokens: data.output_tokens,
+            cache_creation_tokens: data.cache_creation_tokens,
+            cache_read_tokens: data.cache_read_tokens,
+          },
+          cashierOverride: data.cashier_instruction_override ?? null,
+        };
         openModal(key, type, store[key]);
       } catch {
         setModalText('Failed to load case result.');
@@ -600,31 +831,45 @@
   // ── Modal ─────────────────────────────────────────────────────────────────
   let currentModalKey  = null;
   let currentModalType = null;
+  let editMode = false;
 
   function openModalLoading(caseNumber) {
     document.getElementById('modal-title').textContent = 'Loading…';
     document.getElementById('modal-case-tag').textContent = caseNumber;
     document.getElementById('modal-loading').style.display = 'flex';
     document.getElementById('modal-text').style.display = 'none';
-    document.getElementById('modal-text').textContent = '';
-    document.getElementById('modal-footer').style.display = 'none';
-    document.getElementById('modal-footer').innerHTML = '';
+    document.getElementById('modal-edit-area').style.display = 'none';
+    document.getElementById('edited-tag').style.display = 'none';
+    document.getElementById('btn-edit-cashier').style.display = 'none';
+    document.getElementById('btn-save-cashier').style.display = 'none';
+    document.getElementById('btn-cancel-edit').style.display = 'none';
+    document.getElementById('usage-badges').innerHTML = '';
     document.getElementById('modal-overlay').classList.add('open');
+    editMode = false;
   }
 
   function openModal(key, type, data) {
     currentModalKey  = key;
     currentModalType = type;
     const title = type === 'full' ? 'Full Log' : 'Cashier Instructions';
-    const text  = type === 'full' ? data.fullText : extractCashierSection(data.fullText);
     document.getElementById('modal-title').textContent = title;
     document.getElementById('modal-case-tag').textContent = data.caseNumber || '';
+    document.getElementById('modal-edit-area').style.display = 'none';
+    document.getElementById('btn-save-cashier').style.display = 'none';
+    document.getElementById('btn-cancel-edit').style.display = 'none';
+    editMode = false;
+
+    const showEditBtn = type === 'cashier' && CAN_EDIT_CASHIER && !data.pending && data.caseNumber !== '';
+    document.getElementById('btn-edit-cashier').style.display = showEditBtn ? '' : 'none';
+
+    const isEdited = type === 'cashier' && data.cashierOverride != null;
+    document.getElementById('edited-tag').style.display = isEdited ? '' : 'none';
 
     if (data.pending) {
       document.getElementById('modal-loading').style.display = 'flex';
       document.getElementById('modal-text').style.display = 'none';
-      document.getElementById('modal-footer').style.display = 'none';
     } else {
+      const text = type === 'full' ? data.fullText : getCashierText(data);
       setModalText(text, data.usage);
     }
     document.getElementById('modal-overlay').classList.add('open');
@@ -635,10 +880,9 @@
     const mt = document.getElementById('modal-text');
     mt.style.display = '';
     mt.textContent = text;
+    const badges = document.getElementById('usage-badges');
+    badges.innerHTML = '';
     if (usage) {
-      const footer = document.getElementById('modal-footer');
-      footer.style.display = 'flex';
-      footer.innerHTML = '';
       const items = [
         { label: 'Input', value: usage.input_tokens },
         { label: 'Output', value: usage.output_tokens },
@@ -649,7 +893,7 @@
         const b = document.createElement('span');
         b.className = 'usage-badge' + (item.hit ? ' cache-hit' : '');
         b.innerHTML = `${item.label}: <strong>${(item.value||0).toLocaleString()}</strong>`;
-        footer.appendChild(b);
+        badges.appendChild(b);
       });
     }
   }
@@ -657,7 +901,59 @@
   function closeModal() {
     document.getElementById('modal-overlay').classList.remove('open');
     currentModalKey = currentModalType = null;
+    editMode = false;
   }
+
+  // ── Edit cashier instruction ──────────────────────────────────────────────
+  document.getElementById('btn-edit-cashier').addEventListener('click', () => {
+    if (!currentModalKey || currentModalType !== 'cashier') return;
+    const entry = store[currentModalKey];
+    if (!entry) return;
+    editMode = true;
+    const current = getCashierText(entry);
+    document.getElementById('modal-text').style.display = 'none';
+    const ta = document.getElementById('modal-edit-area');
+    ta.value = current;
+    ta.style.display = '';
+    ta.focus();
+    document.getElementById('btn-edit-cashier').style.display = 'none';
+    document.getElementById('btn-save-cashier').style.display = '';
+    document.getElementById('btn-cancel-edit').style.display = '';
+  });
+
+  document.getElementById('btn-cancel-edit').addEventListener('click', () => {
+    editMode = false;
+    document.getElementById('modal-edit-area').style.display = 'none';
+    document.getElementById('modal-text').style.display = '';
+    document.getElementById('btn-edit-cashier').style.display = '';
+    document.getElementById('btn-save-cashier').style.display = 'none';
+    document.getElementById('btn-cancel-edit').style.display = 'none';
+  });
+
+  document.getElementById('btn-save-cashier').addEventListener('click', async () => {
+    if (!currentModalKey) return;
+    const instruction = document.getElementById('modal-edit-area').value.trim();
+    try {
+      const res = await fetch(`/api/cases/${currentModalKey}/cashier`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ instruction }),
+      });
+      const data = await res.json();
+      if (data.error) { alert('Save failed: ' + data.error); return; }
+      if (store[currentModalKey]) {
+        store[currentModalKey].cashierOverride = instruction;
+      }
+      editMode = false;
+      document.getElementById('modal-edit-area').style.display = 'none';
+      document.getElementById('modal-text').textContent = instruction;
+      document.getElementById('modal-text').style.display = '';
+      document.getElementById('btn-edit-cashier').style.display = '';
+      document.getElementById('btn-save-cashier').style.display = 'none';
+      document.getElementById('btn-cancel-edit').style.display = 'none';
+      document.getElementById('edited-tag').style.display = '';
+    } catch { alert('Save failed. Please try again.'); }
+  });
 
   document.getElementById('modal-close').addEventListener('click', closeModal);
   document.getElementById('modal-overlay').addEventListener('click', e => {
@@ -665,6 +961,7 @@
   });
   document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
 
+  {% if current_user.role in ['uploader', 'admin'] %}
   // ── Form submit ───────────────────────────────────────────────────────────
   const form      = document.getElementById('analyze-form');
   const submitBtn = document.getElementById('submit-btn');
@@ -679,7 +976,7 @@
     const caseNumber = document.getElementById('case-number').value.trim();
     const tempKey    = 'temp-' + Date.now();
 
-    store[tempKey] = { caseNumber, fullText: '', pending: true, usage: null };
+    store[tempKey] = { caseNumber, fullText: '', pending: true, usage: null, cashierOverride: null };
     sidebarAddPending(tempKey, caseNumber, new Date());
 
     const fd = new FormData();
@@ -693,6 +990,11 @@
     const spinner = document.createElement('div');
     spinner.className = 'btn-spinner';
     submitBtn.appendChild(spinner);
+
+    // Auto-open cashier modal if we're not currently viewing something
+    if (!currentModalKey) {
+      openModal(tempKey, 'cashier', store[tempKey]);
+    }
 
     try {
       const res = await fetch('/analyze', { method: 'POST', body: fd });
@@ -731,8 +1033,10 @@
             if (currentModalKey === tempKey || currentModalKey === finalKey) {
               currentModalKey = finalKey;
               const entry = store[finalKey];
-              const text  = currentModalType === 'full' ? entry.fullText : extractCashierSection(entry.fullText);
+              const text  = currentModalType === 'full' ? entry.fullText : getCashierText(entry);
               setModalText(text, entry.usage);
+              const showEditBtn = currentModalType === 'cashier' && CAN_EDIT_CASHIER && finalKey.indexOf('temp-') === -1;
+              document.getElementById('btn-edit-cashier').style.display = showEditBtn ? '' : 'none';
             }
 
           } else if (data.text) {
@@ -744,7 +1048,7 @@
               if (currentModalType === 'full') {
                 mt.textContent = store[tempKey].fullText;
               } else {
-                mt.textContent = extractCashierSection(store[tempKey].fullText);
+                mt.textContent = getCashierText(store[tempKey]);
               }
             }
           }
@@ -761,6 +1065,7 @@
       submitBtn.removeChild(spinner);
     }
   });
+  {% endif %}
 
   // ── Load past cases from DB ───────────────────────────────────────────────
   async function loadCaseList() {
@@ -775,6 +1080,133 @@
   }
 
   loadCaseList();
+
+  // ── Auto-open case from URL param (?case=<id>) ────────────────────────────
+  const urlCase = new URLSearchParams(window.location.search).get('case');
+  if (urlCase) {
+    window.addEventListener('load', async () => {
+      await new Promise(r => setTimeout(r, 300));
+      const el = document.getElementById('case-item-' + urlCase);
+      if (el) {
+        el.classList.add('active');
+        const btn = el.querySelector('[data-type="cashier"]');
+        if (btn) btn.click();
+      } else {
+        openModalLoading('');
+        try {
+          const res  = await fetch(`/api/cases/${urlCase}`);
+          const data = await res.json();
+          store[urlCase] = {
+            caseNumber: data.case_number,
+            fullText: data.result,
+            pending: false,
+            usage: { input_tokens: data.input_tokens, output_tokens: data.output_tokens,
+                     cache_creation_tokens: data.cache_creation_tokens, cache_read_tokens: data.cache_read_tokens },
+            cashierOverride: data.cashier_instruction_override ?? null,
+          };
+          openModal(urlCase, 'cashier', store[urlCase]);
+        } catch { closeModal(); }
+      }
+    });
+  }
+
+  // ── Notification bell ─────────────────────────────────────────────────────
+  {% if current_user.role in ['reviewer', 'admin'] %}
+  const notifBtn      = document.getElementById('notif-btn');
+  const notifBadge    = document.getElementById('notif-badge');
+  const notifDropdown = document.getElementById('notif-dropdown');
+  const notifList     = document.getElementById('notif-list');
+
+  let notifications = [];
+
+  async function loadNotifications() {
+    try {
+      const res = await fetch('/api/notifications');
+      notifications = await res.json();
+      renderNotifications();
+    } catch {}
+  }
+
+  function renderNotifications() {
+    const unread = notifications.filter(n => !n.read).length;
+    if (unread > 0) {
+      notifBadge.textContent = unread > 99 ? '99+' : unread;
+      notifBadge.style.display = 'flex';
+    } else {
+      notifBadge.style.display = 'none';
+    }
+    notifList.innerHTML = '';
+    if (!notifications.length) {
+      notifList.innerHTML = '<div class="notif-empty">No notifications</div>';
+      return;
+    }
+    notifications.forEach(n => {
+      const div = document.createElement('div');
+      div.className = 'notif-item ' + (n.read ? 'read' : 'unread');
+      const dt = new Date(n.created_at).toLocaleString('en-GB', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' });
+      div.innerHTML = `
+        <div class="notif-dot"></div>
+        <div>
+          <div class="notif-item-text">${escHtml(n.message)}</div>
+          <div class="notif-item-time">${dt}</div>
+        </div>`;
+      div.addEventListener('click', async () => {
+        if (!n.read) {
+          await fetch(`/api/notifications/${n.id}/read`, { method: 'POST' });
+          n.read = true;
+          renderNotifications();
+        }
+        notifDropdown.classList.remove('open');
+        // Load and open the case
+        const id = String(n.case_id);
+        const el = document.getElementById('case-item-' + id);
+        document.querySelectorAll('.case-item').forEach(e => e.classList.remove('active'));
+        if (el) {
+          el.classList.add('active');
+          const btn = el.querySelector('[data-type="cashier"]');
+          if (btn && !btn.disabled) btn.click();
+        } else {
+          openModalLoading('');
+          try {
+            const res  = await fetch(`/api/cases/${id}`);
+            const data = await res.json();
+            store[id] = {
+              caseNumber: data.case_number,
+              fullText: data.result,
+              pending: false,
+              usage: { input_tokens: data.input_tokens, output_tokens: data.output_tokens,
+                       cache_creation_tokens: data.cache_creation_tokens, cache_read_tokens: data.cache_read_tokens },
+              cashierOverride: data.cashier_instruction_override ?? null,
+            };
+            openModal(id, 'cashier', store[id]);
+          } catch { closeModal(); }
+        }
+      });
+      notifList.appendChild(div);
+    });
+  }
+
+  notifBtn.addEventListener('click', e => {
+    e.stopPropagation();
+    notifDropdown.classList.toggle('open');
+  });
+
+  document.addEventListener('click', e => {
+    if (!notifDropdown.contains(e.target) && e.target !== notifBtn) {
+      notifDropdown.classList.remove('open');
+    }
+  });
+
+  document.getElementById('notif-mark-all').addEventListener('click', async e => {
+    e.stopPropagation();
+    await fetch('/api/notifications/read-all', { method: 'POST' });
+    notifications.forEach(n => n.read = true);
+    renderNotifications();
+  });
+
+  loadNotifications();
+  setInterval(loadNotifications, 30000);
+  {% endif %}
 </script>
 </body>
 </html>

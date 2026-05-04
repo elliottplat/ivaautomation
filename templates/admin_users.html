@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>User Management – Omni Group</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #f0f2f5;
+      color: #1a1a2e;
+      min-height: 100vh;
+    }
+
+    /* ── Top bar ── */
+    .topbar {
+      background: #fff;
+      border-bottom: 1px solid #e5e7eb;
+      padding: 0.75rem 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    .topbar a.back {
+      text-decoration: none; color: #6366f1;
+      font-size: 0.88rem; font-weight: 600;
+      display: flex; align-items: center; gap: 0.3rem;
+    }
+    .topbar a.back:hover { color: #4f46e5; }
+    .topbar img { height: 36px; width: auto; }
+    .topbar h1 { font-size: 1.05rem; font-weight: 700; }
+    .topbar-spacer { flex: 1; }
+    .topbar-user {
+      font-size: 0.82rem; color: #777;
+      display: flex; align-items: center; gap: 0.75rem;
+    }
+    .topbar-user strong { color: #333; }
+    .topbar-user a {
+      color: #6366f1; text-decoration: none; font-weight: 600;
+      font-size: 0.82rem;
+    }
+    .topbar-user a:hover { color: #4f46e5; }
+
+    /* ── Content ── */
+    .page-content {
+      max-width: 860px;
+      margin: 0 auto;
+      padding: 2rem 1.25rem;
+    }
+
+    .page-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1.5rem;
+    }
+    .page-header h2 { font-size: 1.2rem; font-weight: 700; }
+
+    .btn-primary {
+      background: #6366f1; color: #fff;
+      border: none; border-radius: 8px;
+      padding: 0.6rem 1.25rem;
+      font-size: 0.88rem; font-weight: 600;
+      cursor: pointer; transition: background 0.2s;
+    }
+    .btn-primary:hover { background: #4f46e5; }
+
+    /* ── Table ── */
+    .table-wrap {
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 1px 6px rgba(0,0,0,0.07);
+      overflow: hidden;
+    }
+    table { width: 100%; border-collapse: collapse; }
+    thead th {
+      padding: 0.75rem 1rem;
+      text-align: left;
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #888;
+      background: #fafafa;
+      border-bottom: 1px solid #f0f0f0;
+    }
+    tbody tr { border-bottom: 1px solid #f5f5f5; }
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr:hover { background: #fafeff; }
+    tbody td {
+      padding: 0.85rem 1rem;
+      font-size: 0.88rem;
+      vertical-align: middle;
+    }
+    .role-badge {
+      display: inline-block;
+      padding: 0.2rem 0.6rem;
+      border-radius: 12px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: capitalize;
+    }
+    .role-badge.admin    { background: #ede9fe; color: #5b21b6; }
+    .role-badge.reviewer { background: #e0e7ff; color: #3730a3; }
+    .role-badge.uploader { background: #ecfdf5; color: #065f46; }
+
+    .status-badge {
+      display: inline-block;
+      padding: 0.2rem 0.55rem;
+      border-radius: 12px;
+      font-size: 0.75rem;
+      font-weight: 700;
+    }
+    .status-badge.active   { background: #dcfce7; color: #15803d; }
+    .status-badge.inactive { background: #f3f4f6; color: #888; }
+
+    .actions { display: flex; gap: 0.4rem; }
+    .btn-sm {
+      padding: 0.3rem 0.7rem;
+      border: 1.5px solid #d0d5dd;
+      border-radius: 6px;
+      background: #fff;
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: #555;
+      cursor: pointer;
+      transition: border-color 0.15s, color 0.15s, background 0.15s;
+    }
+    .btn-sm:hover { border-color: #6366f1; color: #6366f1; background: #f5f5ff; }
+    .btn-sm.danger:hover { border-color: #ef4444; color: #ef4444; background: #fef2f2; }
+
+    /* ── Modal ── */
+    .modal-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.45);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 100; padding: 1rem;
+      opacity: 0; pointer-events: none;
+      transition: opacity 0.15s;
+    }
+    .modal-overlay.open { opacity: 1; pointer-events: all; }
+
+    .modal-panel {
+      background: #fff; border-radius: 14px;
+      width: 100%; max-width: 440px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+      transform: translateY(12px);
+      transition: transform 0.15s;
+    }
+    .modal-overlay.open .modal-panel { transform: translateY(0); }
+
+    .modal-header {
+      padding: 1.1rem 1.25rem;
+      border-bottom: 1px solid #f0f0f0;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .modal-header h3 { font-size: 1rem; font-weight: 700; }
+    .modal-close {
+      background: none; border: none; font-size: 1.4rem;
+      color: #999; cursor: pointer; line-height: 1; padding: 0 0.2rem;
+    }
+    .modal-close:hover { color: #333; }
+
+    .modal-body { padding: 1.25rem; }
+
+    .form-group { margin-bottom: 1rem; }
+    .form-group label {
+      display: block; font-size: 0.85rem; font-weight: 600;
+      color: #333; margin-bottom: 0.35rem;
+    }
+    .form-group input, .form-group select {
+      width: 100%;
+      border: 1.5px solid #d0d5dd; border-radius: 8px;
+      padding: 0.6rem 0.85rem; font-size: 0.9rem; font-family: inherit;
+      transition: border-color 0.2s; background: #fff;
+    }
+    .form-group input:focus, .form-group select:focus {
+      outline: none; border-color: #6366f1;
+    }
+
+    .form-hint { font-size: 0.78rem; color: #999; margin-top: 0.25rem; }
+
+    .modal-footer {
+      padding: 0.85rem 1.25rem;
+      border-top: 1px solid #f0f0f0;
+      display: flex; gap: 0.5rem; justify-content: flex-end;
+    }
+
+    .btn-cancel {
+      padding: 0.6rem 1.1rem;
+      border: 1.5px solid #d0d5dd; border-radius: 8px;
+      background: #fff; font-size: 0.88rem; font-weight: 600;
+      color: #555; cursor: pointer;
+    }
+    .btn-cancel:hover { border-color: #999; }
+
+    .error-inline {
+      font-size: 0.82rem; color: #b91c1c;
+      background: #fef2f2; border: 1px solid #fecaca;
+      border-radius: 6px; padding: 0.5rem 0.75rem;
+      margin-bottom: 1rem; display: none;
+    }
+  </style>
+</head>
+<body>
+
+<div class="topbar">
+  <a class="back" href="/">&#8592; Home</a>
+  <img src="/static/logo.png" alt="Omni Group" />
+  <h1>User Management</h1>
+  <div class="topbar-spacer"></div>
+  <div class="topbar-user">
+    <span>Signed in as <strong>{{ current_user.username }}</strong></span>
+    <a href="/logout">Sign out</a>
+  </div>
+</div>
+
+<div class="page-content">
+  <div class="page-header">
+    <h2>Users</h2>
+    <button class="btn-primary" id="add-user-btn">+ Add User</button>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Username</th>
+          <th>Role</th>
+          <th>Status</th>
+          <th>Created</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="users-tbody">
+        <tr id="loading-row"><td colspan="5" style="text-align:center;color:#bbb;padding:2rem;">Loading…</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Add / Edit User Modal -->
+<div class="modal-overlay" id="user-modal">
+  <div class="modal-panel">
+    <div class="modal-header">
+      <h3 id="modal-title">Add User</h3>
+      <button class="modal-close" id="modal-close">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="error-inline" id="modal-error"></div>
+      <div class="form-group" id="username-group">
+        <label for="m-username">Username</label>
+        <input type="text" id="m-username" autocomplete="off" />
+      </div>
+      <div class="form-group">
+        <label for="m-password">Password <span id="pw-hint" style="font-weight:400;color:#888;">(leave blank to keep unchanged)</span></label>
+        <input type="password" id="m-password" autocomplete="new-password" />
+      </div>
+      <div class="form-group">
+        <label for="m-role">Role</label>
+        <select id="m-role">
+          <option value="uploader">Uploader</option>
+          <option value="reviewer">Reviewer</option>
+          <option value="admin">Admin</option>
+        </select>
+      </div>
+      <div class="form-group" id="active-group" style="display:none;">
+        <label for="m-active">Status</label>
+        <select id="m-active">
+          <option value="true">Active</option>
+          <option value="false">Inactive</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" id="modal-cancel">Cancel</button>
+      <button class="btn-primary" id="modal-save">Save</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  let editingUserId = null;
+  let usersData = [];
+
+  async function loadUsers() {
+    try {
+      const res = await fetch('/api/users');
+      usersData = await res.json();
+      renderUsers();
+    } catch {
+      document.getElementById('loading-row').innerHTML =
+        '<td colspan="5" style="text-align:center;color:#ef4444;padding:2rem;">Failed to load users.</td>';
+    }
+  }
+
+  function renderUsers() {
+    const tbody = document.getElementById('users-tbody');
+    tbody.innerHTML = '';
+    if (!usersData.length) {
+      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#bbb;padding:2rem;">No users found.</td></tr>';
+      return;
+    }
+    usersData.forEach(u => {
+      const tr = document.createElement('tr');
+      const created = new Date(u.created_at).toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' });
+      tr.innerHTML = `
+        <td><strong>${escHtml(u.username)}</strong></td>
+        <td><span class="role-badge ${u.role}">${u.role}</span></td>
+        <td><span class="status-badge ${u.active ? 'active' : 'inactive'}">${u.active ? 'Active' : 'Inactive'}</span></td>
+        <td>${created}</td>
+        <td>
+          <div class="actions">
+            <button class="btn-sm" data-action="edit" data-id="${u.id}">Edit</button>
+            <button class="btn-sm danger" data-action="toggle" data-id="${u.id}" data-active="${u.active}">
+              ${u.active ? 'Deactivate' : 'Activate'}
+            </button>
+          </div>
+        </td>`;
+      tbody.appendChild(tr);
+    });
+  }
+
+  function escHtml(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  document.getElementById('users-tbody').addEventListener('click', async e => {
+    const btn = e.target.closest('[data-action]');
+    if (!btn) return;
+    const id = Number(btn.dataset.action === 'edit' ? btn.dataset.id : btn.dataset.id);
+    if (btn.dataset.action === 'edit') {
+      openEditModal(id);
+    } else if (btn.dataset.action === 'toggle') {
+      const active = btn.dataset.active === 'true';
+      if (!confirm(`${active ? 'Deactivate' : 'Activate'} this user?`)) return;
+      await saveUser(id, { active: !active });
+      loadUsers();
+    }
+  });
+
+  function openAddModal() {
+    editingUserId = null;
+    document.getElementById('modal-title').textContent = 'Add User';
+    document.getElementById('m-username').value = '';
+    document.getElementById('m-password').value = '';
+    document.getElementById('m-role').value = 'uploader';
+    document.getElementById('username-group').style.display = '';
+    document.getElementById('active-group').style.display = 'none';
+    document.getElementById('pw-hint').style.display = 'none';
+    document.getElementById('modal-error').style.display = 'none';
+    document.getElementById('user-modal').classList.add('open');
+    document.getElementById('m-username').focus();
+  }
+
+  function openEditModal(id) {
+    editingUserId = id;
+    const u = usersData.find(x => x.id === id);
+    if (!u) return;
+    document.getElementById('modal-title').textContent = 'Edit User';
+    document.getElementById('m-username').value = u.username;
+    document.getElementById('m-password').value = '';
+    document.getElementById('m-role').value = u.role;
+    document.getElementById('m-active').value = String(u.active);
+    document.getElementById('username-group').style.display = 'none';
+    document.getElementById('active-group').style.display = '';
+    document.getElementById('pw-hint').style.display = '';
+    document.getElementById('modal-error').style.display = 'none';
+    document.getElementById('user-modal').classList.add('open');
+    document.getElementById('m-role').focus();
+  }
+
+  function closeModal() {
+    document.getElementById('user-modal').classList.remove('open');
+    editingUserId = null;
+  }
+
+  async function saveUser(id, payload) {
+    const res = await fetch(`/api/users/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    return res.json();
+  }
+
+  document.getElementById('modal-save').addEventListener('click', async () => {
+    const errorEl = document.getElementById('modal-error');
+    errorEl.style.display = 'none';
+
+    if (editingUserId === null) {
+      // Create
+      const username = document.getElementById('m-username').value.trim();
+      const password = document.getElementById('m-password').value;
+      const role     = document.getElementById('m-role').value;
+      if (!username || !password) {
+        errorEl.textContent = 'Username and password are required.';
+        errorEl.style.display = '';
+        return;
+      }
+      try {
+        const res = await fetch('/api/users', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password, role }),
+        });
+        const data = await res.json();
+        if (data.error) { errorEl.textContent = data.error; errorEl.style.display = ''; return; }
+        closeModal();
+        loadUsers();
+      } catch { errorEl.textContent = 'Request failed.'; errorEl.style.display = ''; }
+    } else {
+      // Update
+      const payload = { role: document.getElementById('m-role').value, active: document.getElementById('m-active').value === 'true' };
+      const pw = document.getElementById('m-password').value;
+      if (pw) payload.password = pw;
+      try {
+        const data = await saveUser(editingUserId, payload);
+        if (data.error) { errorEl.textContent = data.error; errorEl.style.display = ''; return; }
+        closeModal();
+        loadUsers();
+      } catch { errorEl.textContent = 'Request failed.'; errorEl.style.display = ''; }
+    }
+  });
+
+  document.getElementById('add-user-btn').addEventListener('click', openAddModal);
+  document.getElementById('modal-close').addEventListener('click', closeModal);
+  document.getElementById('modal-cancel').addEventListener('click', closeModal);
+  document.getElementById('user-modal').addEventListener('click', e => {
+    if (e.target === document.getElementById('user-modal')) closeModal();
+  });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+  loadUsers();
+</script>
+</body>
+</html>

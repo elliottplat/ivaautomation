@@ -1,18 +1,66 @@
 import os
 import base64
 import json
+import csv
+import io
 import anthropic
 import psycopg2
 from psycopg2.extras import RealDictCursor
-from flask import Flask, render_template, request, jsonify, Response, stream_with_context
+from flask import Flask, render_template, request, jsonify, Response, stream_with_context, redirect, url_for
+from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
+from werkzeug.security import generate_password_hash, check_password_hash
+from functools import wraps
 from dotenv import load_dotenv
 
 load_dotenv()
 
 app = Flask(__name__)
-app.config["MAX_CONTENT_LENGTH"] = 40 * 1024 * 1024  # 40 MB
+app.config["MAX_CONTENT_LENGTH"] = 40 * 1024 * 1024
+app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "dev-key-please-set-in-production")
+
+login_manager = LoginManager(app)
+login_manager.login_view = "login_page"
 
 client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
+
+
+# ---------------------------------------------------------------------------
+# Auth
+# ---------------------------------------------------------------------------
+class User(UserMixin):
+    def __init__(self, id, username, role):
+        self.id = str(id)
+        self.username = username
+        self.role = role
+
+
+@login_manager.user_loader
+def load_user(user_id):
+    if not os.environ.get("DATABASE_URL"):
+        return None
+    try:
+        conn = get_db_conn()
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute(
+                "SELECT id, username, role FROM users WHERE id = %s AND active = TRUE",
+                (int(user_id),),
+            )
+            row = cur.fetchone()
+        conn.close()
+        return User(row["id"], row["username"], row["role"]) if row else None
+    except Exception:
+        return None
+
+
+def roles_required(*roles):
+    def decorator(f):
+        @wraps(f)
+        def decorated(*args, **kwargs):
+            if not current_user.is_authenticated or current_user.role not in roles:
+                return jsonify({"error": "Forbidden"}), 403
+            return f(*args, **kwargs)
+        return decorated
+    return decorator
 
 # ---------------------------------------------------------------------------
 # IVA COMPLETION CALCULATION – MASTER PROMPT  (STRICT v20)
@@ -319,6 +367,16 @@ def init_db():
     try:
         with conn.cursor() as cur:
             cur.execute("""
+                CREATE TABLE IF NOT EXISTS users (
+                    id SERIAL PRIMARY KEY,
+                    username VARCHAR(50) UNIQUE NOT NULL,
+                    password_hash VARCHAR(200) NOT NULL,
+                    role VARCHAR(20) NOT NULL DEFAULT 'uploader',
+                    created_at TIMESTAMP DEFAULT NOW(),
+                    active BOOLEAN DEFAULT TRUE
+                )
+            """)
+            cur.execute("""
                 CREATE TABLE IF NOT EXISTS cases (
                     id SERIAL PRIMARY KEY,
                     case_number VARCHAR(100) NOT NULL,
@@ -330,14 +388,67 @@ def init_db():
                     cache_read_tokens INTEGER DEFAULT 0
                 )
             """)
+            cur.execute("""
+                DO $$
+                BEGIN
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_name='cases' AND column_name='submitted_by'
+                    ) THEN
+                        ALTER TABLE cases ADD COLUMN submitted_by INTEGER REFERENCES users(id);
+                    END IF;
+                END $$
+            """)
+            cur.execute("""
+                DO $$
+                BEGIN
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_name='cases' AND column_name='cashier_instruction_override'
+                    ) THEN
+                        ALTER TABLE cases ADD COLUMN cashier_instruction_override TEXT;
+                    END IF;
+                END $$
+            """)
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS notifications (
+                    id SERIAL PRIMARY KEY,
+                    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+                    case_id INTEGER REFERENCES cases(id) ON DELETE CASCADE,
+                    message TEXT NOT NULL,
+                    read BOOLEAN DEFAULT FALSE,
+                    created_at TIMESTAMP DEFAULT NOW()
+                )
+            """)
         conn.commit()
     finally:
         conn.close()
 
 
+def init_admin():
+    username = os.environ.get("ADMIN_USERNAME", "admin")
+    password = os.environ.get("ADMIN_PASSWORD")
+    if not password:
+        return
+    try:
+        conn = get_db_conn()
+        with conn.cursor() as cur:
+            cur.execute("SELECT COUNT(*) FROM users")
+            if cur.fetchone()[0] == 0:
+                cur.execute(
+                    "INSERT INTO users (username, password_hash, role) VALUES (%s, %s, 'admin')",
+                    (username, generate_password_hash(password)),
+                )
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        print(f"Admin init failed: {e}")
+
+
 if os.environ.get("DATABASE_URL"):
     try:
         init_db()
+        init_admin()
     except Exception as e:
         print(f"Warning: DB init failed: {e}")
 
@@ -352,40 +463,274 @@ def encode_file(file):
     return base64.standard_b64encode(file.read()).decode("utf-8"), media_type
 
 
+def extract_cashier_instruction(text):
+    for marker in ["FINAL CASHIER INSTRUCTION", "🔒 FINAL CASHIER"]:
+        idx = text.find(marker)
+        if idx != -1:
+            # Find the instruction text — skip the heading line itself
+            after_heading = text.find("\n", idx)
+            if after_heading == -1:
+                return text[idx:].strip()
+            # Skip blank lines after the heading
+            content_start = after_heading
+            while content_start < len(text) and text[content_start] in "\n\r ":
+                content_start += 1
+            # Stop at SECTION 4 / RISKS / end of first paragraph
+            end = len(text)
+            for stop in ["SECTION 4", "RISKS / FLAGS", "RISKS/FLAGS"]:
+                si = text.find(stop, content_start)
+                if si != -1 and si < end:
+                    end = si
+            return text[content_start:end].strip()
+    return ""
+
+
 # ---------------------------------------------------------------------------
-# Routes
+# Auth routes
+# ---------------------------------------------------------------------------
+@app.route("/login", methods=["GET", "POST"])
+def login_page():
+    if current_user.is_authenticated:
+        return redirect(url_for("home"))
+    if request.method == "POST":
+        data = request.get_json() or request.form
+        username = (data.get("username") or "").strip()
+        password = data.get("password") or ""
+        try:
+            conn = get_db_conn()
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute(
+                    "SELECT id, username, password_hash, role FROM users WHERE username = %s AND active = TRUE",
+                    (username,),
+                )
+                row = cur.fetchone()
+            conn.close()
+            if row and check_password_hash(row["password_hash"], password):
+                login_user(User(row["id"], row["username"], row["role"]), remember=True)
+                return jsonify({"ok": True}) if request.is_json else redirect(url_for("home"))
+            return (jsonify({"error": "Invalid username or password"}), 401) if request.is_json else render_template("login.html", error="Invalid username or password")
+        except Exception as e:
+            return (jsonify({"error": str(e)}), 500) if request.is_json else render_template("login.html", error="Login failed")
+    return render_template("login.html")
+
+
+@app.route("/logout")
+@login_required
+def logout():
+    logout_user()
+    return redirect(url_for("login_page"))
+
+
+# ---------------------------------------------------------------------------
+# Page routes
 # ---------------------------------------------------------------------------
 @app.route("/")
+@login_required
 def home():
     return render_template("home.html")
 
 
 @app.route("/completions")
+@login_required
 def completions():
     return render_template("completions.html")
 
 
-@app.route("/api/cases")
-def list_cases():
+@app.route("/admin/users")
+@login_required
+def admin_users_page():
+    if current_user.role != "admin":
+        return redirect(url_for("home"))
+    return render_template("admin_users.html")
+
+
+# ---------------------------------------------------------------------------
+# User management API (admin only)
+# ---------------------------------------------------------------------------
+@app.route("/api/users")
+@login_required
+def list_users():
+    if current_user.role != "admin":
+        return jsonify({"error": "Forbidden"}), 403
+    conn = get_db_conn()
+    with conn.cursor(cursor_factory=RealDictCursor) as cur:
+        cur.execute("SELECT id, username, role, created_at, active FROM users ORDER BY created_at")
+        rows = cur.fetchall()
+    conn.close()
+    return jsonify([{**dict(r), "created_at": r["created_at"].isoformat()} for r in rows])
+
+
+@app.route("/api/users", methods=["POST"])
+@login_required
+def create_user():
+    if current_user.role != "admin":
+        return jsonify({"error": "Forbidden"}), 403
+    data = request.get_json()
+    username = (data.get("username") or "").strip()
+    password = data.get("password") or ""
+    role = data.get("role", "uploader")
+    if not username or not password or role not in ("admin", "reviewer", "uploader"):
+        return jsonify({"error": "Invalid input"}), 400
+    try:
+        conn = get_db_conn()
+        with conn.cursor() as cur:
+            cur.execute(
+                "INSERT INTO users (username, password_hash, role) VALUES (%s, %s, %s) RETURNING id",
+                (username, generate_password_hash(password), role),
+            )
+            user_id = cur.fetchone()[0]
+        conn.commit()
+        conn.close()
+        return jsonify({"id": user_id, "username": username, "role": role})
+    except psycopg2.errors.UniqueViolation:
+        return jsonify({"error": "Username already exists"}), 409
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/users/<int:user_id>", methods=["PUT"])
+@login_required
+def update_user(user_id):
+    if current_user.role != "admin":
+        return jsonify({"error": "Forbidden"}), 403
+    data = request.get_json()
+    try:
+        conn = get_db_conn()
+        with conn.cursor() as cur:
+            if "role" in data:
+                cur.execute("UPDATE users SET role = %s WHERE id = %s", (data["role"], user_id))
+            if "active" in data:
+                cur.execute("UPDATE users SET active = %s WHERE id = %s", (data["active"], user_id))
+            if data.get("password"):
+                cur.execute("UPDATE users SET password_hash = %s WHERE id = %s", (generate_password_hash(data["password"]), user_id))
+        conn.commit()
+        conn.close()
+        return jsonify({"ok": True})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+# ---------------------------------------------------------------------------
+# Notification API
+# ---------------------------------------------------------------------------
+@app.route("/api/notifications")
+@login_required
+def get_notifications():
     if not os.environ.get("DATABASE_URL"):
         return jsonify([])
     try:
         conn = get_db_conn()
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute(
-                "SELECT id, case_number, created_at FROM cases ORDER BY created_at DESC LIMIT 100"
+                """SELECT n.id, n.case_id, n.message, n.read, n.created_at, c.case_number
+                   FROM notifications n JOIN cases c ON n.case_id = c.id
+                   WHERE n.user_id = %s ORDER BY n.created_at DESC LIMIT 30""",
+                (int(current_user.id),),
             )
             rows = cur.fetchall()
         conn.close()
-        return jsonify([
-            {"id": r["id"], "case_number": r["case_number"], "created_at": r["created_at"].isoformat()}
-            for r in rows
-        ])
+        return jsonify([{**dict(r), "created_at": r["created_at"].isoformat()} for r in rows])
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/notifications/count")
+@login_required
+def notification_count():
+    if not os.environ.get("DATABASE_URL"):
+        return jsonify({"count": 0})
+    try:
+        conn = get_db_conn()
+        with conn.cursor() as cur:
+            cur.execute("SELECT COUNT(*) FROM notifications WHERE user_id = %s AND read = FALSE", (int(current_user.id),))
+            count = cur.fetchone()[0]
+        conn.close()
+        return jsonify({"count": count})
+    except Exception:
+        return jsonify({"count": 0})
+
+
+@app.route("/api/notifications/<int:notif_id>/read", methods=["POST"])
+@login_required
+def mark_notification_read(notif_id):
+    try:
+        conn = get_db_conn()
+        with conn.cursor() as cur:
+            cur.execute("UPDATE notifications SET read = TRUE WHERE id = %s AND user_id = %s", (notif_id, int(current_user.id)))
+        conn.commit()
+        conn.close()
+        return jsonify({"ok": True})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/notifications/read-all", methods=["POST"])
+@login_required
+def mark_all_read():
+    try:
+        conn = get_db_conn()
+        with conn.cursor() as cur:
+            cur.execute("UPDATE notifications SET read = TRUE WHERE user_id = %s", (int(current_user.id),))
+        conn.commit()
+        conn.close()
+        return jsonify({"ok": True})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+# ---------------------------------------------------------------------------
+# Cases API
+# ---------------------------------------------------------------------------
+@app.route("/api/cases")
+@login_required
+def list_cases():
+    if not os.environ.get("DATABASE_URL"):
+        return jsonify([])
+    try:
+        conn = get_db_conn()
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute("SELECT id, case_number, created_at FROM cases ORDER BY created_at DESC LIMIT 100")
+            rows = cur.fetchall()
+        conn.close()
+        return jsonify([{"id": r["id"], "case_number": r["case_number"], "created_at": r["created_at"].isoformat()} for r in rows])
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/cases/export")
+@login_required
+def export_cases():
+    if current_user.role != "admin":
+        return jsonify({"error": "Forbidden"}), 403
+    try:
+        conn = get_db_conn()
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute("SELECT case_number, created_at, result, cashier_instruction_override, input_tokens, output_tokens FROM cases ORDER BY created_at DESC")
+            rows = cur.fetchall()
+        conn.close()
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow(["Case Number", "Date", "Cashier Instruction", "Input Tokens", "Output Tokens"])
+        for row in rows:
+            cashier = row["cashier_instruction_override"] or extract_cashier_instruction(row["result"] or "")
+            writer.writerow([
+                row["case_number"],
+                row["created_at"].strftime("%d/%m/%Y %H:%M"),
+                cashier,
+                row["input_tokens"],
+                row["output_tokens"],
+            ])
+        return Response(
+            output.getvalue(),
+            mimetype="text/csv",
+            headers={"Content-Disposition": "attachment;filename=worked-cases.csv"},
+        )
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
 
 @app.route("/api/cases/<int:case_id>")
+@login_required
 def get_case(case_id):
     if not os.environ.get("DATABASE_URL"):
         return jsonify({"error": "No database configured"}), 503
@@ -398,24 +743,67 @@ def get_case(case_id):
         if not row:
             return jsonify({"error": "Not found"}), 404
         return jsonify({
-            "id": row["id"],
-            "case_number": row["case_number"],
-            "created_at": row["created_at"].isoformat(),
-            "result": row["result"],
-            "input_tokens": row["input_tokens"],
-            "output_tokens": row["output_tokens"],
-            "cache_creation_tokens": row["cache_creation_tokens"],
-            "cache_read_tokens": row["cache_read_tokens"],
+            "id": row["id"], "case_number": row["case_number"],
+            "created_at": row["created_at"].isoformat(), "result": row["result"],
+            "input_tokens": row["input_tokens"], "output_tokens": row["output_tokens"],
+            "cache_creation_tokens": row["cache_creation_tokens"], "cache_read_tokens": row["cache_read_tokens"],
+            "cashier_instruction_override": row.get("cashier_instruction_override"),
         })
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
 
+@app.route("/api/cases/<int:case_id>/cashier", methods=["PUT"])
+@login_required
+def save_cashier_instruction(case_id):
+    if current_user.role not in ("reviewer", "admin"):
+        return jsonify({"error": "Forbidden"}), 403
+    data = request.get_json()
+    instruction = data.get("instruction", "").strip()
+    try:
+        conn = get_db_conn()
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE cases SET cashier_instruction_override = %s WHERE id = %s",
+                (instruction, case_id),
+            )
+        conn.commit()
+        conn.close()
+        return jsonify({"ok": True})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/cases/<int:case_id>", methods=["DELETE"])
+@login_required
+def delete_case(case_id):
+    if current_user.role != "admin":
+        return jsonify({"error": "Forbidden"}), 403
+    try:
+        conn = get_db_conn()
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM notifications WHERE case_id = %s", (case_id,))
+            cur.execute("DELETE FROM cases WHERE id = %s", (case_id,))
+        conn.commit()
+        conn.close()
+        return jsonify({"ok": True})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+# ---------------------------------------------------------------------------
+# Analyze
+# ---------------------------------------------------------------------------
 @app.route("/analyze", methods=["POST"])
+@login_required
 def analyze():
+    if current_user.role not in ("uploader", "admin"):
+        return jsonify({"error": "Forbidden"}), 403
+
     eos_from_vmoc = request.form.get("eos_from_vmoc", "no").lower() == "yes"
     additional_notes = request.form.get("notes", "").strip()
     case_number = request.form.get("case_number", "").strip()
+    submitted_by = int(current_user.id)
 
     content = []
     any_document = False
@@ -425,31 +813,15 @@ def analyze():
         pages = [f for f in files if f and f.filename]
         if not pages:
             continue
-
         any_document = True
-
-        doc_label = label
-        if field_name == "eos" and eos_from_vmoc:
-            doc_label += " [VMOC]"
-
-        content.append({
-            "type": "text",
-            "text": f"--- {doc_label} ({len(pages)} page(s)) ---",
-        })
-
+        doc_label = label + (" [VMOC]" if field_name == "eos" and eos_from_vmoc else "")
+        content.append({"type": "text", "text": f"--- {doc_label} ({len(pages)} page(s)) ---"})
         for page in pages:
             try:
                 image_data, media_type = encode_file(page)
             except ValueError as e:
                 return jsonify({"error": str(e)}), 400
-            content.append({
-                "type": "image",
-                "source": {
-                    "type": "base64",
-                    "media_type": media_type,
-                    "data": image_data,
-                },
-            })
+            content.append({"type": "image", "source": {"type": "base64", "media_type": media_type, "data": image_data}})
 
     if not any_document:
         return jsonify({"error": "Please upload at least one document."}), 400
@@ -468,13 +840,7 @@ def analyze():
             with client.messages.stream(
                 model="claude-opus-4-7",
                 max_tokens=16000,
-                system=[
-                    {
-                        "type": "text",
-                        "text": SYSTEM_PROMPT,
-                        "cache_control": {"type": "ephemeral"},
-                    }
-                ],
+                system=[{"type": "text", "text": SYSTEM_PROMPT, "cache_control": {"type": "ephemeral"}}],
                 messages=[{"role": "user", "content": content}],
             ) as stream:
                 for text in stream.text_stream:
@@ -483,8 +849,8 @@ def analyze():
 
                 msg = stream.get_final_message()
                 usage = msg.usage
-
                 case_id = None
+
                 if case_number and os.environ.get("DATABASE_URL"):
                     try:
                         conn = get_db_conn()
@@ -492,18 +858,22 @@ def analyze():
                             cur.execute(
                                 """INSERT INTO cases
                                    (case_number, result, input_tokens, output_tokens,
-                                    cache_creation_tokens, cache_read_tokens)
-                                   VALUES (%s, %s, %s, %s, %s, %s) RETURNING id""",
-                                (
-                                    case_number,
-                                    "".join(full_text),
-                                    usage.input_tokens,
-                                    usage.output_tokens,
-                                    getattr(usage, "cache_creation_input_tokens", 0),
-                                    getattr(usage, "cache_read_input_tokens", 0),
-                                ),
+                                    cache_creation_tokens, cache_read_tokens, submitted_by)
+                                   VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING id""",
+                                (case_number, "".join(full_text), usage.input_tokens, usage.output_tokens,
+                                 getattr(usage, "cache_creation_input_tokens", 0),
+                                 getattr(usage, "cache_read_input_tokens", 0), submitted_by),
                             )
                             case_id = cur.fetchone()[0]
+                            cur.execute(
+                                "SELECT id FROM users WHERE role IN ('reviewer', 'admin') AND active = TRUE AND id != %s",
+                                (submitted_by,),
+                            )
+                            for (uid,) in cur.fetchall():
+                                cur.execute(
+                                    "INSERT INTO notifications (user_id, case_id, message) VALUES (%s, %s, %s)",
+                                    (uid, case_id, f"New case for review: {case_number}"),
+                                )
                         conn.commit()
                         conn.close()
                     except Exception as e:

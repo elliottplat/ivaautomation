@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Login – Omni Group</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #f0f2f5;
+      color: #1a1a2e;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+    }
+
+    .login-card {
+      background: #fff;
+      border-radius: 16px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.10);
+      padding: 2.5rem 2rem;
+      width: 100%;
+      max-width: 380px;
+    }
+
+    .login-logo {
+      display: block;
+      margin: 0 auto 1.25rem;
+      width: 90px;
+      height: auto;
+    }
+
+    .login-card h1 {
+      text-align: center;
+      font-size: 1.25rem;
+      font-weight: 700;
+      margin-bottom: 0.25rem;
+    }
+
+    .login-card .subtitle {
+      text-align: center;
+      font-size: 0.84rem;
+      color: #888;
+      margin-bottom: 2rem;
+    }
+
+    label {
+      display: block;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: #333;
+      margin-bottom: 0.35rem;
+    }
+
+    input[type="text"], input[type="password"] {
+      width: 100%;
+      border: 1.5px solid #d0d5dd;
+      border-radius: 8px;
+      padding: 0.65rem 0.85rem;
+      font-size: 0.95rem;
+      font-family: inherit;
+      transition: border-color 0.2s;
+      margin-bottom: 1rem;
+    }
+    input:focus { outline: none; border-color: #6366f1; }
+
+    .error-msg {
+      background: #fef2f2;
+      color: #b91c1c;
+      border: 1px solid #fecaca;
+      border-radius: 8px;
+      padding: 0.6rem 0.85rem;
+      font-size: 0.84rem;
+      margin-bottom: 1rem;
+    }
+
+    button[type="submit"] {
+      width: 100%;
+      padding: 0.75rem;
+      background: #6366f1;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+    }
+    button[type="submit"]:hover:not(:disabled) { background: #4f46e5; }
+    button[type="submit"]:disabled { opacity: 0.6; cursor: not-allowed; }
+
+    .btn-spinner {
+      width: 18px; height: 18px;
+      border: 3px solid rgba(255,255,255,0.4);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .footer {
+      margin-top: 2.5rem;
+      text-align: center;
+      font-size: 0.75rem;
+      color: #bbb;
+    }
+  </style>
+</head>
+<body>
+
+<div class="login-card">
+  <img src="/static/logo.png" alt="Omni Group" class="login-logo" />
+  <h1>IVA Automation Suite</h1>
+  <p class="subtitle">Sign in to continue</p>
+
+  {% if error %}
+  <div class="error-msg">{{ error }}</div>
+  {% endif %}
+
+  <form id="login-form" method="post" action="/login">
+    <label for="username">Username</label>
+    <input type="text" id="username" name="username" autocomplete="username" autofocus required />
+
+    <label for="password">Password</label>
+    <input type="password" id="password" name="password" autocomplete="current-password" required />
+
+    <button type="submit" id="submit-btn">
+      <span id="btn-label">Sign In</span>
+    </button>
+  </form>
+</div>
+
+<div class="footer">Omni Group &copy; 2026</div>
+
+<script>
+  document.getElementById('login-form').addEventListener('submit', function() {
+    const btn = document.getElementById('submit-btn');
+    const lbl = document.getElementById('btn-label');
+    btn.disabled = true;
+    lbl.textContent = 'Signing in…';
+    const sp = document.createElement('div');
+    sp.className = 'btn-spinner';
+    btn.appendChild(sp);
+  });
+</script>
+</body>
+</html>

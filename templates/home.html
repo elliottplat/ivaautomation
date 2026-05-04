@@ -14,6 +14,106 @@
       min-height: 100vh;
       display: flex;
       flex-direction: column;
+    }
+
+    /* ── Top bar ── */
+    .topbar {
+      background: #fff;
+      border-bottom: 1px solid #e5e7eb;
+      padding: 0.65rem 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      flex-shrink: 0;
+    }
+    .topbar img { height: 32px; width: auto; }
+    .topbar-title { font-size: 0.95rem; font-weight: 700; color: #1a1a2e; }
+    .topbar-spacer { flex: 1; }
+    .topbar-right {
+      display: flex; align-items: center; gap: 1rem;
+    }
+    .topbar-user { font-size: 0.82rem; color: #777; }
+    .topbar-user strong { color: #333; }
+
+    .topbar-link {
+      font-size: 0.82rem; font-weight: 600;
+      color: #6366f1; text-decoration: none;
+    }
+    .topbar-link:hover { color: #4f46e5; }
+
+    /* ── Notification bell ── */
+    .notif-wrap { position: relative; }
+    .notif-btn {
+      background: none; border: none;
+      font-size: 1.25rem; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      padding: 0.2rem;
+      position: relative;
+    }
+    .notif-badge {
+      position: absolute; top: -3px; right: -5px;
+      background: #ef4444; color: #fff;
+      font-size: 0.65rem; font-weight: 700;
+      border-radius: 10px; min-width: 16px; height: 16px;
+      display: flex; align-items: center; justify-content: center;
+      padding: 0 3px;
+      display: none;
+    }
+
+    .notif-dropdown {
+      position: absolute; top: calc(100% + 8px); right: 0;
+      background: #fff; border-radius: 12px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+      border: 1px solid #e5e7eb;
+      width: 300px; max-height: 380px;
+      display: flex; flex-direction: column;
+      overflow: hidden;
+      display: none;
+      z-index: 200;
+    }
+    .notif-dropdown.open { display: flex; }
+
+    .notif-dropdown-header {
+      padding: 0.75rem 1rem;
+      border-bottom: 1px solid #f0f0f0;
+      display: flex; align-items: center; justify-content: space-between;
+      flex-shrink: 0;
+    }
+    .notif-dropdown-header span { font-size: 0.85rem; font-weight: 700; color: #333; }
+    .notif-mark-all {
+      font-size: 0.75rem; color: #6366f1; cursor: pointer;
+      background: none; border: none; font-weight: 600;
+    }
+    .notif-mark-all:hover { color: #4f46e5; }
+
+    .notif-list { flex: 1; overflow-y: auto; }
+    .notif-empty { padding: 1.5rem; text-align: center; color: #bbb; font-size: 0.82rem; }
+
+    .notif-item {
+      padding: 0.75rem 1rem;
+      border-bottom: 1px solid #f5f5f5;
+      cursor: pointer;
+      transition: background 0.1s;
+      display: flex; align-items: flex-start; gap: 0.5rem;
+    }
+    .notif-item:hover { background: #f5f5ff; }
+    .notif-item.unread { background: #fafafe; }
+    .notif-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: #6366f1; flex-shrink: 0; margin-top: 5px;
+    }
+    .notif-item.read .notif-dot { background: transparent; }
+    .notif-item-text { font-size: 0.82rem; color: #333; line-height: 1.4; }
+    .notif-item-time { font-size: 0.72rem; color: #aaa; margin-top: 0.2rem; }
+
+    /* ── Main content ── */
+    .page-body {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
       align-items: center;
       justify-content: center;
       padding: 2rem 1rem;
@@ -131,46 +231,161 @@
     }
 
     .footer {
-      margin-top: 3rem;
+      text-align: center;
+      padding: 1.5rem;
       font-size: 0.78rem;
       color: #bbb;
+      flex-shrink: 0;
     }
   </style>
 </head>
 <body>
 
-<div class="header">
-  <img src="/static/logo.png" alt="Omni Group" class="logo" />
-  <h1>IVA Automation Suite</h1>
-  <p>AI-powered tools for IVA case management</p>
+<div class="topbar">
+  <img src="/static/logo.png" alt="Omni Group" />
+  <span class="topbar-title">IVA Automation Suite</span>
+  <div class="topbar-spacer"></div>
+  <div class="topbar-right">
+    {% if current_user.role in ['admin'] %}
+    <a href="/admin/users" class="topbar-link">Users</a>
+    {% endif %}
+
+    {% if current_user.role in ['reviewer', 'admin'] %}
+    <div class="notif-wrap">
+      <button class="notif-btn" id="notif-btn" title="Notifications">
+        🔔
+        <span class="notif-badge" id="notif-badge"></span>
+      </button>
+      <div class="notif-dropdown" id="notif-dropdown">
+        <div class="notif-dropdown-header">
+          <span>Notifications</span>
+          <button class="notif-mark-all" id="notif-mark-all">Mark all read</button>
+        </div>
+        <div class="notif-list" id="notif-list">
+          <div class="notif-empty">No notifications</div>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    <span class="topbar-user">Signed in as <strong>{{ current_user.username }}</strong></span>
+    <a href="/logout" class="topbar-link">Sign out</a>
+  </div>
 </div>
 
-<div class="services">
-
-  <div class="card coming-soon">
-    <div class="icon purple">📋</div>
-    <h2>Variations</h2>
-    <p>Automated variation calculations and creditor analysis</p>
-    <span class="badge">Coming Soon</span>
+<div class="page-body">
+  <div class="header">
+    <img src="/static/logo.png" alt="Omni Group" class="logo" />
+    <h1>IVA Automation Suite</h1>
+    <p>AI-powered tools for IVA case management</p>
   </div>
 
-  <div class="card active">
-    <div class="icon indigo">✅</div>
-    <h2>Completions</h2>
-    <p>IVA completion calculations, waterfall analysis and cashier instructions</p>
-    <a href="/completions" class="btn">Open</a>
-  </div>
+  <div class="services">
 
-  <div class="card coming-soon">
-    <div class="icon rose">🔚</div>
-    <h2>Terminations</h2>
-    <p>Termination processing and creditor distribution</p>
-    <span class="badge">Coming Soon</span>
-  </div>
+    <div class="card coming-soon">
+      <div class="icon purple">📋</div>
+      <h2>Variations</h2>
+      <p>Automated variation calculations and creditor analysis</p>
+      <span class="badge">Coming Soon</span>
+    </div>
 
+    <div class="card active">
+      <div class="icon indigo">✅</div>
+      <h2>Completions</h2>
+      <p>IVA completion calculations, waterfall analysis and cashier instructions</p>
+      <a href="/completions" class="btn">Open</a>
+    </div>
+
+    <div class="card coming-soon">
+      <div class="icon rose">🔚</div>
+      <h2>Terminations</h2>
+      <p>Termination processing and creditor distribution</p>
+      <span class="badge">Coming Soon</span>
+    </div>
+
+  </div>
 </div>
 
 <div class="footer">Omni Group &copy; 2026</div>
 
+{% if current_user.role in ['reviewer', 'admin'] %}
+<script>
+  const notifBtn      = document.getElementById('notif-btn');
+  const notifBadge    = document.getElementById('notif-badge');
+  const notifDropdown = document.getElementById('notif-dropdown');
+  const notifList     = document.getElementById('notif-list');
+
+  let notifications = [];
+
+  async function loadNotifications() {
+    try {
+      const res = await fetch('/api/notifications');
+      notifications = await res.json();
+      renderNotifications();
+    } catch {}
+  }
+
+  function renderNotifications() {
+    const unread = notifications.filter(n => !n.read).length;
+    if (unread > 0) {
+      notifBadge.textContent = unread > 99 ? '99+' : unread;
+      notifBadge.style.display = 'flex';
+    } else {
+      notifBadge.style.display = 'none';
+    }
+
+    notifList.innerHTML = '';
+    if (!notifications.length) {
+      notifList.innerHTML = '<div class="notif-empty">No notifications</div>';
+      return;
+    }
+    notifications.forEach(n => {
+      const div = document.createElement('div');
+      div.className = 'notif-item ' + (n.read ? 'read' : 'unread');
+      const dt = new Date(n.created_at).toLocaleString('en-GB', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' });
+      div.innerHTML = `
+        <div class="notif-dot"></div>
+        <div>
+          <div class="notif-item-text">${escHtml(n.message)}</div>
+          <div class="notif-item-time">${dt}</div>
+        </div>`;
+      div.addEventListener('click', async () => {
+        if (!n.read) {
+          await fetch(`/api/notifications/${n.id}/read`, { method: 'POST' });
+          n.read = true;
+          renderNotifications();
+        }
+        window.location.href = '/completions?case=' + n.case_id;
+      });
+      notifList.appendChild(div);
+    });
+  }
+
+  function escHtml(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  notifBtn.addEventListener('click', e => {
+    e.stopPropagation();
+    notifDropdown.classList.toggle('open');
+  });
+
+  document.addEventListener('click', e => {
+    if (!notifDropdown.contains(e.target) && e.target !== notifBtn) {
+      notifDropdown.classList.remove('open');
+    }
+  });
+
+  document.getElementById('notif-mark-all').addEventListener('click', async e => {
+    e.stopPropagation();
+    await fetch('/api/notifications/read-all', { method: 'POST' });
+    notifications.forEach(n => n.read = true);
+    renderNotifications();
+  });
+
+  loadNotifications();
+  setInterval(loadNotifications, 30000);
+</script>
+{% endif %}
 </body>
 </html>
