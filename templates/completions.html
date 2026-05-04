@@ -516,11 +516,20 @@
   const store = {};
 
   function extractCashierSection(text) {
-    for (const marker of ['SECTION 2', 'OMNI NOTE']) {
+    const markers = ['FINAL CASHIER INSTRUCTION', '🔒 FINAL CASHIER'];
+    for (const marker of markers) {
+      const idx = text.indexOf(marker);
+      if (idx !== -1) {
+        const lineStart = text.lastIndexOf('\n', idx);
+        return text.slice(lineStart + 1).trim();
+      }
+    }
+    // Fallback to Section 3
+    for (const marker of ['SECTION 3', 'DECISION SUMMARY']) {
       const idx = text.indexOf(marker);
       if (idx !== -1) return text.slice(idx).trim();
     }
-    return text.slice(Math.max(0, text.length - 3000)).trim();
+    return text.slice(Math.max(0, text.length - 2000)).trim();
   }
 
   // ── Sidebar ───────────────────────────────────────────────────────────────
