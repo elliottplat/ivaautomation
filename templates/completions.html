@@ -377,7 +377,67 @@
       animation: spin 0.7s linear infinite;
     }
 
-    #modal-text { white-space: pre-wrap; line-height: 1.8; font-size: 0.9rem; color: #222; }
+    #modal-text { font-size: 0.9rem; color: #222; line-height: 1.7; }
+
+    /* Rendered markdown inside modal */
+    #modal-text h2 {
+      font-size: 1rem; font-weight: 700; color: #1a1a2e;
+      margin: 1.4rem 0 0.5rem; padding-bottom: 0.35rem;
+      border-bottom: 2px solid #e0e7ff;
+    }
+    #modal-text h3 {
+      font-size: 0.92rem; font-weight: 700; color: #4338ca;
+      margin: 1.1rem 0 0.4rem;
+    }
+    #modal-text h4 {
+      font-size: 0.88rem; font-weight: 700; color: #555;
+      margin: 0.9rem 0 0.3rem;
+    }
+    #modal-text p { margin: 0.4rem 0; }
+    #modal-text ul, #modal-text ol {
+      margin: 0.4rem 0 0.4rem 1.4rem;
+    }
+    #modal-text li { margin: 0.2rem 0; }
+    #modal-text hr {
+      border: none; border-top: 1px solid #e5e7eb; margin: 1rem 0;
+    }
+    #modal-text strong { font-weight: 700; color: #111; }
+    #modal-text em { font-style: italic; color: #555; }
+    #modal-text .md-table-wrap { overflow-x: auto; margin: 0.75rem 0; }
+    #modal-text table {
+      width: 100%; border-collapse: collapse;
+      font-size: 0.84rem;
+    }
+    #modal-text th {
+      background: #f5f5ff; color: #3730a3;
+      font-weight: 700; text-align: left;
+      padding: 0.5rem 0.75rem;
+      border: 1px solid #e0e7ff;
+    }
+    #modal-text td {
+      padding: 0.45rem 0.75rem;
+      border: 1px solid #f0f0f0;
+      vertical-align: top;
+    }
+    #modal-text tr:nth-child(even) td { background: #fafafa; }
+    #modal-text .section-header {
+      display: flex; align-items: center; gap: 0.5rem;
+      font-size: 1rem; font-weight: 700; color: #1a1a2e;
+      background: #f5f5ff; border-left: 4px solid #6366f1;
+      padding: 0.5rem 0.85rem; border-radius: 0 6px 6px 0;
+      margin: 1.25rem 0 0.6rem;
+    }
+    #modal-text .cashier-box {
+      background: #f0fdf4; border: 2px solid #86efac;
+      border-radius: 10px; padding: 1rem 1.25rem;
+      font-size: 0.95rem; line-height: 1.7; color: #14532d;
+      font-weight: 500; margin: 0.5rem 0;
+    }
+    #modal-text .flag-box {
+      background: #fff7ed; border: 1.5px solid #fed7aa;
+      border-radius: 8px; padding: 0.75rem 1rem;
+      font-size: 0.87rem; color: #7c2d12; margin: 0.4rem 0;
+    }
 
     #modal-edit-area {
       width: 100%; min-height: 180px;
@@ -732,6 +792,129 @@
     return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   }
 
+  // ── Markdown renderer ─────────────────────────────────────────────────────
+  function inlineFmt(raw) {
+    let s = escHtml(raw);
+    s = s.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+    s = s.replace(/(?<!\*)\*([^*]+)\*(?!\*)/g, '<em>$1</em>');
+    return s;
+  }
+
+  function renderMarkdown(text, isCashier) {
+    if (!text) return '';
+    const lines = text.split('\n');
+    let html = '';
+    let tableRows = [];
+    let listItems = [];
+    let listType = '';
+
+    function flushTable() {
+      if (!tableRows.length) return;
+      let headerDone = false;
+      html += '<div class="md-table-wrap"><table>';
+      for (const cells of tableRows) {
+        if (cells.every(c => /^[\s\-:]+$/.test(c))) continue; // separator row
+        if (!headerDone) {
+          html += '<thead><tr>' + cells.map(c => `<th>${inlineFmt(c.trim())}</th>`).join('') + '</tr></thead><tbody>';
+          headerDone = true;
+        } else {
+          html += '<tr>' + cells.map(c => `<td>${inlineFmt(c.trim())}</td>`).join('') + '</tr>';
+        }
+      }
+      if (headerDone) html += '</tbody>';
+      html += '</table></div>';
+      tableRows = [];
+    }
+
+    function flushList() {
+      if (!listItems.length) return;
+      const tag = listType === 'ol' ? 'ol' : 'ul';
+      html += `<${tag}>` + listItems.map(i => `<li>${i}</li>`).join('') + `</${tag}>`;
+      listItems = [];
+      listType = '';
+    }
+
+    // Section header patterns Claude uses
+    const sectionRe = /^(SECTION\s+\d+\s*[–\-—]?\s*.+|#{1,3}\s+.+)/i;
+    const emojiHeaderRe = /^[🔒💰💸📋📌🧮📤🔢🚨⛔✅🎯🔑⚠️]/u;
+
+    if (isCashier) {
+      // Cashier view: single highlighted box
+      return `<div class="cashier-box">${inlineFmt(text)}</div>`;
+    }
+
+    for (const line of lines) {
+      const trimmed = line.trim();
+
+      // Table row
+      if (trimmed.startsWith('|') && trimmed.endsWith('|')) {
+        flushList();
+        tableRows.push(trimmed.slice(1, -1).split('|'));
+        continue;
+      }
+      if (tableRows.length) flushTable();
+
+      // Blank line
+      if (!trimmed) {
+        flushList();
+        html += '<div style="height:0.5rem"></div>';
+        continue;
+      }
+
+      // HR
+      if (/^[-=*]{3,}$/.test(trimmed)) {
+        flushList(); html += '<hr>'; continue;
+      }
+
+      // ## / ### headers
+      const mdH = trimmed.match(/^(#{1,3})\s+(.+)/);
+      if (mdH) {
+        flushList();
+        const lvl = Math.min(mdH[1].length + 1, 4);
+        html += `<h${lvl}>${inlineFmt(mdH[2])}</h${lvl}>`;
+        continue;
+      }
+
+      // SECTION X – ... or emoji-led section headers
+      if ((sectionRe.test(trimmed) || emojiHeaderRe.test(trimmed)) && trimmed.length < 100) {
+        flushList();
+        html += `<div class="section-header">${inlineFmt(trimmed)}</div>`;
+        continue;
+      }
+
+      // Flag / risk lines
+      if (trimmed.startsWith('⚠') || trimmed.startsWith('FLAG') || trimmed.startsWith('🚩')) {
+        flushList();
+        html += `<div class="flag-box">${inlineFmt(trimmed)}</div>`;
+        continue;
+      }
+
+      // Bullet list
+      const bulletM = trimmed.match(/^[•\-\*►▸→]\s+(.+)/);
+      if (bulletM) {
+        if (listType !== 'ul') { flushList(); listType = 'ul'; }
+        listItems.push(inlineFmt(bulletM[1]));
+        continue;
+      }
+
+      // Numbered list
+      const numM = trimmed.match(/^(\d+)[.)]\s+(.+)/);
+      if (numM) {
+        if (listType !== 'ol') { flushList(); listType = 'ol'; }
+        listItems.push(inlineFmt(numM[2]));
+        continue;
+      }
+
+      // Plain paragraph
+      flushList();
+      html += `<p>${inlineFmt(trimmed)}</p>`;
+    }
+
+    flushTable();
+    flushList();
+    return html;
+  }
+
   // ── Sidebar ───────────────────────────────────────────────────────────────
   function sidebarAddPending(key, caseNumber, dt) {
     document.getElementById('sidebar-empty').style.display = 'none';
@@ -904,7 +1087,7 @@
     document.getElementById('modal-loading').style.display = 'none';
     const mt = document.getElementById('modal-text');
     mt.style.display = '';
-    mt.textContent = text;
+    mt.innerHTML = renderMarkdown(text, currentModalType === 'cashier');
     const badges = document.getElementById('usage-badges');
     badges.innerHTML = '';
     if (usage) {
@@ -1004,8 +1187,9 @@
       closeReasoningModal();
       editMode = false;
       document.getElementById('modal-edit-area').style.display = 'none';
-      document.getElementById('modal-text').textContent = instruction;
-      document.getElementById('modal-text').style.display = '';
+      const mt = document.getElementById('modal-text');
+      mt.innerHTML = renderMarkdown(instruction, true);
+      mt.style.display = '';
       document.getElementById('btn-edit-cashier').style.display = '';
       document.getElementById('btn-save-cashier').style.display = 'none';
       document.getElementById('btn-cancel-edit').style.display = 'none';
@@ -1107,11 +1291,9 @@
               const mt = document.getElementById('modal-text');
               document.getElementById('modal-loading').style.display = 'none';
               mt.style.display = '';
-              if (currentModalType === 'full') {
-                mt.textContent = store[tempKey].fullText;
-              } else {
-                mt.textContent = getCashierText(store[tempKey]);
-              }
+              const isCashier = currentModalType === 'cashier';
+              const raw = isCashier ? getCashierText(store[tempKey]) : store[tempKey].fullText;
+              mt.innerHTML = renderMarkdown(raw, isCashier);
             }
           }
         }
