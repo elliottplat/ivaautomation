@@ -3,107 +3,192 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>IVA – Image &amp; Prompt Analyzer</title>
+  <title>IVA Document Analyzer</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
       font-family: system-ui, -apple-system, sans-serif;
-      background: #f5f7fa;
+      background: #f0f2f5;
       color: #1a1a2e;
       min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      padding: 2rem 1rem;
+      padding: 2rem 1rem 4rem;
     }
 
-    h1 {
-      font-size: 1.8rem;
-      font-weight: 700;
-      margin-bottom: 0.25rem;
-      letter-spacing: -0.5px;
+    .page-header {
+      text-align: center;
+      margin-bottom: 2rem;
     }
-    .subtitle { color: #666; margin-bottom: 2rem; font-size: 0.95rem; }
+    .page-header h1 { font-size: 1.7rem; font-weight: 700; letter-spacing: -0.5px; }
+    .page-header p { color: #666; font-size: 0.9rem; margin-top: 0.3rem; }
 
+    .layout {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.25rem;
+      max-width: 900px;
+      margin: 0 auto;
+    }
+
+    @media (max-width: 640px) {
+      .layout { grid-template-columns: 1fr; }
+    }
+
+    /* Card */
     .card {
       background: #fff;
-      border-radius: 12px;
-      box-shadow: 0 2px 12px rgba(0,0,0,0.08);
-      padding: 2rem;
-      width: 100%;
-      max-width: 720px;
+      border-radius: 10px;
+      box-shadow: 0 1px 6px rgba(0,0,0,0.08);
+      padding: 1.25rem;
     }
 
-    /* Drop zone */
-    #drop-zone {
-      border: 2px dashed #c0c8d8;
+    /* Upload slot */
+    .slot-label {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-weight: 600;
+      font-size: 0.88rem;
+      margin-bottom: 0.6rem;
+      color: #333;
+    }
+    .slot-label .dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: #d0d5dd;
+      flex-shrink: 0;
+      transition: background 0.2s;
+    }
+    .slot-label .dot.filled { background: #6366f1; }
+
+    .upload-area {
+      border: 1.5px dashed #d0d5dd;
       border-radius: 8px;
-      padding: 2rem;
-      text-align: center;
+      padding: 0.9rem;
       cursor: pointer;
       transition: border-color 0.2s, background 0.2s;
-      margin-bottom: 1.25rem;
-    }
-    #drop-zone.drag-over { border-color: #6366f1; background: #f0f0ff; }
-    #drop-zone svg { display: block; margin: 0 auto 0.75rem; opacity: 0.4; }
-    #drop-zone p { color: #777; font-size: 0.9rem; }
-    #drop-zone span { color: #6366f1; font-weight: 600; cursor: pointer; }
-    #file-input { display: none; }
-
-    /* Previews */
-    #preview-grid {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.6rem;
-      margin-bottom: 1.25rem;
-    }
-    .preview-item {
-      position: relative;
-      width: 80px;
-      height: 80px;
-    }
-    .preview-item img {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      border-radius: 6px;
-      border: 1px solid #e0e0e0;
-    }
-    .remove-btn {
-      position: absolute;
-      top: -6px;
-      right: -6px;
-      width: 20px;
-      height: 20px;
-      border-radius: 50%;
-      background: #ef4444;
-      color: #fff;
-      border: none;
-      font-size: 12px;
-      cursor: pointer;
-      line-height: 20px;
       text-align: center;
+      font-size: 0.82rem;
+      color: #999;
+      position: relative;
+    }
+    .upload-area:hover, .upload-area.drag-over {
+      border-color: #6366f1;
+      background: #f5f5ff;
+      color: #6366f1;
+    }
+    .upload-area.has-files {
+      border-color: #6366f1;
+      border-style: solid;
+      background: #f5f5ff;
+    }
+    .upload-area input[type="file"] {
+      position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
     }
 
-    /* Prompt */
-    label { display: block; font-weight: 600; margin-bottom: 0.4rem; font-size: 0.9rem; }
+    .file-list {
+      margin-top: 0.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.3rem;
+    }
+    .file-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: #f3f4f6;
+      border-radius: 5px;
+      padding: 0.3rem 0.5rem;
+      font-size: 0.78rem;
+      color: #444;
+    }
+    .file-item .fname {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      max-width: 150px;
+    }
+    .file-item button {
+      border: none;
+      background: none;
+      color: #ef4444;
+      cursor: pointer;
+      font-size: 1rem;
+      line-height: 1;
+      padding: 0 0.2rem;
+      flex-shrink: 0;
+    }
+
+    /* EOS card spans full width */
+    .eos-card { grid-column: 1 / -1; }
+
+    .eos-inner {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 1rem;
+      align-items: start;
+    }
+
+    @media (max-width: 640px) { .eos-inner { grid-template-columns: 1fr; } }
+
+    /* VMOC toggle */
+    .vmoc-block {
+      border: 1.5px solid #e5e7eb;
+      border-radius: 8px;
+      padding: 0.9rem 1rem;
+      min-width: 180px;
+    }
+    .vmoc-block p {
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: #444;
+      margin-bottom: 0.6rem;
+    }
+    .vmoc-options { display: flex; gap: 0.5rem; }
+    .vmoc-options label {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.35rem;
+      padding: 0.5rem;
+      border: 1.5px solid #d0d5dd;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.85rem;
+      font-weight: 600;
+      transition: border-color 0.15s, background 0.15s, color 0.15s;
+    }
+    .vmoc-options input[type="radio"] { display: none; }
+    .vmoc-options input[type="radio"]:checked + span { /* handled by JS */ }
+    .vmoc-options label.selected-yes { border-color: #6366f1; background: #6366f1; color: #fff; }
+    .vmoc-options label.selected-no  { border-color: #6366f1; background: #fff; color: #6366f1; }
+
+    /* Prompt + submit — full width */
+    .bottom-section { grid-column: 1 / -1; }
+
+    .field-label {
+      font-weight: 600;
+      font-size: 0.88rem;
+      margin-bottom: 0.5rem;
+      display: block;
+      color: #333;
+    }
     textarea {
       width: 100%;
       border: 1.5px solid #d0d5dd;
       border-radius: 8px;
       padding: 0.75rem;
-      font-size: 0.95rem;
+      font-size: 0.9rem;
       font-family: inherit;
       resize: vertical;
-      min-height: 100px;
+      min-height: 90px;
       transition: border-color 0.2s;
     }
     textarea:focus { outline: none; border-color: #6366f1; }
 
-    /* Button */
     button[type="submit"] {
-      margin-top: 1rem;
+      margin-top: 0.9rem;
       width: 100%;
       padding: 0.85rem;
       background: #6366f1;
@@ -122,10 +207,8 @@
     button[type="submit"]:hover:not(:disabled) { background: #4f46e5; }
     button[type="submit"]:disabled { opacity: 0.6; cursor: not-allowed; }
 
-    /* Spinner */
     .spinner {
-      width: 18px;
-      height: 18px;
+      width: 18px; height: 18px;
       border: 3px solid rgba(255,255,255,0.4);
       border-top-color: #fff;
       border-radius: 50%;
@@ -135,208 +218,294 @@
 
     /* Response */
     #result-card {
-      margin-top: 1.5rem;
-      width: 100%;
-      max-width: 720px;
+      max-width: 900px;
+      margin: 1.5rem auto 0;
       display: none;
     }
-    #result-card .card { padding: 1.5rem; }
-    #result-card h2 { font-size: 1rem; font-weight: 700; margin-bottom: 0.75rem; color: #444; }
-    #response-text {
-      white-space: pre-wrap;
-      line-height: 1.7;
-      font-size: 0.95rem;
-      color: #1a1a2e;
-    }
+    #result-card h2 { font-size: 0.95rem; font-weight: 700; margin-bottom: 0.75rem; color: #444; }
+    #response-text { white-space: pre-wrap; line-height: 1.75; font-size: 0.92rem; }
     .error-text { color: #dc2626; }
 
-    /* Usage badges */
     .usage-row {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.5rem;
-      margin-top: 1rem;
-      padding-top: 1rem;
+      display: flex; flex-wrap: wrap; gap: 0.5rem;
+      margin-top: 1rem; padding-top: 1rem;
       border-top: 1px solid #f0f0f0;
     }
     .badge {
-      background: #f3f4f6;
-      border-radius: 6px;
-      padding: 0.3rem 0.6rem;
-      font-size: 0.78rem;
-      color: #555;
+      background: #f3f4f6; border-radius: 6px;
+      padding: 0.3rem 0.6rem; font-size: 0.78rem; color: #555;
     }
     .badge strong { color: #333; }
     .badge.cache-hit { background: #ecfdf5; color: #065f46; }
   </style>
 </head>
 <body>
-  <h1>IVA Analyzer</h1>
-  <p class="subtitle">Upload images and ask anything — powered by Claude</p>
 
-  <div class="card">
-    <form id="analyze-form" enctype="multipart/form-data">
+<header class="page-header">
+  <h1>IVA Document Analyzer</h1>
+  <p>Upload IVA documents, ask a question, and get an AI-powered response</p>
+</header>
 
-      <!-- Drop zone -->
-      <div id="drop-zone" role="button" aria-label="Upload images">
-        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-          <polyline points="17 8 12 3 7 8"/>
-          <line x1="12" y1="3" x2="12" y2="15"/>
-        </svg>
-        <p>Drag &amp; drop images here or <span id="browse-link">browse</span></p>
-        <p style="margin-top:0.3rem;font-size:0.8rem;">JPEG, PNG, GIF, WebP · max 20 MB total</p>
-        <input type="file" id="file-input" name="images" accept="image/jpeg,image/png,image/gif,image/webp" multiple />
-      </div>
+<form id="analyze-form" enctype="multipart/form-data">
+  <div class="layout">
 
-      <div id="preview-grid"></div>
-
-      <label for="prompt">Prompt</label>
-      <textarea id="prompt" name="prompt" placeholder="What do you see in these images? Or ask anything…" required></textarea>
-
-      <button type="submit" id="submit-btn">
-        <span id="btn-label">Analyze</span>
-      </button>
-    </form>
-  </div>
-
-  <div id="result-card">
+    <!-- Contribution Schedule -->
     <div class="card">
-      <h2>Response</h2>
-      <div id="response-text"></div>
-      <div class="usage-row" id="usage-row" style="display:none"></div>
+      <div class="slot-label">
+        <span class="dot" id="dot-contribution_schedule"></span>
+        Contribution Schedule
+      </div>
+      <div class="upload-area" id="area-contribution_schedule">
+        <span class="area-text">Click or drag images here</span>
+        <input type="file" name="contribution_schedule" id="inp-contribution_schedule"
+               accept="image/*" multiple />
+      </div>
+      <div class="file-list" id="list-contribution_schedule"></div>
     </div>
-  </div>
 
-  <script>
-    const dropZone = document.getElementById('drop-zone');
-    const fileInput = document.getElementById('file-input');
-    const previewGrid = document.getElementById('preview-grid');
-    const form = document.getElementById('analyze-form');
-    const submitBtn = document.getElementById('submit-btn');
-    const btnLabel = document.getElementById('btn-label');
-    const resultCard = document.getElementById('result-card');
-    const responseText = document.getElementById('response-text');
-    const usageRow = document.getElementById('usage-row');
+    <!-- Modifications -->
+    <div class="card">
+      <div class="slot-label">
+        <span class="dot" id="dot-modifications"></span>
+        Modifications
+      </div>
+      <div class="upload-area" id="area-modifications">
+        <span class="area-text">Click or drag images here</span>
+        <input type="file" name="modifications" id="inp-modifications"
+               accept="image/*" multiple />
+      </div>
+      <div class="file-list" id="list-modifications"></div>
+    </div>
 
-    let selectedFiles = [];
+    <!-- R&P -->
+    <div class="card">
+      <div class="slot-label">
+        <span class="dot" id="dot-rp"></span>
+        Receipts &amp; Payments (R&amp;P)
+      </div>
+      <div class="upload-area" id="area-rp">
+        <span class="area-text">Click or drag images here</span>
+        <input type="file" name="rp" id="inp-rp"
+               accept="image/*" multiple />
+      </div>
+      <div class="file-list" id="list-rp"></div>
+    </div>
 
-    // Browse link
-    document.getElementById('browse-link').addEventListener('click', () => fileInput.click());
-    dropZone.addEventListener('click', (e) => { if (e.target !== document.getElementById('browse-link')) fileInput.click(); });
+    <!-- Creditor Claims -->
+    <div class="card">
+      <div class="slot-label">
+        <span class="dot" id="dot-creditor_claims"></span>
+        Creditor Claims
+      </div>
+      <div class="upload-area" id="area-creditor_claims">
+        <span class="area-text">Click or drag images here</span>
+        <input type="file" name="creditor_claims" id="inp-creditor_claims"
+               accept="image/*" multiple />
+      </div>
+      <div class="file-list" id="list-creditor_claims"></div>
+    </div>
 
-    // Drag events
-    dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('drag-over'); });
-    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
-    dropZone.addEventListener('drop', (e) => {
-      e.preventDefault();
-      dropZone.classList.remove('drag-over');
-      addFiles([...e.dataTransfer.files]);
-    });
+    <!-- EOS — full width, with VMOC toggle -->
+    <div class="card eos-card">
+      <div class="slot-label">
+        <span class="dot" id="dot-eos"></span>
+        End of Supervision (EOS)
+      </div>
+      <div class="eos-inner">
+        <div>
+          <div class="upload-area" id="area-eos">
+            <span class="area-text">Click or drag images here</span>
+            <input type="file" name="eos" id="inp-eos"
+                   accept="image/*" multiple />
+          </div>
+          <div class="file-list" id="list-eos"></div>
+        </div>
 
-    fileInput.addEventListener('change', () => {
-      addFiles([...fileInput.files]);
-      fileInput.value = '';
-    });
+        <div class="vmoc-block">
+          <p>Is this EOS from a VMOC?</p>
+          <div class="vmoc-options">
+            <label id="lbl-yes">
+              <input type="radio" name="eos_from_vmoc" value="yes" />
+              <span>Yes</span>
+            </label>
+            <label id="lbl-no" class="selected-no">
+              <input type="radio" name="eos_from_vmoc" value="no" checked />
+              <span>No</span>
+            </label>
+          </div>
+        </div>
+      </div>
+    </div>
 
-    function addFiles(files) {
-      files.forEach(f => {
-        if (!f.type.startsWith('image/')) return;
-        selectedFiles.push(f);
-        renderPreview(f, selectedFiles.length - 1);
-      });
+    <!-- Prompt + submit -->
+    <div class="card bottom-section">
+      <label class="field-label" for="prompt">Instructions / Prompt</label>
+      <textarea id="prompt" name="prompt"
+        placeholder="e.g. Summarise the key figures, check for discrepancies between the R&P and Contribution Schedule, list all creditor claims…"
+        required></textarea>
+      <button type="submit" id="submit-btn">
+        <span id="btn-label">Analyse Documents</span>
+      </button>
+    </div>
+
+  </div><!-- /layout -->
+</form>
+
+<div id="result-card" class="card" style="max-width:900px;margin:1.5rem auto 0;display:none;">
+  <h2>Response</h2>
+  <div id="response-text"></div>
+  <div class="usage-row" id="usage-row" style="display:none;"></div>
+</div>
+
+<script>
+  // ── File management ──────────────────────────────────────────────────────
+  const slots = ['contribution_schedule', 'eos', 'modifications', 'rp', 'creditor_claims'];
+  const fileMap = {}; // slot -> File[]
+  slots.forEach(s => fileMap[s] = []);
+
+  function refreshSlot(slot) {
+    const files = fileMap[slot];
+    const area  = document.getElementById('area-' + slot);
+    const list  = document.getElementById('list-' + slot);
+    const dot   = document.getElementById('dot-' + slot);
+    const text  = area.querySelector('.area-text');
+
+    if (files.length) {
+      area.classList.add('has-files');
+      dot.classList.add('filled');
+      text.textContent = files.length + ' file(s) selected';
+    } else {
+      area.classList.remove('has-files');
+      dot.classList.remove('filled');
+      text.textContent = 'Click or drag images here';
     }
 
-    function renderPreview(file, idx) {
-      const wrap = document.createElement('div');
-      wrap.className = 'preview-item';
-      wrap.dataset.idx = idx;
+    list.innerHTML = '';
+    files.forEach((f, i) => {
+      const item = document.createElement('div');
+      item.className = 'file-item';
+      item.innerHTML = `<span class="fname" title="${f.name}">${f.name}</span>
+        <button type="button" data-slot="${slot}" data-idx="${i}" title="Remove">×</button>`;
+      list.appendChild(item);
+    });
+  }
 
-      const img = document.createElement('img');
-      img.src = URL.createObjectURL(file);
-      img.alt = file.name;
-
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'remove-btn';
-      btn.textContent = '×';
-      btn.addEventListener('click', () => {
-        selectedFiles.splice(idx, 1);
-        wrap.remove();
-        // Re-index remaining previews
-        [...previewGrid.children].forEach((el, i) => el.dataset.idx = i);
-      });
-
-      wrap.appendChild(img);
-      wrap.appendChild(btn);
-      previewGrid.appendChild(wrap);
+  document.addEventListener('click', e => {
+    if (e.target.matches('.file-item button')) {
+      const { slot, idx } = e.target.dataset;
+      fileMap[slot].splice(Number(idx), 1);
+      refreshSlot(slot);
     }
+  });
 
-    // Submit
-    form.addEventListener('submit', async (e) => {
+  slots.forEach(slot => {
+    const inp  = document.getElementById('inp-' + slot);
+    const area = document.getElementById('area-' + slot);
+
+    inp.addEventListener('change', () => {
+      fileMap[slot].push(...inp.files);
+      inp.value = '';
+      refreshSlot(slot);
+    });
+
+    area.addEventListener('dragover', e => { e.preventDefault(); area.classList.add('drag-over'); });
+    area.addEventListener('dragleave', () => area.classList.remove('drag-over'));
+    area.addEventListener('drop', e => {
       e.preventDefault();
+      area.classList.remove('drag-over');
+      const dropped = [...e.dataTransfer.files].filter(f => f.type.startsWith('image/'));
+      fileMap[slot].push(...dropped);
+      refreshSlot(slot);
+    });
+  });
 
-      const prompt = document.getElementById('prompt').value.trim();
-      if (!prompt) { alert('Please enter a prompt.'); return; }
-
-      // Build FormData
-      const fd = new FormData();
-      fd.append('prompt', prompt);
-      selectedFiles.forEach(f => fd.append('images', f));
-
-      // Loading state
-      submitBtn.disabled = true;
-      btnLabel.textContent = 'Analyzing…';
-      const spinner = document.createElement('div');
-      spinner.className = 'spinner';
-      submitBtn.appendChild(spinner);
-
-      responseText.className = '';
-      responseText.textContent = '';
-      usageRow.style.display = 'none';
-      usageRow.innerHTML = '';
-      resultCard.style.display = 'none';
-
-      try {
-        const res = await fetch('/analyze', { method: 'POST', body: fd });
-        const data = await res.json();
-
-        resultCard.style.display = 'block';
-        if (data.error) {
-          responseText.className = 'error-text';
-          responseText.textContent = '⚠️ ' + data.error;
-        } else {
-          responseText.textContent = data.response;
-          renderUsage(data.usage);
-        }
-      } catch (err) {
-        resultCard.style.display = 'block';
-        responseText.className = 'error-text';
-        responseText.textContent = '⚠️ Network error. Please try again.';
-      } finally {
-        submitBtn.disabled = false;
-        btnLabel.textContent = 'Analyze';
-        submitBtn.removeChild(spinner);
+  // ── VMOC radio styling ───────────────────────────────────────────────────
+  document.querySelectorAll('input[name="eos_from_vmoc"]').forEach(radio => {
+    radio.addEventListener('change', () => {
+      document.getElementById('lbl-yes').className = '';
+      document.getElementById('lbl-no').className  = '';
+      if (radio.value === 'yes') {
+        document.getElementById('lbl-yes').classList.add('selected-yes');
+      } else {
+        document.getElementById('lbl-no').classList.add('selected-no');
       }
     });
+  });
 
-    function renderUsage(u) {
-      if (!u) return;
-      usageRow.style.display = 'flex';
-      const items = [
-        { label: 'Input tokens', value: u.input_tokens },
-        { label: 'Output tokens', value: u.output_tokens },
-      ];
-      if (u.cache_creation_tokens) items.push({ label: 'Cache write', value: u.cache_creation_tokens });
-      if (u.cache_read_tokens) items.push({ label: 'Cache hit', value: u.cache_read_tokens, hit: true });
+  // ── Form submit ──────────────────────────────────────────────────────────
+  const form      = document.getElementById('analyze-form');
+  const submitBtn = document.getElementById('submit-btn');
+  const btnLabel  = document.getElementById('btn-label');
+  const resultCard   = document.getElementById('result-card');
+  const responseText = document.getElementById('response-text');
+  const usageRow     = document.getElementById('usage-row');
 
-      items.forEach(item => {
-        const badge = document.createElement('span');
-        badge.className = 'badge' + (item.hit ? ' cache-hit' : '');
-        badge.innerHTML = `${item.label}: <strong>${item.value.toLocaleString()}</strong>`;
-        usageRow.appendChild(badge);
-      });
+  form.addEventListener('submit', async e => {
+    e.preventDefault();
+
+    const prompt = document.getElementById('prompt').value.trim();
+    if (!prompt) { alert('Please enter a prompt.'); return; }
+
+    const totalFiles = slots.reduce((n, s) => n + fileMap[s].length, 0);
+    if (!totalFiles) { alert('Please upload at least one document.'); return; }
+
+    const fd = new FormData();
+    fd.append('prompt', prompt);
+    fd.append('eos_from_vmoc', document.querySelector('input[name="eos_from_vmoc"]:checked').value);
+    slots.forEach(slot => fileMap[slot].forEach(f => fd.append(slot, f)));
+
+    // Loading
+    submitBtn.disabled = true;
+    btnLabel.textContent = 'Analysing…';
+    const spinner = document.createElement('div');
+    spinner.className = 'spinner';
+    submitBtn.appendChild(spinner);
+
+    responseText.className = '';
+    responseText.textContent = '';
+    usageRow.style.display = 'none';
+    usageRow.innerHTML = '';
+    resultCard.style.display = 'none';
+
+    try {
+      const res  = await fetch('/analyze', { method: 'POST', body: fd });
+      const data = await res.json();
+      resultCard.style.display = 'block';
+      if (data.error) {
+        responseText.className = 'error-text';
+        responseText.textContent = '⚠️ ' + data.error;
+      } else {
+        responseText.textContent = data.response;
+        renderUsage(data.usage);
+        resultCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    } catch {
+      resultCard.style.display = 'block';
+      responseText.className = 'error-text';
+      responseText.textContent = '⚠️ Network error. Please try again.';
+    } finally {
+      submitBtn.disabled = false;
+      btnLabel.textContent = 'Analyse Documents';
+      submitBtn.removeChild(spinner);
     }
-  </script>
+  });
+
+  function renderUsage(u) {
+    if (!u) return;
+    usageRow.style.display = 'flex';
+    const items = [
+      { label: 'Input tokens',  value: u.input_tokens },
+      { label: 'Output tokens', value: u.output_tokens },
+    ];
+    if (u.cache_creation_tokens) items.push({ label: 'Cache write', value: u.cache_creation_tokens });
+    if (u.cache_read_tokens)     items.push({ label: 'Cache hit',   value: u.cache_read_tokens, hit: true });
+    items.forEach(item => {
+      const b = document.createElement('span');
+      b.className = 'badge' + (item.hit ? ' cache-hit' : '');
+      b.innerHTML = `${item.label}: <strong>${item.value.toLocaleString()}</strong>`;
+      usageRow.appendChild(b);
+    });
+  }
+</script>
 </body>
 </html>
