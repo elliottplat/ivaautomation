@@ -493,7 +493,7 @@ def login_page():
     if current_user.is_authenticated:
         return redirect(url_for("home"))
     if request.method == "POST":
-        data = request.get_json() or request.form
+        data = request.form
         username = (data.get("username") or "").strip()
         password = data.get("password") or ""
         try:
@@ -507,10 +507,10 @@ def login_page():
             conn.close()
             if row and check_password_hash(row["password_hash"], password):
                 login_user(User(row["id"], row["username"], row["role"]), remember=True)
-                return jsonify({"ok": True}) if request.is_json else redirect(url_for("home"))
-            return (jsonify({"error": "Invalid username or password"}), 401) if request.is_json else render_template("login.html", error="Invalid username or password")
+                return redirect(url_for("home"))
+            return render_template("login.html", error="Invalid username or password")
         except Exception as e:
-            return (jsonify({"error": str(e)}), 500) if request.is_json else render_template("login.html", error="Login failed")
+            return render_template("login.html", error="Login failed")
     return render_template("login.html")
 
 
