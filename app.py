@@ -466,8 +466,8 @@ def analyze():
         full_text = []
         try:
             with client.messages.stream(
-                model="claude-sonnet-4-6",
-                max_tokens=8192,
+                model="claude-opus-4-7",
+                max_tokens=16000,
                 system=[
                     {
                         "type": "text",
