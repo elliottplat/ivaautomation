@@ -716,6 +716,7 @@
       <div class="admin-dropdown" id="admin-dropdown">
         <a href="/admin/corrections">📋 Review Log</a>
         <a href="/admin/users">👥 Users</a>
+        <a href="/admin/projects">🏢 Projects</a>
         <a href="/api/cases/export">⬇ Export CSV</a>
         <div class="divider"></div>
         <a href="/logout" class="danger">Sign out</a>
@@ -748,6 +749,7 @@
         <input type="text" id="case-number" placeholder="e.g. IVA-00123" autocomplete="off" />
       </div>
 
+      <input type="hidden" id="hidden-work-item-id" value="" />
       <form id="analyze-form" enctype="multipart/form-data">
         <div class="layout">
 
@@ -1515,6 +1517,9 @@
     fd.append('notes',        document.getElementById('notes').value.trim());
     fd.append('case_number',  caseNumber);
     fd.append('eos_from_vmoc', document.querySelector('input[name="eos_from_vmoc"]:checked').value);
+    fd.append('task_type',    'completion');
+    const workItemId = document.getElementById('hidden-work-item-id').value;
+    if (workItemId) fd.append('work_item_id', workItemId);
     slots.forEach(slot => fileMap[slot].forEach(f => fd.append(slot, f)));
 
     submitBtn.disabled = true;
@@ -1605,6 +1610,21 @@
   }
 
   loadCaseList();
+
+  // ── Pre-fill case number from work queue (?work_item=<id>&case_number=<cn>) ──
+  (function() {
+    const params = new URLSearchParams(window.location.search);
+    const workItemId = params.get('work_item');
+    const preFillCN = params.get('case_number');
+    if (preFillCN) {
+      const inp = document.getElementById('case-number');
+      if (inp) inp.value = preFillCN;
+    }
+    if (workItemId) {
+      const hidden = document.getElementById('hidden-work-item-id');
+      if (hidden) hidden.value = workItemId;
+    }
+  })();
 
   // ── Auto-open case from URL param (?case=<id>) ────────────────────────────
   const urlCase = new URLSearchParams(window.location.search).get('case');

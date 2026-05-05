@@ -376,6 +376,15 @@ def init_db():
                     active BOOLEAN DEFAULT TRUE
                 )
             """)
+            # ── specialisms column
+            cur.execute("""
+                DO $$ BEGIN
+                    IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                        WHERE table_name='users' AND column_name='specialisms') THEN
+                        ALTER TABLE users ADD COLUMN specialisms TEXT DEFAULT 'all';
+                    END IF;
+                END $$
+            """)
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS cases (
                     id SERIAL PRIMARY KEY,
@@ -387,6 +396,23 @@ def init_db():
                     cache_creation_tokens INTEGER DEFAULT 0,
                     cache_read_tokens INTEGER DEFAULT 0
                 )
+            """)
+            # ── project / task_type columns on cases
+            cur.execute("""
+                DO $$ BEGIN
+                    IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                        WHERE table_name='cases' AND column_name='project_id') THEN
+                        ALTER TABLE cases ADD COLUMN project_id INTEGER;
+                    END IF;
+                END $$
+            """)
+            cur.execute("""
+                DO $$ BEGIN
+                    IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                        WHERE table_name='cases' AND column_name='task_type') THEN
+                        ALTER TABLE cases ADD COLUMN task_type VARCHAR(50) DEFAULT 'completion';
+                    END IF;
+                END $$
             """)
             cur.execute("""
                 DO $$
@@ -474,6 +500,43 @@ def init_db():
                     read BOOLEAN DEFAULT FALSE,
                     created_at TIMESTAMP DEFAULT NOW()
                 )
+            """)
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS projects (
+                    id SERIAL PRIMARY KEY,
+                    name VARCHAR(200) NOT NULL,
+                    slug VARCHAR(100) UNIQUE NOT NULL,
+                    active BOOLEAN DEFAULT TRUE,
+                    created_at TIMESTAMP DEFAULT NOW()
+                )
+            """)
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS user_projects (
+                    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+                    project_id INTEGER REFERENCES projects(id) ON DELETE CASCADE,
+                    PRIMARY KEY (user_id, project_id)
+                )
+            """)
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS work_items (
+                    id SERIAL PRIMARY KEY,
+                    project_id INTEGER REFERENCES projects(id) ON DELETE CASCADE,
+                    task_type VARCHAR(50) NOT NULL DEFAULT 'completion',
+                    case_number VARCHAR(100) NOT NULL,
+                    due_date DATE NOT NULL,
+                    status VARCHAR(20) NOT NULL DEFAULT 'pending',
+                    assigned_to INTEGER REFERENCES users(id),
+                    created_by INTEGER REFERENCES users(id),
+                    created_at TIMESTAMP DEFAULT NOW(),
+                    notes TEXT
+                )
+            """)
+            # Seed default projects
+            cur.execute("""
+                INSERT INTO projects (name, slug) VALUES
+                    ('Parker Philips', 'parker-philips'),
+                    ('The Debt Resolution Service', 'tdrs')
+                ON CONFLICT (slug) DO NOTHING
             """)
         conn.commit()
     finally:
@@ -628,6 +691,26 @@ def admin_corrections_page():
     return render_template("admin_corrections.html")
 
 
+@app.route("/admin/projects")
+@login_required
+def admin_projects_page():
+    if current_user.role != "admin":
+        return redirect(url_for("home"))
+    return render_template("admin_projects.html")
+
+
+@app.route("/arrears")
+@login_required
+def arrears():
+    return render_template("coming_soon.html", task_type="Arrears")
+
+
+@app.route("/annuals")
+@login_required
+def annuals():
+    return render_template("coming_soon.html", task_type="Annual Reviews")
+
+
 # ---------------------------------------------------------------------------
 # User management API (admin only)
 # ---------------------------------------------------------------------------
@@ -638,10 +721,19 @@ def list_users():
         return jsonify({"error": "Forbidden"}), 403
     conn = get_db_conn()
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
-        cur.execute("SELECT id, username, role, created_at, active FROM users ORDER BY created_at")
+        cur.execute("SELECT id, username, role, created_at, active, specialisms FROM users ORDER BY created_at")
         rows = cur.fetchall()
+        users = [{**dict(r), "created_at": r["created_at"].isoformat()} for r in rows]
+        # attach project ids
+        cur.execute("SELECT user_id, project_id FROM user_projects")
+        up_rows = cur.fetchall()
     conn.close()
-    return jsonify([{**dict(r), "created_at": r["created_at"].isoformat()} for r in rows])
+    project_map = {}
+    for r in up_rows:
+        project_map.setdefault(r["user_id"], []).append(r["project_id"])
+    for u in users:
+        u["project_ids"] = project_map.get(u["id"], [])
+    return jsonify(users)
 
 
 @app.route("/api/users", methods=["POST"])
@@ -687,6 +779,12 @@ def update_user(user_id):
                 cur.execute("UPDATE users SET active = %s WHERE id = %s", (data["active"], user_id))
             if data.get("password"):
                 cur.execute("UPDATE users SET password_hash = %s WHERE id = %s", (generate_password_hash(data["password"]), user_id))
+            if "specialisms" in data:
+                cur.execute("UPDATE users SET specialisms = %s WHERE id = %s", (data["specialisms"], user_id))
+            if "project_ids" in data:
+                cur.execute("DELETE FROM user_projects WHERE user_id = %s", (user_id,))
+                for pid in (data["project_ids"] or []):
+                    cur.execute("INSERT INTO user_projects (user_id, project_id) VALUES (%s, %s) ON CONFLICT DO NOTHING", (user_id, pid))
         conn.commit()
         conn.close()
         return jsonify({"ok": True})
@@ -798,6 +896,288 @@ def list_corrections():
             "reviewed_at": r["reviewed_at"].isoformat() if r["reviewed_at"] else None,
             "reviewed_by": r["reviewed_by_username"] or "",
         } for r in rows])
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+# ---------------------------------------------------------------------------
+# Projects API
+# ---------------------------------------------------------------------------
+@app.route("/api/projects")
+@login_required
+def list_projects():
+    try:
+        conn = get_db_conn()
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute("SELECT id, name, slug, active, created_at FROM projects ORDER BY id")
+            rows = cur.fetchall()
+        conn.close()
+        return jsonify([{**dict(r), "created_at": r["created_at"].isoformat()} for r in rows])
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/projects", methods=["POST"])
+@login_required
+def create_project():
+    if current_user.role != "admin":
+        return jsonify({"error": "Forbidden"}), 403
+    data = request.get_json()
+    name = (data.get("name") or "").strip()
+    slug = (data.get("slug") or name.lower().replace(" ", "-")).strip()
+    if not name:
+        return jsonify({"error": "Name required"}), 400
+    try:
+        conn = get_db_conn()
+        with conn.cursor() as cur:
+            cur.execute("INSERT INTO projects (name, slug) VALUES (%s, %s) RETURNING id", (name, slug))
+            pid = cur.fetchone()[0]
+        conn.commit()
+        conn.close()
+        return jsonify({"id": pid, "name": name, "slug": slug})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/projects/<int:project_id>", methods=["PUT"])
+@login_required
+def update_project(project_id):
+    if current_user.role != "admin":
+        return jsonify({"error": "Forbidden"}), 403
+    data = request.get_json()
+    try:
+        conn = get_db_conn()
+        with conn.cursor() as cur:
+            if "name" in data:
+                cur.execute("UPDATE projects SET name = %s WHERE id = %s", (data["name"], project_id))
+            if "active" in data:
+                cur.execute("UPDATE projects SET active = %s WHERE id = %s", (data["active"], project_id))
+        conn.commit()
+        conn.close()
+        return jsonify({"ok": True})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+# ---------------------------------------------------------------------------
+# Work Items API
+# ---------------------------------------------------------------------------
+@app.route("/api/work-items")
+@login_required
+def list_work_items():
+    try:
+        conn = get_db_conn()
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            if current_user.role == "admin":
+                cur.execute("""
+                    SELECT w.*, p.name AS project_name, u.username AS assigned_username
+                    FROM work_items w
+                    JOIN projects p ON w.project_id = p.id
+                    LEFT JOIN users u ON w.assigned_to = u.id
+                    ORDER BY w.due_date ASC, w.created_at ASC
+                """)
+            else:
+                # get user's specialisms
+                cur.execute("SELECT specialisms FROM users WHERE id = %s", (int(current_user.id),))
+                row = cur.fetchone()
+                specialisms = (row["specialisms"] or "all") if row else "all"
+                # get user's project ids
+                cur.execute("SELECT project_id FROM user_projects WHERE user_id = %s", (int(current_user.id),))
+                proj_ids = [r["project_id"] for r in cur.fetchall()]
+                if not proj_ids:
+                    conn.close()
+                    return jsonify([])
+                if specialisms == "all":
+                    cur.execute("""
+                        SELECT w.*, p.name AS project_name, u.username AS assigned_username
+                        FROM work_items w
+                        JOIN projects p ON w.project_id = p.id
+                        LEFT JOIN users u ON w.assigned_to = u.id
+                        WHERE w.project_id = ANY(%s)
+                        ORDER BY w.due_date ASC, w.created_at ASC
+                    """, (proj_ids,))
+                else:
+                    spec_list = [s.strip() for s in specialisms.split(",")]
+                    cur.execute("""
+                        SELECT w.*, p.name AS project_name, u.username AS assigned_username
+                        FROM work_items w
+                        JOIN projects p ON w.project_id = p.id
+                        LEFT JOIN users u ON w.assigned_to = u.id
+                        WHERE w.project_id = ANY(%s) AND w.task_type = ANY(%s)
+                        ORDER BY w.due_date ASC, w.created_at ASC
+                    """, (proj_ids, spec_list))
+            rows = cur.fetchall()
+        conn.close()
+        return jsonify([{**dict(r), "due_date": r["due_date"].isoformat(), "created_at": r["created_at"].isoformat()} for r in rows])
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/work-items", methods=["POST"])
+@login_required
+def create_work_item():
+    if current_user.role not in ("admin", "uploader"):
+        return jsonify({"error": "Forbidden"}), 403
+    data = request.get_json()
+    project_id = data.get("project_id")
+    task_type = data.get("task_type", "completion")
+    case_number = (data.get("case_number") or "").strip()
+    due_date = data.get("due_date")
+    notes = (data.get("notes") or "").strip() or None
+    if not all([project_id, case_number, due_date]):
+        return jsonify({"error": "project_id, case_number and due_date required"}), 400
+    try:
+        conn = get_db_conn()
+        with conn.cursor() as cur:
+            cur.execute(
+                """INSERT INTO work_items (project_id, task_type, case_number, due_date, created_by, notes)
+                   VALUES (%s, %s, %s, %s, %s, %s) RETURNING id""",
+                (project_id, task_type, case_number, due_date, int(current_user.id), notes),
+            )
+            wid = cur.fetchone()[0]
+        conn.commit()
+        conn.close()
+        return jsonify({"id": wid})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/work-items/upload", methods=["POST"])
+@login_required
+def upload_work_items():
+    if current_user.role not in ("admin", "uploader"):
+        return jsonify({"error": "Forbidden"}), 403
+    project_id = request.form.get("project_id")
+    task_type = request.form.get("task_type", "completion")
+    if not project_id:
+        return jsonify({"error": "project_id required"}), 400
+    f = request.files.get("file")
+    if not f:
+        return jsonify({"error": "file required"}), 400
+    try:
+        content = f.read().decode("utf-8-sig")
+        reader = csv.DictReader(io.StringIO(content))
+        inserted = 0
+        errors = []
+        conn = get_db_conn()
+        with conn.cursor() as cur:
+            for i, row in enumerate(reader, 1):
+                case_num = (row.get("case_number") or row.get("Case Number") or "").strip()
+                due = (row.get("due_date") or row.get("Due Date") or "").strip()
+                tt = (row.get("task_type") or row.get("Task Type") or task_type).strip()
+                notes = (row.get("notes") or row.get("Notes") or "").strip() or None
+                if not case_num or not due:
+                    errors.append(f"Row {i}: missing case_number or due_date")
+                    continue
+                cur.execute(
+                    """INSERT INTO work_items (project_id, task_type, case_number, due_date, created_by, notes)
+                       VALUES (%s, %s, %s, %s, %s, %s)""",
+                    (project_id, tt, case_num, due, int(current_user.id), notes),
+                )
+                inserted += 1
+        conn.commit()
+        conn.close()
+        return jsonify({"inserted": inserted, "errors": errors})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/work-items/<int:item_id>", methods=["PUT"])
+@login_required
+def update_work_item(item_id):
+    data = request.get_json()
+    try:
+        conn = get_db_conn()
+        with conn.cursor() as cur:
+            if "status" in data:
+                new_status = data["status"]
+                if new_status == "in_progress":
+                    cur.execute(
+                        "UPDATE work_items SET status=%s, assigned_to=%s WHERE id=%s",
+                        (new_status, int(current_user.id), item_id),
+                    )
+                else:
+                    cur.execute("UPDATE work_items SET status=%s WHERE id=%s", (new_status, item_id))
+        conn.commit()
+        conn.close()
+        return jsonify({"ok": True})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/work-items/<int:item_id>", methods=["DELETE"])
+@login_required
+def delete_work_item(item_id):
+    if current_user.role != "admin":
+        return jsonify({"error": "Forbidden"}), 403
+    try:
+        conn = get_db_conn()
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM work_items WHERE id = %s", (item_id,))
+        conn.commit()
+        conn.close()
+        return jsonify({"ok": True})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+# ---------------------------------------------------------------------------
+# Dashboard Stats API
+# ---------------------------------------------------------------------------
+@app.route("/api/dashboard/stats")
+@login_required
+def dashboard_stats():
+    try:
+        conn = get_db_conn()
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            if current_user.role == "admin":
+                cur.execute("SELECT id FROM projects WHERE active = TRUE")
+                proj_ids = [r["id"] for r in cur.fetchall()]
+            else:
+                cur.execute("SELECT project_id FROM user_projects WHERE user_id = %s", (int(current_user.id),))
+                proj_ids = [r["project_id"] for r in cur.fetchall()]
+
+            if not proj_ids:
+                conn.close()
+                return jsonify([])
+
+            cur.execute("""
+                SELECT p.id, p.name,
+                    COUNT(w.id) FILTER (WHERE w.status = 'pending') AS pending_total,
+                    COUNT(w.id) FILTER (WHERE w.status = 'in_progress') AS in_progress_total,
+                    COUNT(w.id) FILTER (WHERE w.status = 'completed') AS completed_total,
+                    COUNT(w.id) FILTER (WHERE w.task_type = 'completion' AND w.status = 'pending') AS pending_completions,
+                    COUNT(w.id) FILTER (WHERE w.task_type = 'arrears' AND w.status = 'pending') AS pending_arrears,
+                    COUNT(w.id) FILTER (WHERE w.task_type = 'annual' AND w.status = 'pending') AS pending_annuals,
+                    COUNT(w.id) FILTER (WHERE w.task_type = 'variation' AND w.status = 'pending') AS pending_variations,
+                    COUNT(w.id) FILTER (WHERE w.task_type = 'termination' AND w.status = 'pending') AS pending_terminations,
+                    MIN(w.due_date) FILTER (WHERE w.status = 'pending') AS next_due
+                FROM projects p
+                LEFT JOIN work_items w ON w.project_id = p.id
+                WHERE p.id = ANY(%s)
+                GROUP BY p.id, p.name
+                ORDER BY p.id
+            """, (proj_ids,))
+            rows = cur.fetchall()
+
+            # approved cases per project (lifetime)
+            cur.execute("""
+                SELECT project_id, COUNT(*) AS approved_count
+                FROM cases
+                WHERE project_id = ANY(%s) AND review_status = 'approved'
+                GROUP BY project_id
+            """, (proj_ids,))
+            approved_map = {r["project_id"]: r["approved_count"] for r in cur.fetchall()}
+
+        conn.close()
+        result = []
+        for r in rows:
+            d = dict(r)
+            d["approved_cases"] = approved_map.get(r["id"], 0)
+            if d["next_due"]:
+                d["next_due"] = d["next_due"].isoformat()
+            result.append(d)
+        return jsonify(result)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -965,6 +1345,11 @@ def analyze():
     eos_from_vmoc = request.form.get("eos_from_vmoc", "no").lower() == "yes"
     additional_notes = request.form.get("notes", "").strip()
     case_number = request.form.get("case_number", "").strip()
+    project_id_raw = request.form.get("project_id", "").strip()
+    project_id = int(project_id_raw) if project_id_raw.isdigit() else None
+    task_type = request.form.get("task_type", "completion").strip() or "completion"
+    work_item_id_raw = request.form.get("work_item_id", "").strip()
+    work_item_id = int(work_item_id_raw) if work_item_id_raw.isdigit() else None
     submitted_by = int(current_user.id)
 
     content = []
@@ -1020,13 +1405,21 @@ def analyze():
                             cur.execute(
                                 """INSERT INTO cases
                                    (case_number, result, input_tokens, output_tokens,
-                                    cache_creation_tokens, cache_read_tokens, submitted_by)
-                                   VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING id""",
+                                    cache_creation_tokens, cache_read_tokens, submitted_by,
+                                    project_id, task_type)
+                                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id""",
                                 (case_number, "".join(full_text), usage.input_tokens, usage.output_tokens,
                                  getattr(usage, "cache_creation_input_tokens", 0),
-                                 getattr(usage, "cache_read_input_tokens", 0), submitted_by),
+                                 getattr(usage, "cache_read_input_tokens", 0), submitted_by,
+                                 project_id, task_type),
                             )
                             case_id = cur.fetchone()[0]
+                            # mark linked work item in_progress → completed
+                            if work_item_id:
+                                cur.execute(
+                                    "UPDATE work_items SET status='in_progress', assigned_to=%s WHERE id=%s",
+                                    (submitted_by, work_item_id),
+                                )
                             cur.execute(
                                 "SELECT id FROM users WHERE role IN ('reviewer', 'admin') AND active = TRUE AND id != %s",
                                 (submitted_by,),

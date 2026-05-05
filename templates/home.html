@@ -6,268 +6,132 @@
   <title>Omni Group – IVA Automation</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, -apple-system, sans-serif; background: #f0f2f5; color: #1a1a2e; min-height: 100vh; display: flex; flex-direction: column; }
 
-    body {
-      font-family: system-ui, -apple-system, sans-serif;
-      background: #f0f2f5;
-      color: #1a1a2e;
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-    }
-
-    /* ── Top bar ── */
-    .topbar {
-      background: #fff;
-      border-bottom: 1px solid #e5e7eb;
-      padding: 0.65rem 1.5rem;
-      display: flex;
-      align-items: center;
-      gap: 1rem;
-      position: sticky;
-      top: 0;
-      z-index: 10;
-      flex-shrink: 0;
-    }
+    .topbar { background: #fff; border-bottom: 1px solid #e5e7eb; padding: 0.65rem 1.5rem; display: flex; align-items: center; gap: 1rem; position: sticky; top: 0; z-index: 10; flex-shrink: 0; }
     .topbar img { height: 32px; width: auto; }
     .topbar-title { font-size: 0.95rem; font-weight: 700; color: #1a1a2e; }
     .topbar-spacer { flex: 1; }
-    .topbar-right {
-      display: flex; align-items: center; gap: 1rem;
-    }
+    .topbar-right { display: flex; align-items: center; gap: 1rem; }
     .topbar-user { font-size: 0.82rem; color: #777; }
     .topbar-user strong { color: #333; }
-
-    .topbar-link {
-      font-size: 0.82rem; font-weight: 600;
-      color: #6366f1; text-decoration: none;
-    }
+    .topbar-link { font-size: 0.82rem; font-weight: 600; color: #6366f1; text-decoration: none; }
     .topbar-link:hover { color: #4f46e5; }
 
     .admin-menu-wrap { position: relative; }
-    .admin-menu-btn {
-      display: flex; align-items: center; gap: 0.3rem;
-      font-size: 0.82rem; font-weight: 600; color: #6366f1;
-      background: none; border: 1.5px solid #e0e7ff; border-radius: 7px;
-      padding: 0.3rem 0.75rem; cursor: pointer;
-      transition: background 0.15s, border-color 0.15s;
-    }
+    .admin-menu-btn { display: flex; align-items: center; gap: 0.3rem; font-size: 0.82rem; font-weight: 600; color: #6366f1; background: none; border: 1.5px solid #e0e7ff; border-radius: 7px; padding: 0.3rem 0.75rem; cursor: pointer; transition: background 0.15s, border-color 0.15s; }
     .admin-menu-btn:hover { background: #f5f5ff; border-color: #6366f1; }
     .admin-menu-btn .chevron { font-size: 0.6rem; transition: transform 0.15s; }
     .admin-menu-btn.open .chevron { transform: rotate(180deg); }
-    .admin-dropdown {
-      position: absolute; top: calc(100% + 6px); right: 0;
-      background: #fff; border-radius: 10px;
-      box-shadow: 0 8px 28px rgba(0,0,0,0.13);
-      border: 1px solid #e5e7eb;
-      min-width: 170px; padding: 0.35rem 0;
-      display: none; z-index: 300;
-    }
+    .admin-dropdown { position: absolute; top: calc(100% + 6px); right: 0; background: #fff; border-radius: 10px; box-shadow: 0 8px 28px rgba(0,0,0,0.13); border: 1px solid #e5e7eb; min-width: 180px; padding: 0.35rem 0; display: none; z-index: 300; }
     .admin-dropdown.open { display: block; }
-    .admin-dropdown a {
-      display: flex; align-items: center; gap: 0.5rem;
-      width: 100%; padding: 0.6rem 1rem;
-      font-size: 0.84rem; font-weight: 500; color: #333;
-      text-decoration: none; transition: background 0.1s;
-    }
+    .admin-dropdown a { display: flex; align-items: center; gap: 0.5rem; width: 100%; padding: 0.6rem 1rem; font-size: 0.84rem; font-weight: 500; color: #333; text-decoration: none; transition: background 0.1s; }
     .admin-dropdown a:hover { background: #f5f5ff; color: #4f46e5; }
     .admin-dropdown .divider { height: 1px; background: #f0f0f0; margin: 0.25rem 0; }
     .admin-dropdown .danger { color: #ef4444; }
     .admin-dropdown .danger:hover { background: #fef2f2; color: #dc2626; }
 
-    /* ── Notification bell ── */
     .notif-wrap { position: relative; }
-    .notif-btn {
-      background: none; border: none;
-      font-size: 1.25rem; cursor: pointer;
-      display: flex; align-items: center; justify-content: center;
-      padding: 0.2rem;
-      position: relative;
-    }
-    .notif-badge {
-      position: absolute; top: -3px; right: -5px;
-      background: #ef4444; color: #fff;
-      font-size: 0.65rem; font-weight: 700;
-      border-radius: 10px; min-width: 16px; height: 16px;
-      display: flex; align-items: center; justify-content: center;
-      padding: 0 3px;
-      display: none;
-    }
-
-    .notif-dropdown {
-      position: absolute; top: calc(100% + 8px); right: 0;
-      background: #fff; border-radius: 12px;
-      box-shadow: 0 8px 32px rgba(0,0,0,0.15);
-      border: 1px solid #e5e7eb;
-      width: 300px; max-height: 380px;
-      display: flex; flex-direction: column;
-      overflow: hidden;
-      display: none;
-      z-index: 200;
-    }
+    .notif-btn { background: none; border: none; font-size: 1.25rem; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0.2rem; position: relative; }
+    .notif-badge { position: absolute; top: -3px; right: -5px; background: #ef4444; color: #fff; font-size: 0.65rem; font-weight: 700; border-radius: 10px; min-width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; padding: 0 3px; display: none; }
+    .notif-dropdown { position: absolute; top: calc(100% + 8px); right: 0; background: #fff; border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.15); border: 1px solid #e5e7eb; width: 300px; max-height: 380px; display: flex; flex-direction: column; overflow: hidden; display: none; z-index: 200; }
     .notif-dropdown.open { display: flex; }
-
-    .notif-dropdown-header {
-      padding: 0.75rem 1rem;
-      border-bottom: 1px solid #f0f0f0;
-      display: flex; align-items: center; justify-content: space-between;
-      flex-shrink: 0;
-    }
+    .notif-dropdown-header { padding: 0.75rem 1rem; border-bottom: 1px solid #f0f0f0; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
     .notif-dropdown-header span { font-size: 0.85rem; font-weight: 700; color: #333; }
-    .notif-mark-all {
-      font-size: 0.75rem; color: #6366f1; cursor: pointer;
-      background: none; border: none; font-weight: 600;
-    }
+    .notif-mark-all { font-size: 0.75rem; color: #6366f1; cursor: pointer; background: none; border: none; font-weight: 600; }
     .notif-mark-all:hover { color: #4f46e5; }
-
     .notif-list { flex: 1; overflow-y: auto; }
     .notif-empty { padding: 1.5rem; text-align: center; color: #bbb; font-size: 0.82rem; }
-
-    .notif-item {
-      padding: 0.75rem 1rem;
-      border-bottom: 1px solid #f5f5f5;
-      cursor: pointer;
-      transition: background 0.1s;
-      display: flex; align-items: flex-start; gap: 0.5rem;
-    }
+    .notif-item { padding: 0.75rem 1rem; border-bottom: 1px solid #f5f5f5; cursor: pointer; transition: background 0.1s; display: flex; align-items: flex-start; gap: 0.5rem; }
     .notif-item:hover { background: #f5f5ff; }
     .notif-item.unread { background: #fafafe; }
-    .notif-dot {
-      width: 8px; height: 8px; border-radius: 50%;
-      background: #6366f1; flex-shrink: 0; margin-top: 5px;
-    }
+    .notif-dot { width: 8px; height: 8px; border-radius: 50%; background: #6366f1; flex-shrink: 0; margin-top: 5px; }
     .notif-item.read .notif-dot { background: transparent; }
     .notif-item-text { font-size: 0.82rem; color: #333; line-height: 1.4; }
     .notif-item-time { font-size: 0.72rem; color: #aaa; margin-top: 0.2rem; }
 
-    /* ── Main content ── */
-    .page-body {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      padding: 2rem 1rem;
-    }
+    /* ── Page ── */
+    .page-body { flex: 1; padding: 1.75rem 1.25rem; max-width: 1100px; width: 100%; margin: 0 auto; }
 
-    .header {
-      text-align: center;
-      margin-bottom: 3rem;
-    }
+    .page-greeting { margin-bottom: 1.75rem; }
+    .page-greeting h1 { font-size: 1.4rem; font-weight: 700; }
+    .page-greeting p { color: #777; font-size: 0.88rem; margin-top: 0.2rem; }
 
-    .logo {
-      width: 120px;
-      height: auto;
-      margin-bottom: 1.25rem;
-    }
+    /* Project stat cards */
+    .projects-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1.25rem; margin-bottom: 2rem; }
 
-    .header h1 {
-      font-size: 1.6rem;
-      font-weight: 700;
-      letter-spacing: -0.5px;
-      color: #1a1a2e;
-    }
+    .project-card { background: #fff; border-radius: 14px; box-shadow: 0 2px 10px rgba(0,0,0,0.07); padding: 1.5rem; }
+    .project-card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; }
+    .project-card-header h2 { font-size: 1rem; font-weight: 700; }
+    .project-badge { font-size: 0.72rem; font-weight: 700; padding: 0.2rem 0.6rem; border-radius: 10px; background: #ede9fe; color: #5b21b6; }
 
-    .header p {
-      color: #666;
-      font-size: 0.9rem;
-      margin-top: 0.3rem;
-    }
+    .stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.6rem; margin-bottom: 1rem; }
+    .stat-box { text-align: center; background: #f9fafb; border-radius: 8px; padding: 0.65rem 0.5rem; }
+    .stat-box .val { font-size: 1.4rem; font-weight: 700; color: #1a1a2e; line-height: 1; }
+    .stat-box .lbl { font-size: 0.68rem; color: #999; margin-top: 0.2rem; text-transform: uppercase; letter-spacing: 0.3px; }
+    .stat-box.highlight .val { color: #6366f1; }
 
-    .services {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 1.25rem;
-      width: 100%;
-      max-width: 820px;
-    }
+    .task-type-row { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+    .tt-chip { font-size: 0.75rem; font-weight: 600; padding: 0.22rem 0.6rem; border-radius: 12px; }
+    .tt-chip.completion { background: #e0e7ff; color: #3730a3; }
+    .tt-chip.arrears    { background: #fef9c3; color: #713f12; }
+    .tt-chip.annual     { background: #dcfce7; color: #14532d; }
+    .tt-chip.variation  { background: #fce7f3; color: #831843; }
+    .tt-chip.termination { background: #fee2e2; color: #7f1d1d; }
 
-    @media (max-width: 600px) {
-      .services { grid-template-columns: 1fr; max-width: 360px; }
-    }
+    .next-due { font-size: 0.78rem; color: #888; margin-top: 0.85rem; }
+    .next-due strong { color: #c2410c; }
 
-    .card {
-      background: #fff;
-      border-radius: 14px;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.07);
-      padding: 2rem 1.5rem;
-      text-align: center;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 0.75rem;
-      transition: transform 0.15s, box-shadow 0.15s;
-    }
+    /* Work queue section */
+    .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; }
+    .section-header h2 { font-size: 1.1rem; font-weight: 700; }
+    .filter-bar { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+    .filter-btn { padding: 0.35rem 0.85rem; border: 1.5px solid #d0d5dd; border-radius: 20px; background: #fff; font-size: 0.8rem; font-weight: 600; color: #555; cursor: pointer; transition: all 0.15s; }
+    .filter-btn:hover, .filter-btn.active { border-color: #6366f1; color: #6366f1; background: #f5f5ff; }
+    .filter-btn.active { background: #6366f1; color: #fff; }
 
-    .card.active:hover {
-      transform: translateY(-3px);
-      box-shadow: 0 6px 20px rgba(99,102,241,0.15);
-    }
+    .queue-table-wrap { background: #fff; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.07); overflow: hidden; margin-bottom: 2rem; }
+    table { width: 100%; border-collapse: collapse; }
+    thead th { padding: 0.7rem 1rem; text-align: left; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; color: #999; background: #fafafa; border-bottom: 1px solid #f0f0f0; }
+    tbody tr { border-bottom: 1px solid #f5f5f5; }
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr:hover { background: #fafeff; }
+    tbody td { padding: 0.8rem 1rem; font-size: 0.88rem; vertical-align: middle; }
+    .due-urgent { color: #dc2626; font-weight: 700; }
+    .due-soon { color: #c2410c; font-weight: 600; }
+    .status-chip { font-size: 0.72rem; font-weight: 700; padding: 0.2rem 0.55rem; border-radius: 10px; display: inline-block; }
+    .status-chip.pending     { background: #fff7ed; color: #c2410c; }
+    .status-chip.in_progress { background: #e0e7ff; color: #3730a3; }
+    .status-chip.completed   { background: #dcfce7; color: #15803d; }
 
-    .card.coming-soon {
-      opacity: 0.55;
-    }
+    .btn-work { padding: 0.32rem 0.85rem; background: #6366f1; color: #fff; border: none; border-radius: 7px; font-size: 0.8rem; font-weight: 600; cursor: pointer; transition: background 0.2s; text-decoration: none; display: inline-block; }
+    .btn-work:hover { background: #4f46e5; }
+    .btn-work.secondary { background: #fff; color: #6366f1; border: 1.5px solid #e0e7ff; }
+    .btn-work.secondary:hover { background: #f5f5ff; }
 
-    .icon {
-      width: 56px;
-      height: 56px;
-      border-radius: 14px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 1.6rem;
-      margin-bottom: 0.25rem;
-    }
+    .empty-queue { text-align: center; padding: 3rem 2rem; color: #bbb; font-size: 0.88rem; }
+    .empty-queue strong { display: block; color: #999; font-size: 1rem; margin-bottom: 0.4rem; }
 
-    .icon.purple { background: #ede9fe; }
-    .icon.indigo { background: #e0e7ff; }
-    .icon.rose   { background: #ffe4e6; }
+    /* Tools section */
+    .tools-section { margin-bottom: 2rem; }
+    .tools-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 1rem; }
+    .tool-card { background: #fff; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); padding: 1.25rem; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 0.5rem; transition: transform 0.15s, box-shadow 0.15s; }
+    .tool-card.active:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(99,102,241,0.15); }
+    .tool-card.coming-soon { opacity: 0.5; }
+    .tool-icon { width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.4rem; margin-bottom: 0.2rem; }
+    .tool-icon.purple { background: #ede9fe; }
+    .tool-icon.indigo { background: #e0e7ff; }
+    .tool-icon.rose   { background: #ffe4e6; }
+    .tool-icon.amber  { background: #fef9c3; }
+    .tool-icon.green  { background: #dcfce7; }
+    .tool-card h3 { font-size: 0.9rem; font-weight: 700; }
+    .tool-card p { font-size: 0.77rem; color: #888; line-height: 1.4; }
+    .tool-btn { margin-top: 0.25rem; display: inline-block; background: #6366f1; color: #fff; text-decoration: none; padding: 0.45rem 1.2rem; border-radius: 7px; font-size: 0.82rem; font-weight: 600; transition: background 0.2s; }
+    .tool-btn:hover { background: #4f46e5; }
+    .tool-badge { margin-top: 0.25rem; display: inline-block; background: #f3f4f6; color: #888; padding: 0.3rem 0.8rem; border-radius: 20px; font-size: 0.75rem; font-weight: 600; }
 
-    .card h2 {
-      font-size: 1.05rem;
-      font-weight: 700;
-      color: #1a1a2e;
-    }
-
-    .card p {
-      font-size: 0.83rem;
-      color: #777;
-      line-height: 1.5;
-    }
-
-    .btn {
-      margin-top: 0.5rem;
-      display: inline-block;
-      background: #6366f1;
-      color: #fff;
-      text-decoration: none;
-      padding: 0.6rem 1.6rem;
-      border-radius: 8px;
-      font-size: 0.88rem;
-      font-weight: 600;
-      transition: background 0.2s;
-    }
-    .btn:hover { background: #4f46e5; }
-
-    .badge {
-      margin-top: 0.5rem;
-      display: inline-block;
-      background: #f3f4f6;
-      color: #888;
-      padding: 0.35rem 0.9rem;
-      border-radius: 20px;
-      font-size: 0.78rem;
-      font-weight: 600;
-      letter-spacing: 0.3px;
-    }
-
-    .footer {
-      text-align: center;
-      padding: 1.5rem;
-      font-size: 0.78rem;
-      color: #bbb;
-      flex-shrink: 0;
-    }
+    .footer { text-align: center; padding: 1.5rem; font-size: 0.78rem; color: #bbb; flex-shrink: 0; }
+    .loading-msg { text-align: center; padding: 2rem; color: #bbb; font-size: 0.88rem; }
   </style>
 </head>
 <body>
@@ -306,6 +170,7 @@
         <a href="/completions">✅ Completions</a>
         <a href="/admin/corrections">📋 Review Log</a>
         <a href="/admin/users">👥 Users</a>
+        <a href="/admin/projects">🏢 Projects</a>
         <div class="divider"></div>
         <a href="/logout" class="danger">Sign out</a>
       </div>
@@ -317,47 +182,234 @@
 </div>
 
 <div class="page-body">
-  <div class="header">
-    <img src="/static/logo.png" alt="Omni Group" class="logo" />
-    <h1>IVA Automation Suite</h1>
-    <p>AI-powered tools for IVA case management</p>
+  <div class="page-greeting">
+    <h1>Welcome back, {{ current_user.username }}</h1>
+    <p>Here's your work overview for today.</p>
   </div>
 
-  <div class="services">
+  <!-- Project cards -->
+  <div id="projects-section">
+    <div class="loading-msg">Loading dashboard…</div>
+  </div>
 
-    <div class="card coming-soon">
-      <div class="icon purple">📋</div>
-      <h2>Variations</h2>
-      <p>Automated variation calculations and creditor analysis</p>
-      <span class="badge">Coming Soon</span>
+  <!-- Work queue -->
+  <div class="section-header" style="margin-top:0.5rem;">
+    <h2>Work Queue</h2>
+    <div class="filter-bar" id="queue-filters">
+      <button class="filter-btn active" data-filter="all">All</button>
+      <button class="filter-btn" data-filter="pending">Pending</button>
+      <button class="filter-btn" data-filter="in_progress">In Progress</button>
+      <button class="filter-btn" data-filter="completed">Completed</button>
     </div>
+  </div>
+  <div class="queue-table-wrap">
+    <div id="queue-container"><div class="loading-msg">Loading queue…</div></div>
+  </div>
 
-    <div class="card active">
-      <div class="icon indigo">✅</div>
-      <h2>Completions</h2>
-      <p>IVA completion calculations, waterfall analysis and cashier instructions</p>
-      <a href="/completions" class="btn">Open</a>
+  <!-- Tools -->
+  <div class="tools-section">
+    <div class="section-header">
+      <h2>Tools</h2>
     </div>
-
-    <div class="card coming-soon">
-      <div class="icon rose">🔚</div>
-      <h2>Terminations</h2>
-      <p>Termination processing and creditor distribution</p>
-      <span class="badge">Coming Soon</span>
+    <div class="tools-grid">
+      <div class="tool-card active">
+        <div class="tool-icon indigo">✅</div>
+        <h3>Completions</h3>
+        <p>IVA completion calculations &amp; cashier instructions</p>
+        <a href="/completions" class="tool-btn">Open</a>
+      </div>
+      <div class="tool-card coming-soon">
+        <div class="tool-icon amber">📊</div>
+        <h3>Arrears</h3>
+        <p>Arrears case management and analysis</p>
+        <span class="tool-badge">Coming Soon</span>
+      </div>
+      <div class="tool-card coming-soon">
+        <div class="tool-icon green">📅</div>
+        <h3>Annual Reviews</h3>
+        <p>Annual review calculations and reporting</p>
+        <span class="tool-badge">Coming Soon</span>
+      </div>
+      <div class="tool-card coming-soon">
+        <div class="tool-icon purple">📋</div>
+        <h3>Variations</h3>
+        <p>Automated variation calculations</p>
+        <span class="tool-badge">Coming Soon</span>
+      </div>
+      <div class="tool-card coming-soon">
+        <div class="tool-icon rose">🔚</div>
+        <h3>Terminations</h3>
+        <p>Termination processing</p>
+        <span class="tool-badge">Coming Soon</span>
+      </div>
     </div>
-
   </div>
 </div>
 
-<div class="footer">Omni Group &copy; 2026</div>
+<div class="footer">OMNI Group L.L.C-FZ &copy; 2026</div>
 
-{% if current_user.role in ['reviewer', 'admin'] %}
 <script>
+  const TASK_LABELS = { completion: 'Completion', arrears: 'Arrears', annual: 'Annual', variation: 'Variation', termination: 'Termination' };
+  const TASK_CLASS  = { completion: 'completion', arrears: 'arrears', annual: 'annual', variation: 'variation', termination: 'termination' };
+  const TOOL_URLS   = { completion: '/completions', arrears: '/arrears', annual: '/annuals', variation: '/', termination: '/' };
+
+  let allItems = [];
+  let currentFilter = 'all';
+
+  function escHtml(s) {
+    return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  function fmtDate(d) {
+    if (!d) return '—';
+    const dt = new Date(d + 'T00:00:00');
+    return dt.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  }
+
+  function dueCls(d) {
+    if (!d) return '';
+    const dt = new Date(d + 'T00:00:00');
+    const diff = (dt - new Date()) / 86400000;
+    if (diff < 0) return 'due-urgent';
+    if (diff < 7) return 'due-soon';
+    return '';
+  }
+
+  async function loadStats() {
+    try {
+      const res = await fetch('/api/dashboard/stats');
+      const stats = await res.json();
+      renderProjects(stats);
+    } catch {
+      document.getElementById('projects-section').innerHTML = '';
+    }
+  }
+
+  function renderProjects(stats) {
+    const sec = document.getElementById('projects-section');
+    if (!stats.length) {
+      sec.innerHTML = '<p style="color:#bbb;font-size:0.88rem;margin-bottom:1.5rem;">No projects assigned. Contact your administrator.</p>';
+      return;
+    }
+    sec.innerHTML = `<div class="projects-grid">${stats.map(p => {
+      const chips = [
+        p.pending_completions  > 0 ? `<span class="tt-chip completion">${p.pending_completions} Completions</span>` : '',
+        p.pending_arrears      > 0 ? `<span class="tt-chip arrears">${p.pending_arrears} Arrears</span>` : '',
+        p.pending_annuals      > 0 ? `<span class="tt-chip annual">${p.pending_annuals} Annuals</span>` : '',
+        p.pending_variations   > 0 ? `<span class="tt-chip variation">${p.pending_variations} Variations</span>` : '',
+        p.pending_terminations > 0 ? `<span class="tt-chip termination">${p.pending_terminations} Terminations</span>` : '',
+      ].filter(Boolean).join('');
+      const nextDue = p.next_due ? `<div class="next-due">Next due: <strong>${fmtDate(p.next_due)}</strong></div>` : '';
+      return `
+        <div class="project-card">
+          <div class="project-card-header">
+            <h2>${escHtml(p.name)}</h2>
+            <span class="project-badge">Project</span>
+          </div>
+          <div class="stat-grid">
+            <div class="stat-box highlight">
+              <div class="val">${p.pending_total}</div>
+              <div class="lbl">Pending</div>
+            </div>
+            <div class="stat-box">
+              <div class="val">${p.in_progress_total}</div>
+              <div class="lbl">In Progress</div>
+            </div>
+            <div class="stat-box">
+              <div class="val">${p.approved_cases}</div>
+              <div class="lbl">Approved</div>
+            </div>
+          </div>
+          ${chips ? `<div class="task-type-row">${chips}</div>` : ''}
+          ${nextDue}
+        </div>`;
+    }).join('')}</div>`;
+  }
+
+  async function loadQueue() {
+    try {
+      const res = await fetch('/api/work-items');
+      allItems = await res.json();
+      renderQueue();
+    } catch {
+      document.getElementById('queue-container').innerHTML = '<div class="empty-queue"><strong>Failed to load</strong>Could not fetch work queue.</div>';
+    }
+  }
+
+  function renderQueue() {
+    let items = allItems;
+    if (currentFilter !== 'all') items = items.filter(i => i.status === currentFilter);
+
+    const container = document.getElementById('queue-container');
+    if (!items.length) {
+      container.innerHTML = '<div class="empty-queue"><strong>All clear!</strong>No work items match this filter.</div>';
+      return;
+    }
+
+    container.innerHTML = `
+      <table>
+        <thead>
+          <tr>
+            <th>Case Number</th>
+            <th>Project</th>
+            <th>Type</th>
+            <th>Due Date</th>
+            <th>Status</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${items.map(item => {
+            const dc = dueCls(item.due_date);
+            const ttLabel = TASK_LABELS[item.task_type] || item.task_type;
+            const ttClass = TASK_CLASS[item.task_type] || 'completion';
+            const toolUrl = TOOL_URLS[item.task_type] || '/completions';
+            const actionBtn = item.status === 'pending' || item.status === 'in_progress'
+              ? `<a href="${toolUrl}?work_item=${item.id}&case_number=${encodeURIComponent(item.case_number)}" class="btn-work" onclick="markInProgress(${item.id}, event)">▶ Work</a>`
+              : `<span style="color:#bbb;font-size:0.82rem;">Done</span>`;
+            return `
+              <tr data-id="${item.id}">
+                <td><strong>${escHtml(item.case_number)}</strong></td>
+                <td>${escHtml(item.project_name)}</td>
+                <td><span class="tt-chip ${ttClass}">${escHtml(ttLabel)}</span></td>
+                <td><span class="${dc}">${fmtDate(item.due_date)}</span></td>
+                <td><span class="status-chip ${item.status}">${item.status.replace('_',' ')}</span></td>
+                <td>${actionBtn}</td>
+              </tr>`;
+          }).join('')}
+        </tbody>
+      </table>`;
+  }
+
+  async function markInProgress(id, e) {
+    try {
+      await fetch(`/api/work-items/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'in_progress' }),
+      });
+      const item = allItems.find(i => i.id === id);
+      if (item) item.status = 'in_progress';
+    } catch {}
+  }
+
+  document.getElementById('queue-filters').addEventListener('click', e => {
+    const btn = e.target.closest('.filter-btn');
+    if (!btn) return;
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentFilter = btn.dataset.filter;
+    renderQueue();
+  });
+
+  loadStats();
+  loadQueue();
+
+  {% if current_user.role in ['reviewer', 'admin'] %}
   const notifBtn      = document.getElementById('notif-btn');
   const notifBadge    = document.getElementById('notif-badge');
   const notifDropdown = document.getElementById('notif-dropdown');
   const notifList     = document.getElementById('notif-list');
-
   let notifications = [];
 
   async function loadNotifications() {
@@ -370,69 +422,36 @@
 
   function renderNotifications() {
     const unread = notifications.filter(n => !n.read).length;
-    if (unread > 0) {
-      notifBadge.textContent = unread > 99 ? '99+' : unread;
-      notifBadge.style.display = 'flex';
-    } else {
-      notifBadge.style.display = 'none';
-    }
-
+    if (unread > 0) { notifBadge.textContent = unread > 99 ? '99+' : unread; notifBadge.style.display = 'flex'; }
+    else { notifBadge.style.display = 'none'; }
     notifList.innerHTML = '';
-    if (!notifications.length) {
-      notifList.innerHTML = '<div class="notif-empty">No notifications</div>';
-      return;
-    }
+    if (!notifications.length) { notifList.innerHTML = '<div class="notif-empty">No notifications</div>'; return; }
     notifications.forEach(n => {
       const div = document.createElement('div');
       div.className = 'notif-item ' + (n.read ? 'read' : 'unread');
       const dt = new Date(n.created_at).toLocaleString('en-GB', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' });
-      div.innerHTML = `
-        <div class="notif-dot"></div>
-        <div>
-          <div class="notif-item-text">${escHtml(n.message)}</div>
-          <div class="notif-item-time">${dt}</div>
-        </div>`;
+      div.innerHTML = `<div class="notif-dot"></div><div><div class="notif-item-text">${escHtml(n.message)}</div><div class="notif-item-time">${dt}</div></div>`;
       div.addEventListener('click', async () => {
-        if (!n.read) {
-          await fetch(`/api/notifications/${n.id}/read`, { method: 'POST' });
-          n.read = true;
-          renderNotifications();
-        }
+        if (!n.read) { await fetch(`/api/notifications/${n.id}/read`, { method: 'POST' }); n.read = true; renderNotifications(); }
         window.location.href = '/completions?case=' + n.case_id;
       });
       notifList.appendChild(div);
     });
   }
 
-  function escHtml(s) {
-    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-  }
-
-  notifBtn.addEventListener('click', e => {
-    e.stopPropagation();
-    notifDropdown.classList.toggle('open');
-  });
-
-  document.addEventListener('click', e => {
-    if (!notifDropdown.contains(e.target) && e.target !== notifBtn) {
-      notifDropdown.classList.remove('open');
-    }
-  });
-
+  notifBtn.addEventListener('click', e => { e.stopPropagation(); notifDropdown.classList.toggle('open'); });
+  document.addEventListener('click', e => { if (!notifDropdown.contains(e.target) && e.target !== notifBtn) notifDropdown.classList.remove('open'); });
   document.getElementById('notif-mark-all').addEventListener('click', async e => {
     e.stopPropagation();
     await fetch('/api/notifications/read-all', { method: 'POST' });
     notifications.forEach(n => n.read = true);
     renderNotifications();
   });
-
   loadNotifications();
   setInterval(loadNotifications, 30000);
-</script>
-{% endif %}
+  {% endif %}
 
-{% if current_user.role == 'admin' %}
-<script>
+  {% if current_user.role == 'admin' %}
   const adminBtn      = document.getElementById('admin-menu-btn');
   const adminDropdown = document.getElementById('admin-dropdown');
   adminBtn.addEventListener('click', e => {
@@ -444,7 +463,7 @@
     adminDropdown.classList.remove('open');
     adminBtn.classList.remove('open');
   });
+  {% endif %}
 </script>
-{% endif %}
 </body>
 </html>
