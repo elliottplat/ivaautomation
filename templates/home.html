@@ -236,11 +236,11 @@
         <p>Automated variation calculations</p>
         <span class="tool-badge">Coming Soon</span>
       </div>
-      <div class="tool-card coming-soon">
+      <div class="tool-card active">
         <div class="tool-icon rose">🔚</div>
         <h3>Terminations</h3>
-        <p>Termination processing</p>
-        <span class="tool-badge">Coming Soon</span>
+        <p>Termination calculations &amp; cashier instructions</p>
+        <a href="/terminations" class="tool-btn">Open</a>
       </div>
     </div>
   </div>
@@ -251,7 +251,7 @@
 <script>
   const TASK_LABELS = { completion: 'Completion', arrears: 'Arrears', annual: 'Annual', variation: 'Variation', termination: 'Termination' };
   const TASK_CLASS  = { completion: 'completion', arrears: 'arrears', annual: 'annual', variation: 'variation', termination: 'termination' };
-  const TOOL_URLS   = { completion: '/completions', arrears: '/arrears', annual: '/annuals', variation: '/', termination: '/' };
+  const TOOL_URLS   = { completion: '/completions', arrears: '/arrears', annual: '/annuals', variation: '/', termination: '/terminations' };
 
   let allItems = [];
   let currentFilter = 'all';

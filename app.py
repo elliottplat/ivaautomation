@@ -351,6 +351,125 @@ DOCUMENT_SLOTS = [
     ("creditor_claims", "Creditor Claims Screen"),
 ]
 
+TERMINATION_SYSTEM_PROMPT = """\
+# ROLE
+You are a senior UK IVA (Individual Voluntary Arrangement) closure specialist handling TERMINATION cases only. You operate in strict audit mode: no assumptions, no estimates, no inferred values. If required data is missing, you STOP and report it.
+
+# INPUTS
+You will receive four documents for a single case:
+1. R&P — Receipts and Payments statement
+2. Contribution Schedule
+3. Modifications
+4. EOS — Estimated Outcome Statement
+
+# OBJECTIVE
+For this terminated IVA, determine:
+- Required creditor distribution
+- Amount actually paid to creditors
+- Shortfall or surplus
+- Refund required (if any)
+- Cashier-ready output
+
+# DOCUMENT PRIORITY (when sources conflict)
+1. R&P (highest)
+2. Contribution Schedule
+3. Modifications
+4. EOS (lowest — validation only, never used in calculations)
+
+# CALCULATION RULES
+
+## Conflict hard-lock
+Select the model that maximises creditor return over the full IVA life. Once selected, LOCK that model and apply it to the termination calculation. Do NOT re-select a different model at termination, even if a different model would be more favourable post-termination.
+
+## Contributions
+- Structure (expected schedule) → Contribution Schedule
+- Cash (actual received) → R&P
+- These MUST reconcile. If they don't, flag under RISKS.
+
+## Costs
+Treat ALL costs as Category 1 Disbursements (valid).
+- Do NOT reduce them
+- Do NOT include them in any refund calculation
+
+## Refund
+If a refund is required, refund £X from fees. No further allocation needed.
+
+## Calculation steps (explicit)
+1. Total contributions received = sum from R&P
+2. Retain first 2 contributions = £[retained]
+3. Distributable amount = total − retained
+4. Required creditor distribution = distributable × [creditor %]
+5. Paid to creditors = sum of creditor payments from R&P
+6. Shortfall / Surplus = required − paid
+   - If paid < required → shortfall (pay difference to creditors)
+   - If paid > required → surplus (refund difference from fees)
+   - If equal → no action
+
+# STOP CONDITIONS
+STOP and return an error response if any of the following are missing:
+- Cash figures (R&P)
+- Creditor payment records
+- Contribution schedule
+Return JSON: {"status": "STOP", "reason": "<which document/data is missing>"}
+
+# OUTPUT FORMAT
+Return a single JSON object with this exact structure:
+
+{
+  "status": "OK" | "STOP",
+  "ready_to_close": true | false,
+  "calculation_summary": {
+    "total_contributions": 0.00,
+    "retained_amount": 0.00,
+    "distributable_amount": 0.00,
+    "required_creditor_distribution": 0.00,
+    "paid_to_creditors": 0.00,
+    "shortfall_or_surplus": 0.00,
+    "refund_required": 0.00
+  },
+  "case_record": {
+    "ref": "XXX",
+    "type": "Termination",
+    "client_name": "",
+    "omni_notes": "",
+    "omni_fee_notes": "",
+    "creditors": ""
+  },
+  "copy_line": "XXX | Termination | <name> | <omni_notes> | <omni_fee_notes> | <creditors>",
+  "risks": []
+}
+
+# FIELD GENERATION RULES
+
+## omni_notes (mandatory)
+Format: "Model locked using full-life maximise rule. Contributions £<total>. First 2 retained £<retained>. Remaining £<distributable> → <pct>% to creditors = £<required> required. Paid £<paid> → shortfall/surplus £<diff>."
+
+## omni_fee_notes
+- If refund required: "Refund £<amount> from fees. Pay £<amount> to creditors."
+- If no refund: "No refund required."
+
+## creditors
+- If payment required: "Pay £<amount> to creditors"
+- If none: "£0.00"
+
+## ready_to_close
+- true if calculation completes cleanly with no unresolved risks
+- false if any STOP condition triggered or unreconciled risks exist
+
+## risks (array of strings)
+Include any of: conflicting modifications, EOS mismatch with R&P, contribution schedule vs R&P reconciliation issue, missing data that doesn't trigger full STOP, anything else flagged during audit.
+
+# IMPORTANT
+Return ONLY the JSON object. No preamble, no explanation, no markdown code fences. The response must be valid JSON parseable by JSON.parse().\
+"""
+
+TERMINATION_DOCUMENT_SLOTS = [
+    ("rp", "Receipts & Payments (R&P)"),
+    ("contribution_schedule", "Contribution Schedule"),
+    ("modifications", "Modifications"),
+    ("eos", "Estimated Outcome Statement (EOS)"),
+]
+
 
 # ---------------------------------------------------------------------------
 # Database
@@ -605,7 +724,20 @@ def encode_file(file):
 
 
 def extract_cashier_instruction(text):
-    lower = text.lower()
+    # Try JSON first (termination results)
+    stripped = (text or "").strip()
+    if stripped.startswith("{"):
+        try:
+            data = json.loads(stripped)
+            if isinstance(data, dict):
+                if data.get("copy_line"):
+                    return data["copy_line"]
+                if data.get("status") == "STOP":
+                    return f"STOP: {data.get('reason', 'Missing data')}"
+        except (json.JSONDecodeError, TypeError):
+            pass
+    # Completions markdown logic
+    lower = (text or "").lower()
     for marker in ["final cashier instruction", "🔒 final cashier"]:
         idx = lower.find(marker)
         if idx != -1:
@@ -709,6 +841,109 @@ def arrears():
 @login_required
 def annuals():
     return render_template("coming_soon.html", task_type="Annual Reviews")
+
+
+@app.route("/terminations")
+@login_required
+def terminations():
+    return render_template("terminations.html")
+
+
+# ---------------------------------------------------------------------------
+# Termination Analyze
+# ---------------------------------------------------------------------------
+@app.route("/analyze-termination", methods=["POST"])
+@login_required
+def analyze_termination():
+    if current_user.role not in ("uploader", "admin"):
+        return jsonify({"error": "Forbidden"}), 403
+
+    case_number = request.form.get("case_number", "").strip()
+    project_id_raw = request.form.get("project_id", "").strip()
+    project_id = int(project_id_raw) if project_id_raw.isdigit() else None
+    work_item_id_raw = request.form.get("work_item_id", "").strip()
+    work_item_id = int(work_item_id_raw) if work_item_id_raw.isdigit() else None
+    submitted_by = int(current_user.id)
+
+    content = []
+    any_document = False
+
+    for field_name, label in TERMINATION_DOCUMENT_SLOTS:
+        files = request.files.getlist(field_name)
+        pages = [f for f in files if f and f.filename]
+        if not pages:
+            continue
+        any_document = True
+        content.append({"type": "text", "text": f"--- {label} ({len(pages)} page(s)) ---"})
+        for page in pages:
+            try:
+                image_data, media_type = encode_file(page)
+            except ValueError as e:
+                return jsonify({"error": str(e)}), 400
+            content.append({"type": "image", "source": {"type": "base64", "media_type": media_type, "data": image_data}})
+
+    if not any_document:
+        return jsonify({"error": "Please upload at least one document."}), 400
+
+    content.append({"type": "text", "text": "CALCULATE"})
+
+    def generate():
+        full_text = []
+        try:
+            with client.messages.stream(
+                model="claude-opus-4-7",
+                max_tokens=4096,
+                system=[{"type": "text", "text": TERMINATION_SYSTEM_PROMPT, "cache_control": {"type": "ephemeral"}}],
+                messages=[{"role": "user", "content": content}],
+            ) as stream:
+                for text in stream.text_stream:
+                    full_text.append(text)
+                    yield f"data: {json.dumps({'text': text})}\n\n"
+
+                msg = stream.get_final_message()
+                usage = msg.usage
+                case_id = None
+
+                if case_number and os.environ.get("DATABASE_URL"):
+                    try:
+                        conn = get_db_conn()
+                        with conn.cursor() as cur:
+                            cur.execute(
+                                """INSERT INTO cases
+                                   (case_number, result, input_tokens, output_tokens,
+                                    cache_creation_tokens, cache_read_tokens, submitted_by,
+                                    project_id, task_type)
+                                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'termination') RETURNING id""",
+                                (case_number, "".join(full_text), usage.input_tokens, usage.output_tokens,
+                                 getattr(usage, "cache_creation_input_tokens", 0),
+                                 getattr(usage, "cache_read_input_tokens", 0), submitted_by, project_id),
+                            )
+                            case_id = cur.fetchone()[0]
+                            if work_item_id:
+                                cur.execute(
+                                    "UPDATE work_items SET status='in_progress', assigned_to=%s WHERE id=%s",
+                                    (submitted_by, work_item_id),
+                                )
+                            cur.execute(
+                                "SELECT id FROM users WHERE role IN ('reviewer', 'admin') AND active = TRUE AND id != %s",
+                                (submitted_by,),
+                            )
+                            for (uid,) in cur.fetchall():
+                                cur.execute(
+                                    "INSERT INTO notifications (user_id, case_id, message) VALUES (%s, %s, %s)",
+                                    (uid, case_id, f"New termination for review: {case_number}"),
+                                )
+                        conn.commit()
+                        conn.close()
+                    except Exception as e:
+                        print(f"Failed to save termination case: {e}")
+
+                yield f"data: {json.dumps({'done': True, 'case_id': case_id, 'usage': {'input_tokens': usage.input_tokens, 'output_tokens': usage.output_tokens, 'cache_creation_tokens': getattr(usage, 'cache_creation_input_tokens', 0), 'cache_read_tokens': getattr(usage, 'cache_read_input_tokens', 0)}})}\n\n"
+
+        except anthropic.APIError as e:
+            yield f"data: {json.dumps({'error': str(e)})}\n\n"
+
+    return Response(stream_with_context(generate()), mimetype="text/event-stream")
 
 
 # ---------------------------------------------------------------------------
@@ -1190,10 +1425,17 @@ def dashboard_stats():
 def list_cases():
     if not os.environ.get("DATABASE_URL"):
         return jsonify([])
+    task_type_filter = request.args.get("task_type")
     try:
         conn = get_db_conn()
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            cur.execute("SELECT id, case_number, created_at, review_status FROM cases ORDER BY created_at DESC LIMIT 100")
+            if task_type_filter:
+                cur.execute(
+                    "SELECT id, case_number, created_at, review_status FROM cases WHERE task_type = %s ORDER BY created_at DESC LIMIT 100",
+                    (task_type_filter,),
+                )
+            else:
+                cur.execute("SELECT id, case_number, created_at, review_status FROM cases ORDER BY created_at DESC LIMIT 100")
             rows = cur.fetchall()
         conn.close()
         return jsonify([{"id": r["id"], "case_number": r["case_number"], "created_at": r["created_at"].isoformat(), "review_status": r["review_status"]} for r in rows])
