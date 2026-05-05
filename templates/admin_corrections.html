@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Review Log – Omni Group</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, -apple-system, sans-serif; background: #f0f2f5; color: #1a1a2e; min-height: 100vh; }
+
+    .topbar {
+      background: #fff; border-bottom: 1px solid #e5e7eb;
+      padding: 0.75rem 1.5rem; display: flex; align-items: center; gap: 1rem;
+      position: sticky; top: 0; z-index: 10;
+    }
+    .topbar a.back { text-decoration: none; color: #6366f1; font-size: 0.88rem; font-weight: 600; display: flex; align-items: center; gap: 0.3rem; }
+    .topbar a.back:hover { color: #4f46e5; }
+    .topbar img { height: 36px; width: auto; }
+    .topbar h1 { font-size: 1.05rem; font-weight: 700; }
+    .topbar-spacer { flex: 1; }
+    .topbar-user { font-size: 0.82rem; color: #777; display: flex; align-items: center; gap: 0.75rem; }
+    .topbar-user strong { color: #333; }
+    .topbar-user a { color: #6366f1; text-decoration: none; font-weight: 600; font-size: 0.82rem; }
+    .topbar-user a:hover { color: #4f46e5; }
+
+    .page-content { max-width: 1100px; margin: 0 auto; padding: 2rem 1.25rem; }
+    .page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; }
+    .page-header h2 { font-size: 1.2rem; font-weight: 700; }
+    .page-header p { font-size: 0.84rem; color: #888; margin-top: 0.25rem; }
+
+    .filter-bar { display: flex; gap: 0.5rem; margin-bottom: 1.25rem; flex-wrap: wrap; }
+    .filter-btn {
+      padding: 0.4rem 1rem; border: 1.5px solid #d0d5dd; border-radius: 20px;
+      background: #fff; font-size: 0.82rem; font-weight: 600; color: #555; cursor: pointer;
+      transition: all 0.15s;
+    }
+    .filter-btn:hover, .filter-btn.active { border-color: #6366f1; color: #6366f1; background: #f5f5ff; }
+    .filter-btn.active { background: #6366f1; color: #fff; }
+
+    .case-card {
+      background: #fff; border-radius: 12px;
+      box-shadow: 0 1px 6px rgba(0,0,0,0.07);
+      margin-bottom: 1rem; overflow: hidden;
+    }
+    .card-header {
+      padding: 0.85rem 1.25rem;
+      display: flex; align-items: center; gap: 1rem;
+      border-bottom: 1px solid #f0f0f0;
+      flex-wrap: wrap;
+    }
+    .card-header .case-num { font-size: 1rem; font-weight: 700; color: #1a1a2e; }
+    .card-header .meta { font-size: 0.78rem; color: #aaa; }
+
+    .status-badge {
+      display: inline-flex; align-items: center; gap: 0.3rem;
+      padding: 0.25rem 0.75rem; border-radius: 20px;
+      font-size: 0.75rem; font-weight: 700;
+    }
+    .status-badge.approved { background: #dcfce7; color: #15803d; }
+    .status-badge.rejected { background: #fee2e2; color: #b91c1c; }
+    .status-badge.pending  { background: #fff7ed; color: #c2410c; }
+    .status-badge.edited   { background: #ede9fe; color: #5b21b6; }
+
+    .reviewer-info { font-size: 0.78rem; color: #888; margin-left: auto; }
+    .reviewer-info strong { color: #444; }
+
+    .card-body { padding: 1.25rem; display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+    @media (max-width: 700px) { .card-body { grid-template-columns: 1fr; } }
+
+    .col-label {
+      font-size: 0.72rem; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.5px; color: #999; margin-bottom: 0.5rem;
+    }
+    .instruction-box {
+      background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px;
+      padding: 0.85rem 1rem; font-size: 0.88rem; line-height: 1.6; color: #333;
+      min-height: 60px;
+    }
+    .instruction-box.edited-version { background: #f0fdf4; border-color: #86efac; color: #14532d; }
+    .instruction-box.approved-version { background: #f0fdf4; border-color: #86efac; }
+
+    .note-box {
+      background: #fff7ed; border: 1px solid #fed7aa; border-radius: 8px;
+      padding: 0.75rem 1rem; font-size: 0.88rem; color: #7c2d12; line-height: 1.6;
+    }
+    .note-box.approval-note { background: #f0fdf4; border-color: #86efac; color: #14532d; }
+
+    .full-width { grid-column: 1 / -1; }
+
+    .empty-state {
+      text-align: center; padding: 4rem 2rem; color: #bbb; font-size: 0.9rem;
+    }
+    .empty-state strong { display: block; font-size: 1.1rem; color: #999; margin-bottom: 0.5rem; }
+
+    .loading { text-align: center; padding: 3rem; color: #bbb; font-size: 0.88rem; }
+  </style>
+</head>
+<body>
+
+<div class="topbar">
+  <a class="back" href="/">&#8592; Home</a>
+  <img src="/static/logo.png" alt="Omni Group" />
+  <h1>Review Log</h1>
+  <div class="topbar-spacer"></div>
+  <div class="topbar-user">
+    <a href="/admin/users">Users</a>
+    <span>Signed in as <strong>{{ current_user.username }}</strong></span>
+    <a href="/logout">Sign out</a>
+  </div>
+</div>
+
+<div class="page-content">
+  <div class="page-header">
+    <div>
+      <h2>Corrections &amp; Review Log</h2>
+      <p>All reviewed and edited cashier instructions — use these to improve the prompt</p>
+    </div>
+  </div>
+
+  <div class="filter-bar">
+    <button class="filter-btn active" data-filter="all">All</button>
+    <button class="filter-btn" data-filter="approved">Approved</button>
+    <button class="filter-btn" data-filter="rejected">Rejected</button>
+    <button class="filter-btn" data-filter="edited">Edited</button>
+  </div>
+
+  <div id="cards-container"><div class="loading">Loading…</div></div>
+</div>
+
+<script>
+  let allData = [];
+  let currentFilter = 'all';
+
+  async function load() {
+    try {
+      const res = await fetch('/api/corrections');
+      allData = await res.json();
+      render();
+    } catch {
+      document.getElementById('cards-container').innerHTML =
+        '<div class="empty-state"><strong>Failed to load</strong>Could not fetch correction data.</div>';
+    }
+  }
+
+  function escHtml(s) {
+    return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  function statusBadge(status) {
+    if (!status) return '';
+    const labels = { approved: '✓ Approved', rejected: '✗ Rejected', pending: '⏳ Pending' };
+    return `<span class="status-badge ${status}">${labels[status] || status}</span>`;
+  }
+
+  function render() {
+    let items = allData;
+    if (currentFilter === 'approved') items = items.filter(r => r.review_status === 'approved');
+    else if (currentFilter === 'rejected') items = items.filter(r => r.review_status === 'rejected');
+    else if (currentFilter === 'edited') items = items.filter(r => r.edited);
+
+    const container = document.getElementById('cards-container');
+    if (!items.length) {
+      container.innerHTML = '<div class="empty-state"><strong>Nothing here yet</strong>Approved, rejected or edited cases will appear here.</div>';
+      return;
+    }
+
+    container.innerHTML = items.map(r => {
+      const date = new Date(r.created_at).toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' });
+      const reviewedAt = r.reviewed_at ? new Date(r.reviewed_at).toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' }) : '';
+      const hasEdit = !!r.edited;
+      const isRejected = r.review_status === 'rejected';
+      const isApproved = r.review_status === 'approved';
+
+      let bodyHtml = '';
+
+      // Original instruction
+      bodyHtml += `
+        <div>
+          <div class="col-label">Original AI Instruction</div>
+          <div class="instruction-box">${escHtml(r.original) || '<em style="color:#bbb">Not extractable</em>'}</div>
+        </div>`;
+
+      // Edited instruction (if changed)
+      if (hasEdit) {
+        bodyHtml += `
+          <div>
+            <div class="col-label">Edited Instruction <span class="status-badge edited" style="font-size:0.68rem;padding:0.15rem 0.5rem;">Edited</span></div>
+            <div class="instruction-box edited-version">${escHtml(r.edited)}</div>
+          </div>`;
+      } else if (isApproved) {
+        bodyHtml += `
+          <div>
+            <div class="col-label">Approved Instruction</div>
+            <div class="instruction-box approved-version">${escHtml(r.original) || '—'}</div>
+          </div>`;
+      } else {
+        bodyHtml += '<div></div>';
+      }
+
+      // Rejection note
+      if (isRejected && r.review_note) {
+        bodyHtml += `
+          <div class="full-width">
+            <div class="col-label">Rejection Note</div>
+            <div class="note-box">${escHtml(r.review_note)}</div>
+          </div>`;
+      }
+
+      // Edit reasoning
+      if (r.reasoning) {
+        bodyHtml += `
+          <div class="full-width">
+            <div class="col-label">Edit Reasoning</div>
+            <div class="note-box">${escHtml(r.reasoning)}</div>
+          </div>`;
+      }
+
+      // Approval note
+      if (isApproved && r.review_note) {
+        bodyHtml += `
+          <div class="full-width">
+            <div class="col-label">Approval Note</div>
+            <div class="note-box approval-note">${escHtml(r.review_note)}</div>
+          </div>`;
+      }
+
+      return `
+        <div class="case-card">
+          <div class="card-header">
+            <span class="case-num">${escHtml(r.case_number)}</span>
+            <span class="meta">Submitted ${date}</span>
+            ${statusBadge(r.review_status)}
+            ${r.reviewed_by ? `<span class="reviewer-info">Reviewed by <strong>${escHtml(r.reviewed_by)}</strong>${reviewedAt ? ' · ' + reviewedAt : ''}</span>` : ''}
+          </div>
+          <div class="card-body">${bodyHtml}</div>
+        </div>`;
+    }).join('');
+  }
+
+  document.querySelectorAll('.filter-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentFilter = btn.dataset.filter;
+      render();
+    });
+  });
+
+  load();
+</script>
+</body>
+</html>

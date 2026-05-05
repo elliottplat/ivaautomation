@@ -186,6 +186,138 @@
     .ci-btn.primary { border-color: #6366f1; color: #6366f1; }
     .ci-btn.danger { border-color: #fca5a5; color: #ef4444; }
     .ci-btn.danger:hover:not(:disabled) { border-color: #ef4444; background: #fef2f2; }
+    .ci-btn.review { border-color: #fb923c; color: #ea580c; }
+    .ci-btn.review:hover:not(:disabled) { border-color: #ea580c; background: #fff7ed; }
+
+    /* ── Review status colours ── */
+    .case-item.status-pending  { border-color: #fb923c !important; background: #fff7ed; }
+    .case-item.status-approved { border-color: #22c55e !important; background: #f0fdf4; }
+    .case-item.status-rejected { border-color: #ef4444 !important; background: #fef2f2; }
+    .case-item.status-pending .cn  { color: #c2410c; }
+    .case-item.status-approved .cn { color: #15803d; }
+    .case-item.status-rejected .cn { color: #b91c1c; }
+
+    .status-dot {
+      display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+      flex-shrink: 0; margin-right: 0.25rem;
+    }
+    .status-dot.pending  { background: #fb923c; }
+    .status-dot.approved { background: #22c55e; }
+    .status-dot.rejected { background: #ef4444; }
+
+    /* ── Full-screen review modal ── */
+    .review-overlay {
+      position: fixed; inset: 0;
+      background: rgba(15,15,30,0.65);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 200; padding: 1rem;
+      opacity: 0; pointer-events: none;
+      transition: opacity 0.18s;
+    }
+    .review-overlay.open { opacity: 1; pointer-events: all; }
+
+    .review-panel {
+      background: #fff; border-radius: 16px;
+      width: 100%; max-width: 900px;
+      max-height: 92vh;
+      display: flex; flex-direction: column;
+      box-shadow: 0 30px 80px rgba(0,0,0,0.25);
+      transform: translateY(16px);
+      transition: transform 0.18s;
+    }
+    .review-overlay.open .review-panel { transform: translateY(0); }
+
+    .review-header {
+      padding: 1.25rem 1.5rem;
+      border-bottom: 1px solid #e5e7eb;
+      display: flex; align-items: flex-start; justify-content: space-between;
+      flex-shrink: 0;
+      gap: 1rem;
+    }
+    .review-header-left h2 { font-size: 1.15rem; font-weight: 700; color: #1a1a2e; }
+    .review-header-left .review-meta { font-size: 0.82rem; color: #888; margin-top: 0.2rem; }
+    .review-close {
+      background: none; border: none; font-size: 1.5rem;
+      color: #999; cursor: pointer; line-height: 1; padding: 0;
+      flex-shrink: 0;
+    }
+    .review-close:hover { color: #333; }
+
+    .review-body { flex: 1; overflow-y: auto; padding: 1.5rem; }
+
+    .review-section-title {
+      font-size: 0.75rem; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.5px; color: #888; margin-bottom: 0.6rem;
+    }
+    .review-instruction-box {
+      background: #f0fdf4; border: 2px solid #86efac;
+      border-radius: 10px; padding: 1.1rem 1.25rem;
+      font-size: 1rem; line-height: 1.75; color: #14532d;
+      font-weight: 500; margin-bottom: 1.5rem;
+    }
+
+    .review-reject-section { display: none; }
+    .review-reject-section.visible { display: block; }
+
+    .review-field { margin-bottom: 1.25rem; }
+    .review-field label {
+      display: block; font-size: 0.85rem; font-weight: 600;
+      color: #333; margin-bottom: 0.4rem;
+    }
+    .review-field label .optional { font-weight: 400; color: #999; }
+    .review-field textarea {
+      width: 100%; border: 1.5px solid #d0d5dd; border-radius: 8px;
+      padding: 0.75rem; font-size: 0.9rem; font-family: inherit;
+      resize: vertical; min-height: 90px; transition: border-color 0.2s;
+    }
+    .review-field textarea:focus { outline: none; border-color: #6366f1; }
+
+    .review-footer {
+      padding: 1rem 1.5rem;
+      border-top: 1px solid #e5e7eb;
+      display: flex; align-items: center; justify-content: space-between;
+      flex-shrink: 0; gap: 1rem;
+    }
+    .review-error {
+      font-size: 0.82rem; color: #b91c1c;
+      background: #fef2f2; border: 1px solid #fecaca;
+      border-radius: 6px; padding: 0.5rem 0.75rem;
+      display: none; flex: 1;
+    }
+    .review-actions { display: flex; gap: 0.75rem; }
+
+    .btn-review-approve {
+      padding: 0.65rem 1.75rem;
+      background: #22c55e; color: #fff; border: none; border-radius: 8px;
+      font-size: 0.95rem; font-weight: 700; cursor: pointer;
+      transition: background 0.2s;
+    }
+    .btn-review-approve:hover { background: #16a34a; }
+
+    .btn-review-reject {
+      padding: 0.65rem 1.75rem;
+      background: #fff; color: #ef4444;
+      border: 2px solid #ef4444; border-radius: 8px;
+      font-size: 0.95rem; font-weight: 700; cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-review-reject:hover { background: #ef4444; color: #fff; }
+
+    .btn-review-cancel {
+      padding: 0.65rem 1.25rem;
+      background: #fff; color: #555;
+      border: 1.5px solid #d0d5dd; border-radius: 8px;
+      font-size: 0.9rem; font-weight: 600; cursor: pointer;
+    }
+    .btn-review-cancel:hover { border-color: #999; }
+
+    .btn-submit-reject {
+      padding: 0.65rem 1.75rem;
+      background: #ef4444; color: #fff; border: none; border-radius: 8px;
+      font-size: 0.95rem; font-weight: 700; cursor: pointer;
+      transition: background 0.2s;
+    }
+    .btn-submit-reject:hover { background: #dc2626; }
 
     .inline-spinner {
       width: 11px; height: 11px;
@@ -500,6 +632,7 @@
   <div class="topbar-right">
     {% if current_user.role == 'admin' %}
     <a href="/api/cases/export" class="topbar-link" id="csv-export-link">Export CSV</a>
+    <a href="/admin/corrections" class="topbar-link">Review Log</a>
     <a href="/admin/users" class="topbar-link">Users</a>
     {% endif %}
 
@@ -630,6 +763,45 @@
   </div>
 
 </div><!-- /shell -->
+
+<!-- Review Modal -->
+<div class="review-overlay" id="review-overlay">
+  <div class="review-panel">
+    <div class="review-header">
+      <div class="review-header-left">
+        <h2>Case Review — <span id="review-case-number"></span></h2>
+        <div class="review-meta" id="review-case-meta"></div>
+      </div>
+      <button class="review-close" id="review-close">×</button>
+    </div>
+    <div class="review-body">
+      <div class="review-section-title">Cashier Instruction</div>
+      <div class="review-instruction-box" id="review-instruction-display"></div>
+
+      <div class="review-reject-section" id="review-reject-section">
+        <div class="review-field">
+          <label for="review-edited-instruction">Edit Instruction <span class="optional">(optional — only if correction required)</span></label>
+          <textarea id="review-edited-instruction" placeholder="Leave blank to keep original instruction…"></textarea>
+        </div>
+        <div class="review-field">
+          <label for="review-rejection-note">Rejection Note <span style="color:#ef4444;">*</span></label>
+          <textarea id="review-rejection-note" placeholder="Explain why this instruction is being rejected…"></textarea>
+        </div>
+      </div>
+    </div>
+    <div class="review-footer">
+      <div class="review-error" id="review-error"></div>
+      <div class="review-actions" id="review-initial-actions">
+        <button class="btn-review-reject" id="btn-review-reject">✗ Reject</button>
+        <button class="btn-review-approve" id="btn-review-approve">✓ Approve</button>
+      </div>
+      <div class="review-actions" id="review-reject-actions" style="display:none;">
+        <button class="btn-review-cancel" id="btn-cancel-reject">Cancel</button>
+        <button class="btn-submit-reject" id="btn-submit-reject">Submit Rejection</button>
+      </div>
+    </div>
+  </div>
+</div>
 
 <!-- Reasoning Modal -->
 <div class="modal-overlay" id="reasoning-modal-overlay">
@@ -950,7 +1122,17 @@
       btn.disabled = false;
       btn.dataset.key = finalKey;
     });
+    // New submissions start as pending
+    if (finalKey.indexOf('temp-') === -1) {
+      applyStatusClass(oldEl, 'pending');
+      if (CAN_EDIT_CASHIER) addReviewBtn(oldEl, finalKey);
+    }
     if (IS_ADMIN) addDeleteBtn(oldEl, finalKey);
+  }
+
+  function applyStatusClass(el, status) {
+    el.classList.remove('status-pending', 'status-approved', 'status-rejected');
+    if (status) el.classList.add('status-' + status);
   }
 
   function addDeleteBtn(el, key) {
@@ -965,11 +1147,24 @@
     actions.appendChild(btn);
   }
 
-  function sidebarAddStored(id, caseNumber, createdAt) {
+  function addReviewBtn(el, key) {
+    if (el.querySelector('[data-type="review"]')) return;
+    const actions = el.querySelector('.ci-actions');
+    const btn = document.createElement('button');
+    btn.className = 'ci-btn review';
+    btn.style.flex = '0 0 auto';
+    btn.dataset.key = key;
+    btn.dataset.type = 'review';
+    btn.textContent = 'Review';
+    actions.appendChild(btn);
+  }
+
+  function sidebarAddStored(id, caseNumber, createdAt, reviewStatus) {
     document.getElementById('sidebar-empty').style.display = 'none';
     const list = document.getElementById('case-list');
     const el = document.createElement('div');
-    el.className = 'case-item';
+    const statusClass = reviewStatus ? ' status-' + reviewStatus : '';
+    el.className = 'case-item' + statusClass;
     el.id = 'case-item-' + id;
     const dt = new Date(createdAt);
     const dateStr = dt.toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' })
@@ -982,6 +1177,7 @@
       <div class="ci-actions">
         <button class="ci-btn" data-key="${id}" data-type="full">Full Log</button>
         <button class="ci-btn primary" data-key="${id}" data-type="cashier">Cashier</button>
+        ${CAN_EDIT_CASHIER ? `<button class="ci-btn review" style="flex:0 0 auto" data-key="${id}" data-type="review">Review</button>` : ''}
         ${IS_ADMIN ? `<button class="ci-btn danger" style="flex:0 0 auto" data-key="${id}" data-type="delete">Delete</button>` : ''}
       </div>`;
     list.appendChild(el);
@@ -1003,6 +1199,11 @@
           document.getElementById('sidebar-empty').style.display = '';
         }
       } catch { alert('Failed to delete case.'); }
+      return;
+    }
+
+    if (type === 'review') {
+      await openReviewModal(key);
       return;
     }
 
@@ -1029,6 +1230,7 @@
             cache_read_tokens: data.cache_read_tokens,
           },
           cashierOverride: data.cashier_instruction_override ?? null,
+          reviewStatus: data.review_status,
         };
         openModal(key, type, store[key]);
       } catch {
@@ -1238,11 +1440,6 @@
     spinner.className = 'btn-spinner';
     submitBtn.appendChild(spinner);
 
-    // Auto-open cashier modal if we're not currently viewing something
-    if (!currentModalKey) {
-      openModal(tempKey, 'cashier', store[tempKey]);
-    }
-
     try {
       const res = await fetch('/analyze', { method: 'POST', body: fd });
       if (!res.ok) throw new Error('Server error ' + res.status);
@@ -1319,7 +1516,7 @@
       const cases = await res.json();
       if (Array.isArray(cases) && cases.length) {
         document.getElementById('sidebar-empty').style.display = 'none';
-        cases.forEach(c => sidebarAddStored(c.id, c.case_number, c.created_at));
+        cases.forEach(c => sidebarAddStored(c.id, c.case_number, c.created_at, c.review_status));
       }
     } catch {}
   }
@@ -1353,6 +1550,121 @@
         } catch { closeModal(); }
       }
     });
+  }
+
+  // ── Review modal ─────────────────────────────────────────────────────────
+  let reviewCaseId = null;
+  let reviewRejectMode = false;
+
+  async function openReviewModal(key) {
+    reviewCaseId = key;
+    reviewRejectMode = false;
+
+    // Ensure case is loaded
+    if (!store[key]) {
+      try {
+        const res  = await fetch(`/api/cases/${key}`);
+        const data = await res.json();
+        store[key] = {
+          caseNumber: data.case_number,
+          fullText: data.result,
+          pending: false,
+          usage: { input_tokens: data.input_tokens, output_tokens: data.output_tokens,
+                   cache_creation_tokens: data.cache_creation_tokens, cache_read_tokens: data.cache_read_tokens },
+          cashierOverride: data.cashier_instruction_override ?? null,
+          reviewStatus: data.review_status,
+        };
+      } catch { alert('Failed to load case.'); return; }
+    }
+
+    const entry = store[key];
+    const cashier = getCashierText(entry);
+    const dt = new Date().toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' });
+
+    document.getElementById('review-case-number').textContent = entry.caseNumber || key;
+    document.getElementById('review-case-meta').textContent = 'Cashier instruction for review';
+    document.getElementById('review-instruction-display').textContent = cashier || '(No cashier instruction found)';
+    document.getElementById('review-edited-instruction').value = cashier;
+    document.getElementById('review-rejection-note').value = '';
+    document.getElementById('review-error').style.display = 'none';
+
+    // Reset to initial state
+    setReviewRejectMode(false);
+
+    document.getElementById('review-overlay').classList.add('open');
+  }
+
+  function setReviewRejectMode(on) {
+    reviewRejectMode = on;
+    document.getElementById('review-reject-section').classList.toggle('visible', on);
+    document.getElementById('review-initial-actions').style.display = on ? 'none' : '';
+    document.getElementById('review-reject-actions').style.display = on ? '' : 'none';
+    document.getElementById('review-error').style.display = 'none';
+  }
+
+  function closeReviewModal() {
+    document.getElementById('review-overlay').classList.remove('open');
+    reviewCaseId = null;
+    reviewRejectMode = false;
+  }
+
+  document.getElementById('review-close').addEventListener('click', closeReviewModal);
+  document.getElementById('review-overlay').addEventListener('click', e => {
+    if (e.target === document.getElementById('review-overlay')) closeReviewModal();
+  });
+
+  document.getElementById('btn-review-reject').addEventListener('click', () => setReviewRejectMode(true));
+  document.getElementById('btn-cancel-reject').addEventListener('click', () => setReviewRejectMode(false));
+
+  document.getElementById('btn-review-approve').addEventListener('click', async () => {
+    if (!reviewCaseId) return;
+    try {
+      const res = await fetch(`/api/cases/${reviewCaseId}/review`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'approve' }),
+      });
+      const data = await res.json();
+      if (data.error) { showReviewError(data.error); return; }
+      updateSidebarStatus(reviewCaseId, 'approved');
+      closeReviewModal();
+    } catch { showReviewError('Request failed. Please try again.'); }
+  });
+
+  document.getElementById('btn-submit-reject').addEventListener('click', async () => {
+    if (!reviewCaseId) return;
+    const note = document.getElementById('review-rejection-note').value.trim();
+    if (!note) { showReviewError('Please enter a rejection note.'); return; }
+    const editedRaw = document.getElementById('review-edited-instruction').value.trim();
+    const entry = store[reviewCaseId];
+    const original = getCashierText(entry);
+    const instruction = (editedRaw && editedRaw !== original) ? editedRaw : null;
+    try {
+      const res = await fetch(`/api/cases/${reviewCaseId}/review`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'reject', note, ...(instruction ? { instruction } : {}) }),
+      });
+      const data = await res.json();
+      if (data.error) { showReviewError(data.error); return; }
+      if (instruction && store[reviewCaseId]) {
+        store[reviewCaseId].cashierOverride = instruction;
+      }
+      updateSidebarStatus(reviewCaseId, 'rejected');
+      closeReviewModal();
+    } catch { showReviewError('Request failed. Please try again.'); }
+  });
+
+  function showReviewError(msg) {
+    const el = document.getElementById('review-error');
+    el.textContent = msg;
+    el.style.display = '';
+  }
+
+  function updateSidebarStatus(key, status) {
+    const el = document.getElementById('case-item-' + key);
+    if (el) applyStatusClass(el, status);
+    if (store[key]) store[key].reviewStatus = status;
   }
 
   // ── Notification bell ─────────────────────────────────────────────────────

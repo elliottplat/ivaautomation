@@ -422,6 +422,50 @@ def init_db():
                 END $$
             """)
             cur.execute("""
+                DO $$
+                BEGIN
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_name='cases' AND column_name='review_status'
+                    ) THEN
+                        ALTER TABLE cases ADD COLUMN review_status VARCHAR(20) DEFAULT 'pending';
+                    END IF;
+                END $$
+            """)
+            cur.execute("""
+                DO $$
+                BEGIN
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_name='cases' AND column_name='review_note'
+                    ) THEN
+                        ALTER TABLE cases ADD COLUMN review_note TEXT;
+                    END IF;
+                END $$
+            """)
+            cur.execute("""
+                DO $$
+                BEGIN
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_name='cases' AND column_name='reviewed_by'
+                    ) THEN
+                        ALTER TABLE cases ADD COLUMN reviewed_by INTEGER REFERENCES users(id);
+                    END IF;
+                END $$
+            """)
+            cur.execute("""
+                DO $$
+                BEGIN
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_name='cases' AND column_name='reviewed_at'
+                    ) THEN
+                        ALTER TABLE cases ADD COLUMN reviewed_at TIMESTAMP;
+                    END IF;
+                END $$
+            """)
+            cur.execute("""
                 CREATE TABLE IF NOT EXISTS notifications (
                     id SERIAL PRIMARY KEY,
                     user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
@@ -456,10 +500,33 @@ def init_admin():
         print(f"Admin init failed: {e}")
 
 
+def init_user_passwords():
+    """One-time password migrations for named users."""
+    updates = [
+        ("markm", "UbQ!4S8B4UGTkGn8"),
+    ]
+    try:
+        conn = get_db_conn()
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            for username, password in updates:
+                cur.execute("SELECT password_hash FROM users WHERE username = %s", (username,))
+                row = cur.fetchone()
+                if row and not check_password_hash(row["password_hash"], password):
+                    cur.execute(
+                        "UPDATE users SET password_hash = %s WHERE username = %s",
+                        (generate_password_hash(password), username),
+                    )
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        print(f"Password migration failed: {e}")
+
+
 if os.environ.get("DATABASE_URL"):
     try:
         init_db()
         init_admin()
+        init_user_passwords()
     except Exception as e:
         print(f"Warning: DB init failed: {e}")
 
@@ -707,11 +774,15 @@ def list_corrections():
         conn = get_db_conn()
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute("""
-                SELECT id, case_number, created_at, result,
-                       cashier_instruction_override, cashier_instruction_reasoning
-                FROM cases
-                WHERE cashier_instruction_override IS NOT NULL
-                ORDER BY created_at DESC
+                SELECT c.id, c.case_number, c.created_at, c.result,
+                       c.cashier_instruction_override, c.cashier_instruction_reasoning,
+                       c.review_status, c.review_note, c.reviewed_at,
+                       u.username AS reviewed_by_username
+                FROM cases c
+                LEFT JOIN users u ON c.reviewed_by = u.id
+                WHERE c.cashier_instruction_override IS NOT NULL
+                   OR c.review_status IN ('approved', 'rejected')
+                ORDER BY COALESCE(c.reviewed_at, c.created_at) DESC
             """)
             rows = cur.fetchall()
         conn.close()
@@ -722,6 +793,10 @@ def list_corrections():
             "original": extract_cashier_instruction(r["result"] or ""),
             "edited": r["cashier_instruction_override"],
             "reasoning": r["cashier_instruction_reasoning"] or "",
+            "review_status": r["review_status"],
+            "review_note": r["review_note"] or "",
+            "reviewed_at": r["reviewed_at"].isoformat() if r["reviewed_at"] else None,
+            "reviewed_by": r["reviewed_by_username"] or "",
         } for r in rows])
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -738,10 +813,10 @@ def list_cases():
     try:
         conn = get_db_conn()
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            cur.execute("SELECT id, case_number, created_at FROM cases ORDER BY created_at DESC LIMIT 100")
+            cur.execute("SELECT id, case_number, created_at, review_status FROM cases ORDER BY created_at DESC LIMIT 100")
             rows = cur.fetchall()
         conn.close()
-        return jsonify([{"id": r["id"], "case_number": r["case_number"], "created_at": r["created_at"].isoformat()} for r in rows])
+        return jsonify([{"id": r["id"], "case_number": r["case_number"], "created_at": r["created_at"].isoformat(), "review_status": r["review_status"]} for r in rows])
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -798,6 +873,7 @@ def get_case(case_id):
             "input_tokens": row["input_tokens"], "output_tokens": row["output_tokens"],
             "cache_creation_tokens": row["cache_creation_tokens"], "cache_read_tokens": row["cache_read_tokens"],
             "cashier_instruction_override": row.get("cashier_instruction_override"),
+            "review_status": row.get("review_status"),
         })
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -821,6 +897,41 @@ def save_cashier_instruction(case_id):
         conn.commit()
         conn.close()
         return jsonify({"ok": True})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/cases/<int:case_id>/review", methods=["POST"])
+@login_required
+def review_case(case_id):
+    if current_user.role not in ("reviewer", "admin"):
+        return jsonify({"error": "Forbidden"}), 403
+    data = request.get_json()
+    action = data.get("action")
+    if action not in ("approve", "reject"):
+        return jsonify({"error": "Invalid action"}), 400
+    note = data.get("note", "").strip()
+    instruction = data.get("instruction")
+    status = "approved" if action == "approve" else "rejected"
+    try:
+        conn = get_db_conn()
+        with conn.cursor() as cur:
+            if instruction is not None:
+                cur.execute(
+                    """UPDATE cases SET review_status=%s, review_note=%s,
+                       reviewed_by=%s, reviewed_at=NOW(),
+                       cashier_instruction_override=%s WHERE id=%s""",
+                    (status, note or None, int(current_user.id), instruction, case_id),
+                )
+            else:
+                cur.execute(
+                    """UPDATE cases SET review_status=%s, review_note=%s,
+                       reviewed_by=%s, reviewed_at=NOW() WHERE id=%s""",
+                    (status, note or None, int(current_user.id), case_id),
+                )
+        conn.commit()
+        conn.close()
+        return jsonify({"ok": True, "status": status})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
