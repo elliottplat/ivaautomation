@@ -44,6 +44,37 @@
     }
     .topbar-link:hover { color: #4f46e5; }
 
+    .admin-menu-wrap { position: relative; }
+    .admin-menu-btn {
+      display: flex; align-items: center; gap: 0.3rem;
+      font-size: 0.82rem; font-weight: 600; color: #6366f1;
+      background: none; border: 1.5px solid #e0e7ff; border-radius: 7px;
+      padding: 0.3rem 0.75rem; cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .admin-menu-btn:hover { background: #f5f5ff; border-color: #6366f1; }
+    .admin-menu-btn .chevron { font-size: 0.6rem; transition: transform 0.15s; }
+    .admin-menu-btn.open .chevron { transform: rotate(180deg); }
+    .admin-dropdown {
+      position: absolute; top: calc(100% + 6px); right: 0;
+      background: #fff; border-radius: 10px;
+      box-shadow: 0 8px 28px rgba(0,0,0,0.13);
+      border: 1px solid #e5e7eb;
+      min-width: 170px; padding: 0.35rem 0;
+      display: none; z-index: 300;
+    }
+    .admin-dropdown.open { display: block; }
+    .admin-dropdown a {
+      display: flex; align-items: center; gap: 0.5rem;
+      width: 100%; padding: 0.6rem 1rem;
+      font-size: 0.84rem; font-weight: 500; color: #333;
+      text-decoration: none; transition: background 0.1s;
+    }
+    .admin-dropdown a:hover { background: #f5f5ff; color: #4f46e5; }
+    .admin-dropdown .divider { height: 1px; background: #f0f0f0; margin: 0.25rem 0; }
+    .admin-dropdown .danger { color: #ef4444; }
+    .admin-dropdown .danger:hover { background: #fef2f2; color: #dc2626; }
+
     /* ── Notification bell ── */
     .notif-wrap { position: relative; }
     .notif-btn {
@@ -246,10 +277,6 @@
   <span class="topbar-title">IVA Automation Suite</span>
   <div class="topbar-spacer"></div>
   <div class="topbar-right">
-    {% if current_user.role in ['admin'] %}
-    <a href="/admin/users" class="topbar-link">Users</a>
-    {% endif %}
-
     {% if current_user.role in ['reviewer', 'admin'] %}
     <div class="notif-wrap">
       <button class="notif-btn" id="notif-btn" title="Notifications">
@@ -269,7 +296,23 @@
     {% endif %}
 
     <span class="topbar-user">Signed in as <strong>{{ current_user.username }}</strong></span>
+
+    {% if current_user.role == 'admin' %}
+    <div class="admin-menu-wrap">
+      <button class="admin-menu-btn" id="admin-menu-btn">
+        ⚙ Admin <span class="chevron">▼</span>
+      </button>
+      <div class="admin-dropdown" id="admin-dropdown">
+        <a href="/completions">✅ Completions</a>
+        <a href="/admin/corrections">📋 Review Log</a>
+        <a href="/admin/users">👥 Users</a>
+        <div class="divider"></div>
+        <a href="/logout" class="danger">Sign out</a>
+      </div>
+    </div>
+    {% else %}
     <a href="/logout" class="topbar-link">Sign out</a>
+    {% endif %}
   </div>
 </div>
 
@@ -385,6 +428,22 @@
 
   loadNotifications();
   setInterval(loadNotifications, 30000);
+</script>
+{% endif %}
+
+{% if current_user.role == 'admin' %}
+<script>
+  const adminBtn      = document.getElementById('admin-menu-btn');
+  const adminDropdown = document.getElementById('admin-dropdown');
+  adminBtn.addEventListener('click', e => {
+    e.stopPropagation();
+    const open = adminDropdown.classList.toggle('open');
+    adminBtn.classList.toggle('open', open);
+  });
+  document.addEventListener('click', () => {
+    adminDropdown.classList.remove('open');
+    adminBtn.classList.remove('open');
+  });
 </script>
 {% endif %}
 </body>
