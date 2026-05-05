@@ -173,6 +173,34 @@
     .notes-label { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; color: #999; margin-bottom: 0.35rem; }
     .notes-value { font-size: 0.88rem; color: #333; line-height: 1.6; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 7px; padding: 0.65rem 0.85rem; }
 
+    /* cashier instruction card */
+    .instruction-card { background: #fff; border-radius: 12px; box-shadow: 0 1px 6px rgba(0,0,0,0.07); padding: 1.25rem 1.5rem; border-left: 4px solid #6366f1; }
+    .instruction-card h3 { font-size: 0.95rem; font-weight: 700; margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.5rem; }
+    .instruction-text { font-size: 0.92rem; line-height: 1.7; color: #1a1a2e; }
+
+    /* locked model card */
+    .model-card { background: #fff; border-radius: 12px; box-shadow: 0 1px 6px rgba(0,0,0,0.07); padding: 1.25rem 1.5rem; }
+    .model-card h3 { font-size: 0.95rem; font-weight: 700; margin-bottom: 0.85rem; }
+    .model-detail { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; margin-bottom: 0.75rem; }
+    @media (max-width: 600px) { .model-detail { grid-template-columns: 1fr; } }
+    .model-field { background: #f9fafb; border-radius: 7px; padding: 0.55rem 0.75rem; }
+    .model-field .mf-label { font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; color: #999; margin-bottom: 0.2rem; }
+    .model-field .mf-value { font-size: 0.88rem; color: #333; }
+    .model-mods { margin-top: 0.5rem; }
+    .model-mod-chip { display: inline-block; background: #ede9fe; color: #5b21b6; font-size: 0.75rem; font-weight: 600; padding: 0.22rem 0.6rem; border-radius: 10px; margin: 0.2rem 0.2rem 0 0; }
+
+    /* fee breakdown */
+    .fee-card { background: #fff; border-radius: 12px; box-shadow: 0 1px 6px rgba(0,0,0,0.07); padding: 1.25rem 1.5rem; }
+    .fee-card h3 { font-size: 0.95rem; font-weight: 700; margin-bottom: 0.85rem; }
+    .position-chip { font-size: 0.72rem; font-weight: 700; padding: 0.15rem 0.5rem; border-radius: 8px; display: inline-block; }
+    .position-chip.underdrawn { background: #dcfce7; color: #15803d; }
+    .position-chip.overdrawn  { background: #fee2e2; color: #b91c1c; }
+    .position-chip.matched    { background: #f3f4f6; color: #555; }
+
+    /* disbursement breakdown */
+    .disb-card { background: #fff; border-radius: 12px; box-shadow: 0 1px 6px rgba(0,0,0,0.07); padding: 1.25rem 1.5rem; }
+    .disb-card h3 { font-size: 0.95rem; font-weight: 700; margin-bottom: 0.85rem; }
+
     /* risks card */
     .risks-card { background: #fff7ed; border: 1px solid #fed7aa; border-radius: 12px; padding: 1.25rem 1.5rem; }
     .risks-card h3 { font-size: 0.95rem; font-weight: 700; color: #92400e; margin-bottom: 0.75rem; }
@@ -196,7 +224,8 @@
     .review-tab-panel { display: none; }
     .review-tab-panel.active { display: block; }
     .review-section-title { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #999; margin-bottom: 0.6rem; }
-    .review-copyline-box { background: #f0fdf4; border: 1px solid #86efac; border-radius: 8px; padding: 1rem 1.25rem; font-size: 0.9rem; line-height: 1.6; color: #14532d; font-family: ui-monospace, monospace; word-break: break-all; min-height: 80px; margin-bottom: 1rem; }
+    .review-copyline-box { background: #f0fdf4; border: 1px solid #86efac; border-radius: 8px; padding: 1rem 1.25rem; font-size: 0.9rem; line-height: 1.7; color: #14532d; min-height: 60px; margin-bottom: 1rem; }
+    .review-instruction-box { background: #f0f4ff; border: 1px solid #c7d2fe; border-radius: 8px; padding: 1rem 1.25rem; font-size: 0.9rem; line-height: 1.7; color: #1e1b4b; min-height: 60px; margin-bottom: 1rem; }
     .review-reject-section { display: none; }
     .review-reject-section.visible { display: block; }
     .review-field { margin-bottom: 1rem; }
@@ -356,23 +385,28 @@
       <button class="review-close" id="review-close">×</button>
     </div>
     <div class="review-tabs">
-      <button class="review-tab active" data-tab="copyline">Copy Line</button>
+      <button class="review-tab active" data-tab="instruction">Cashier Instruction</button>
+      <button class="review-tab" data-tab="copyline">Copy Line</button>
       <button class="review-tab" data-tab="fulllog">Full Calculation</button>
     </div>
     <div class="review-body">
-      <div class="review-tab-panel active" id="review-tab-copyline">
-        <div class="review-section-title">Copy Line</div>
-        <div class="review-copyline-box" id="review-copyline-display"></div>
+      <div class="review-tab-panel active" id="review-tab-instruction">
+        <div class="review-section-title">Final Cashier Instruction</div>
+        <div class="review-instruction-box" id="review-instruction-display"></div>
         <div class="review-reject-section" id="review-reject-section">
           <div class="review-field">
-            <label>Edit Copy Line <span class="optional">(optional — only if correction required)</span></label>
-            <textarea id="review-edited-copyline" placeholder="Leave blank to keep original…"></textarea>
+            <label>Edit Instruction <span class="optional">(optional — only if correction required)</span></label>
+            <textarea id="review-edited-instruction" placeholder="Leave blank to keep original…"></textarea>
           </div>
           <div class="review-field">
             <label for="review-rejection-note">Rejection Note <span style="color:#ef4444;">*</span></label>
             <textarea id="review-rejection-note" placeholder="Explain why this calculation is being rejected…"></textarea>
           </div>
         </div>
+      </div>
+      <div class="review-tab-panel" id="review-tab-copyline">
+        <div class="review-section-title">Copy Line</div>
+        <div class="review-copyline-box" id="review-copyline-display"></div>
       </div>
       <div class="review-tab-panel" id="review-tab-fulllog">
         <div id="review-fulllog-content">
@@ -496,7 +530,13 @@
       </div>`;
   }
 
-  function renderResult(result, copyLineOverride) {
+  function positionChip(pos) {
+    if (!pos) return '';
+    const cls = pos.toLowerCase().includes('under') ? 'underdrawn' : pos.toLowerCase().includes('over') ? 'overdrawn' : 'matched';
+    return `<span class="position-chip ${cls}">${escHtml(pos)}</span>`;
+  }
+
+  function renderResult(result, overrides) {
     const wrap = document.getElementById('output-wrap');
     wrap.className = 'output-wrap visible';
 
@@ -516,15 +556,106 @@
       return;
     }
 
-    const copyLine = copyLineOverride || result.copy_line || '';
+    const finalInstruction = (overrides && overrides.instruction) || result.final_cashier_instruction || '';
+    const copyLine = result.copy_line || '';
+    const lm = result.locked_model || {};
     const cs = result.calculation_summary || {};
     const cr = result.case_record || {};
+    const feeBreakdown = result.fee_breakdown || [];
+    const disbBreakdown = result.disbursement_breakdown || [];
     const risks = result.risks || [];
     const readyToClose = result.ready_to_close;
 
     const shortfall = cs.shortfall_or_surplus || 0;
     const shortfallClass = shortfall < 0 ? 'shortfall' : shortfall > 0 ? 'surplus' : '';
-    const shortfallLabel = shortfall < 0 ? 'Shortfall (pay creditors)' : shortfall > 0 ? 'Surplus (refund from fees)' : 'No action required';
+    const shortfallLabel = shortfall < 0 ? 'Shortfall (pay creditors)' : shortfall > 0 ? 'Surplus (refund from fees)' : 'No further action';
+
+    // Locked model card
+    const modsHtml = (lm.fee_modifications_applied || []).length
+      ? `<div class="model-mods">${lm.fee_modifications_applied.map(m => `<span class="model-mod-chip">${escHtml(m)}</span>`).join('')}</div>` : '';
+    const modelCard = `
+      <div class="model-card">
+        <h3>🔐 Locked Model</h3>
+        <div class="model-detail">
+          <div class="model-field"><div class="mf-label">Description</div><div class="mf-value">${escHtml(lm.description || '—')}</div></div>
+          <div class="model-field"><div class="mf-label">Creditor %</div><div class="mf-value">${lm.creditor_percentage != null ? lm.creditor_percentage + '%' : '—'}</div></div>
+          <div class="model-field" style="grid-column:1/-1;"><div class="mf-label">Retention Rule</div><div class="mf-value">${escHtml(lm.retention_rule || '—')}</div></div>
+        </div>
+        ${modsHtml}
+      </div>`;
+
+    // Calculation summary
+    const summaryCard = `
+      <div class="summary-card">
+        <h3>Calculation Summary</h3>
+        <table class="summary-table">
+          <tr><td>Total Contributions Received</td><td>${fmt(cs.total_contributions)}</td></tr>
+          <tr><td>Retained Amount</td><td>${fmt(cs.retained_amount)}</td></tr>
+          <tr class="divider-row"><td colspan="2"></td></tr>
+          <tr class="highlight"><td>Distributable Amount</td><td>${fmt(cs.distributable_amount)}</td></tr>
+          <tr><td>Required Creditor Distribution</td><td>${fmt(cs.required_creditor_distribution)}</td></tr>
+          <tr><td>Paid to Creditors</td><td>${fmt(cs.paid_to_creditors)}</td></tr>
+          <tr class="divider-row"><td colspan="2"></td></tr>
+          <tr class="highlight ${shortfallClass}"><td>${escHtml(shortfallLabel)}</td><td>${fmt(Math.abs(shortfall))}</td></tr>
+          ${cs.refund_required ? `<tr><td>Refund Required</td><td>${fmt(cs.refund_required)}</td></tr>` : ''}
+          ${cs.refund_source ? `<tr><td>Refund Source</td><td style="font-size:0.82rem;">${escHtml(cs.refund_source)}</td></tr>` : ''}
+        </table>
+      </div>`;
+
+    // Fee breakdown
+    const feeCard = feeBreakdown.length ? `
+      <div class="fee-card">
+        <h3>Fee Breakdown</h3>
+        <table class="summary-table">
+          <thead><tr style="font-size:0.72rem;color:#999;text-transform:uppercase;letter-spacing:0.4px;">
+            <th style="text-align:left;padding:0.4rem 0.25rem;font-weight:700;">Type</th>
+            <th style="text-align:right;padding:0.4rem 0.25rem;font-weight:700;">Entitlement</th>
+            <th style="text-align:right;padding:0.4rem 0.25rem;font-weight:700;">Drawn</th>
+            <th style="text-align:right;padding:0.4rem 0.25rem;font-weight:700;">Variance</th>
+            <th style="text-align:right;padding:0.4rem 0.25rem;font-weight:700;">Position</th>
+          </tr></thead>
+          <tbody>${feeBreakdown.map(f => `
+            <tr>
+              <td>${escHtml(f.type)}</td>
+              <td style="text-align:right;font-family:monospace;">${fmt(f.entitlement)}</td>
+              <td style="text-align:right;font-family:monospace;">${fmt(f.drawn)}</td>
+              <td style="text-align:right;font-family:monospace;">${fmt(f.variance)}</td>
+              <td style="text-align:right;">${positionChip(f.position)}</td>
+            </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>` : '';
+
+    // Disbursement breakdown
+    const disbTotal = disbBreakdown.reduce((s, d) => s + (d.drawn || 0), 0);
+    const disbCard = disbBreakdown.length ? `
+      <div class="disb-card">
+        <h3>Disbursement Breakdown (Cat 1)</h3>
+        <table class="summary-table">
+          <thead><tr style="font-size:0.72rem;color:#999;text-transform:uppercase;letter-spacing:0.4px;">
+            <th style="text-align:left;padding:0.4rem 0.25rem;font-weight:700;">Line</th>
+            <th style="text-align:right;padding:0.4rem 0.25rem;font-weight:700;">Drawn</th>
+          </tr></thead>
+          <tbody>${disbBreakdown.map(d => `
+            <tr>
+              <td>${escHtml(d.line)}</td>
+              <td style="text-align:right;font-family:monospace;">${fmt(d.drawn)}</td>
+            </tr>`).join('')}
+            <tr class="divider-row"><td colspan="2"></td></tr>
+            <tr class="highlight"><td>Total Cat 1 Disbursements</td><td style="text-align:right;font-family:monospace;">${fmt(disbTotal)}</td></tr>
+          </tbody>
+        </table>
+      </div>` : '';
+
+    // Case record / notes
+    const notesCard = (cr.omni_notes || cr.omni_fee_notes) ? `
+      <div class="notes-card">
+        <h3>Case Record</h3>
+        ${cr.client_name ? `<div class="notes-field"><div class="notes-label">Client</div><div class="notes-value">${escHtml(cr.client_name)}</div></div>` : ''}
+        ${cr.omni_notes ? `<div class="notes-field"><div class="notes-label">Omni Notes</div><div class="notes-value">${escHtml(cr.omni_notes)}</div></div>` : ''}
+        ${cr.omni_fee_notes ? `<div class="notes-field"><div class="notes-label">Fee Notes</div><div class="notes-value">${escHtml(cr.omni_fee_notes)}</div></div>` : ''}
+        ${cr.creditors ? `<div class="notes-field"><div class="notes-label">Creditors</div><div class="notes-value">${escHtml(cr.creditors)}</div></div>` : ''}
+      </div>` : '';
 
     const risksHtml = risks.length ? `
       <div class="risks-card">
@@ -534,49 +665,39 @@
 
     wrap.innerHTML = `
       <div class="result-grid">
+        ${finalInstruction ? `
+        <div class="instruction-card">
+          <h3>🔒 Final Cashier Instruction <span class="ready-badge ${readyToClose ? 'ok' : 'not-ready'}" style="font-size:0.7rem;margin-left:0.5rem;">${readyToClose ? '✓ Ready to Close' : '⚠ Not Ready'}</span></h3>
+          <div class="instruction-text">${escHtml(finalInstruction)}</div>
+        </div>` : ''}
+
+        ${copyLine ? `
         <div class="copy-line-card">
           <div class="copy-line-header">
-            <h3>🔒 Copy Line</h3>
-            <span class="ready-badge ${readyToClose ? 'ok' : 'not-ready'}">${readyToClose ? '✓ Ready to Close' : '⚠ Not Ready'}</span>
+            <h3>📋 Copy Line</h3>
           </div>
           <div class="copy-line-box" id="result-copy-line">${escHtml(copyLine)}</div>
           <button class="copy-btn" id="copy-btn">📋 Copy</button>
-        </div>
-
-        <div class="summary-card">
-          <h3>Calculation Summary</h3>
-          <table class="summary-table">
-            <tr><td>Total Contributions Received</td><td>${fmt(cs.total_contributions)}</td></tr>
-            <tr><td>First 2 Contributions Retained</td><td>${fmt(cs.retained_amount)}</td></tr>
-            <tr class="divider-row"><td colspan="2"></td></tr>
-            <tr class="highlight"><td>Distributable Amount</td><td>${fmt(cs.distributable_amount)}</td></tr>
-            <tr><td>Required Creditor Distribution</td><td>${fmt(cs.required_creditor_distribution)}</td></tr>
-            <tr><td>Paid to Creditors</td><td>${fmt(cs.paid_to_creditors)}</td></tr>
-            <tr class="divider-row"><td colspan="2"></td></tr>
-            <tr class="highlight ${shortfallClass}"><td>${escHtml(shortfallLabel)}</td><td>${fmt(Math.abs(shortfall))}</td></tr>
-            ${cs.refund_required ? `<tr><td>Refund from Fees</td><td>${fmt(cs.refund_required)}</td></tr>` : ''}
-          </table>
-        </div>
-
-        ${(cr.omni_notes || cr.omni_fee_notes) ? `
-        <div class="notes-card">
-          <h3>Case Record</h3>
-          ${cr.client_name ? `<div class="notes-field"><div class="notes-label">Client</div><div class="notes-value">${escHtml(cr.client_name)}</div></div>` : ''}
-          ${cr.omni_notes ? `<div class="notes-field"><div class="notes-label">Omni Notes</div><div class="notes-value">${escHtml(cr.omni_notes)}</div></div>` : ''}
-          ${cr.omni_fee_notes ? `<div class="notes-field"><div class="notes-label">Fee Notes</div><div class="notes-value">${escHtml(cr.omni_fee_notes)}</div></div>` : ''}
-          ${cr.creditors ? `<div class="notes-field"><div class="notes-label">Creditors</div><div class="notes-value">${escHtml(cr.creditors)}</div></div>` : ''}
         </div>` : ''}
 
+        ${modelCard}
+        ${summaryCard}
+        ${feeCard}
+        ${disbCard}
+        ${notesCard}
         ${risksHtml}
       </div>`;
 
-    document.getElementById('copy-btn').addEventListener('click', function() {
-      navigator.clipboard.writeText(copyLine).then(() => {
-        this.textContent = '✓ Copied!';
-        this.classList.add('copied');
-        setTimeout(() => { this.textContent = '📋 Copy'; this.classList.remove('copied'); }, 2000);
+    const copyBtn = document.getElementById('copy-btn');
+    if (copyBtn) {
+      copyBtn.addEventListener('click', function() {
+        navigator.clipboard.writeText(copyLine).then(() => {
+          this.textContent = '✓ Copied!';
+          this.classList.add('copied');
+          setTimeout(() => { this.textContent = '📋 Copy'; this.classList.remove('copied'); }, 2000);
+        });
       });
-    });
+    }
   }
 
   async function showOutputForKey(key) {
@@ -785,11 +906,14 @@
     document.getElementById('review-case-number').textContent = entry.caseNumber || key;
     document.getElementById('review-case-meta').textContent = 'Termination calculation';
 
-    const copyLine = entry.copyLineOverride
-      || (entry.parsedResult && entry.parsedResult.copy_line)
+    const instruction = (entry.copyLineOverride)
+      || (entry.parsedResult && entry.parsedResult.final_cashier_instruction)
       || '(not available)';
+    const copyLine = (entry.parsedResult && entry.parsedResult.copy_line) || '';
+
+    document.getElementById('review-instruction-display').textContent = instruction;
+    document.getElementById('review-edited-instruction').value = instruction;
     document.getElementById('review-copyline-display').textContent = copyLine;
-    document.getElementById('review-edited-copyline').value = copyLine;
     document.getElementById('review-rejection-note').value = '';
     document.getElementById('review-error').textContent = '';
 
@@ -798,8 +922,8 @@
     // reset tabs
     document.querySelectorAll('.review-tab').forEach(t => t.classList.remove('active'));
     document.querySelectorAll('.review-tab-panel').forEach(p => p.classList.remove('active'));
-    document.querySelector('.review-tab[data-tab="copyline"]').classList.add('active');
-    document.getElementById('review-tab-copyline').classList.add('active');
+    document.querySelector('.review-tab[data-tab="instruction"]').classList.add('active');
+    document.getElementById('review-tab-instruction').classList.add('active');
     document.getElementById('review-fulllog-content').innerHTML = '<div style="text-align:center;color:#bbb;padding:2rem;">Click tab to load…</div>';
 
     document.getElementById('review-overlay').classList.add('open');
@@ -868,7 +992,7 @@
           fetch('/api/cases/' + reviewCaseId).then(r => r.json()).then(data => {
             entry.rawJson = data.result || '';
             entry.copyLineOverride = data.cashier_instruction_override || null;
-            try { entry.parsedResult = JSON.parse(entry.rawJson); } catch {}
+            try { entry.parsedResult = JSON.parse(entry.rawJson.trim()); } catch {}
             render();
           }).catch(() => { el.innerHTML = '<p style="color:#ef4444;padding:1rem;">Failed to load.</p>'; });
         } else {
@@ -886,9 +1010,9 @@
     const errEl = document.getElementById('review-error');
     errEl.textContent = '';
     const entry = store[reviewCaseId];
-    const editedVal = (document.getElementById('review-edited-copyline').value || '').trim();
-    const originalCopyLine = (entry && entry.parsedResult && entry.parsedResult.copy_line) || '';
-    const instruction = (editedVal && editedVal !== originalCopyLine) ? editedVal : null;
+    const editedVal = (document.getElementById('review-edited-instruction').value || '').trim();
+    const original = (entry && entry.parsedResult && entry.parsedResult.final_cashier_instruction) || '';
+    const instruction = (editedVal && editedVal !== original) ? editedVal : null;
     try {
       const res = await fetch(`/api/cases/${reviewCaseId}/review`, {
         method: 'POST',
@@ -900,7 +1024,7 @@
       if (instruction && entry) entry.copyLineOverride = instruction;
       updateSidebarStatus(reviewCaseId, 'approved');
       closeReviewModal();
-      if (entry && entry.parsedResult) renderResult(entry.parsedResult, entry.copyLineOverride);
+      if (entry && entry.parsedResult) renderResult(entry.parsedResult, instruction ? { instruction } : null);
     } catch { errEl.textContent = 'Request failed.'; }
   });
 
@@ -910,10 +1034,10 @@
     errEl.textContent = '';
     const note = document.getElementById('review-rejection-note').value.trim();
     if (!note) { errEl.textContent = 'Rejection note is required.'; return; }
-    const editedVal = (document.getElementById('review-edited-copyline').value || '').trim();
+    const editedVal = (document.getElementById('review-edited-instruction').value || '').trim();
     const entry = store[reviewCaseId];
-    const originalCopyLine = (entry && entry.parsedResult && entry.parsedResult.copy_line) || '';
-    const instruction = (editedVal && editedVal !== originalCopyLine) ? editedVal : null;
+    const original = (entry && entry.parsedResult && entry.parsedResult.final_cashier_instruction) || '';
+    const instruction = (editedVal && editedVal !== original) ? editedVal : null;
     try {
       const res = await fetch(`/api/cases/${reviewCaseId}/review`, {
         method: 'POST',
