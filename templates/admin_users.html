@@ -259,6 +259,10 @@
         <input type="text" id="m-username" autocomplete="off" />
       </div>
       <div class="form-group">
+        <label for="m-display-name">Friendly Name <span style="font-weight:400;color:#888;">(shown on dashboard welcome)</span></label>
+        <input type="text" id="m-display-name" autocomplete="off" placeholder="e.g. Elliott" />
+      </div>
+      <div class="form-group">
         <label for="m-password">Password <span id="pw-hint" style="font-weight:400;color:#888;">(leave blank to keep unchanged)</span></label>
         <input type="password" id="m-password" autocomplete="new-password" />
       </div>
@@ -369,10 +373,12 @@
     editingUserId = null;
     document.getElementById('modal-title').textContent = 'Add User';
     document.getElementById('m-username').value = '';
+    document.getElementById('m-display-name').value = '';
     document.getElementById('m-password').value = '';
     document.getElementById('m-role').value = 'uploader';
     document.getElementById('username-group').style.display = '';
     document.getElementById('active-group').style.display = 'none';
+    document.getElementById('specialisms-group').style.display = 'none';
     document.getElementById('pw-hint').style.display = 'none';
     document.getElementById('modal-error').style.display = 'none';
     document.getElementById('user-modal').classList.add('open');
@@ -385,6 +391,7 @@
     if (!u) return;
     document.getElementById('modal-title').textContent = 'Edit User';
     document.getElementById('m-username').value = u.username;
+    document.getElementById('m-display-name').value = u.display_name || '';
     document.getElementById('m-password').value = '';
     document.getElementById('m-role').value = u.role;
     document.getElementById('m-active').value = String(u.active);
@@ -422,9 +429,10 @@
 
     if (editingUserId === null) {
       // Create
-      const username = document.getElementById('m-username').value.trim();
-      const password = document.getElementById('m-password').value;
-      const role     = document.getElementById('m-role').value;
+      const username    = document.getElementById('m-username').value.trim();
+      const displayName = document.getElementById('m-display-name').value.trim();
+      const password    = document.getElementById('m-password').value;
+      const role        = document.getElementById('m-role').value;
       if (!username || !password) {
         errorEl.textContent = 'Username and password are required.';
         errorEl.style.display = '';
@@ -434,7 +442,7 @@
         const res = await fetch('/api/users', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ username, password, role }),
+          body: JSON.stringify({ username, password, role, display_name: displayName || null }),
         });
         const data = await res.json();
         if (data.error) { errorEl.textContent = data.error; errorEl.style.display = ''; return; }
@@ -446,6 +454,7 @@
       const payload = { role: document.getElementById('m-role').value, active: document.getElementById('m-active').value === 'true' };
       const pw = document.getElementById('m-password').value;
       if (pw) payload.password = pw;
+      payload.display_name = document.getElementById('m-display-name').value.trim() || null;
       // build specialisms string
       const allChecked = document.getElementById('spec-all').checked;
       if (allChecked) {

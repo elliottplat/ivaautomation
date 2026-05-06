@@ -28,10 +28,11 @@ client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
 # Auth
 # ---------------------------------------------------------------------------
 class User(UserMixin):
-    def __init__(self, id, username, role):
+    def __init__(self, id, username, role, display_name=None):
         self.id = str(id)
         self.username = username
         self.role = role
+        self.display_name = display_name or username
 
 
 @login_manager.user_loader
@@ -42,12 +43,12 @@ def load_user(user_id):
         conn = get_db_conn()
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute(
-                "SELECT id, username, role FROM users WHERE id = %s AND active = TRUE",
+                "SELECT id, username, role, display_name FROM users WHERE id = %s AND active = TRUE",
                 (int(user_id),),
             )
             row = cur.fetchone()
         conn.close()
-        return User(row["id"], row["username"], row["role"]) if row else None
+        return User(row["id"], row["username"], row["role"], row.get("display_name")) if row else None
     except Exception:
         return None
 
@@ -678,6 +679,15 @@ def init_db():
                     active BOOLEAN DEFAULT TRUE
                 )
             """)
+            # ── display_name column
+            cur.execute("""
+                DO $$ BEGIN
+                    IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                        WHERE table_name='users' AND column_name='display_name') THEN
+                        ALTER TABLE users ADD COLUMN display_name VARCHAR(100);
+                    END IF;
+                END $$
+            """)
             # ── specialisms column
             cur.execute("""
                 DO $$ BEGIN
@@ -866,14 +876,17 @@ def init_admin():
 
 
 def init_user_passwords():
-    """One-time password migrations for named users."""
-    updates = [
+    """One-time password migrations and display name seeds for named users."""
+    password_updates = [
         ("markm", "UbQ!4S8B4UGTkGn8"),
+    ]
+    display_name_seeds = [
+        ("elliottg", "Elliott"),
     ]
     try:
         conn = get_db_conn()
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            for username, password in updates:
+            for username, password in password_updates:
                 cur.execute("SELECT password_hash FROM users WHERE username = %s", (username,))
                 row = cur.fetchone()
                 if row and not check_password_hash(row["password_hash"], password):
@@ -881,10 +894,15 @@ def init_user_passwords():
                         "UPDATE users SET password_hash = %s WHERE username = %s",
                         (generate_password_hash(password), username),
                     )
+            for username, display_name in display_name_seeds:
+                cur.execute(
+                    "UPDATE users SET display_name = %s WHERE username = %s AND (display_name IS NULL OR display_name = '')",
+                    (display_name, username),
+                )
         conn.commit()
         conn.close()
     except Exception as e:
-        print(f"Password migration failed: {e}")
+        print(f"User init failed: {e}")
 
 
 if os.environ.get("DATABASE_URL"):
@@ -956,13 +974,13 @@ def login_page():
             conn = get_db_conn()
             with conn.cursor(cursor_factory=RealDictCursor) as cur:
                 cur.execute(
-                    "SELECT id, username, password_hash, role FROM users WHERE username = %s AND active = TRUE",
+                    "SELECT id, username, password_hash, role, display_name FROM users WHERE username = %s AND active = TRUE",
                     (username,),
                 )
                 row = cur.fetchone()
             conn.close()
             if row and check_password_hash(row["password_hash"], password):
-                login_user(User(row["id"], row["username"], row["role"]), remember=True)
+                login_user(User(row["id"], row["username"], row["role"], row.get("display_name")), remember=True)
                 return redirect(url_for("home"))
             return render_template("login.html", error="Invalid username or password")
         except Exception as e:
@@ -1141,7 +1159,7 @@ def list_users():
         return jsonify({"error": "Forbidden"}), 403
     conn = get_db_conn()
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
-        cur.execute("SELECT id, username, role, created_at, active, specialisms FROM users ORDER BY created_at")
+        cur.execute("SELECT id, username, role, created_at, active, specialisms, display_name FROM users ORDER BY created_at")
         rows = cur.fetchall()
         users = [{**dict(r), "created_at": r["created_at"].isoformat()} for r in rows]
         # attach project ids
@@ -1165,14 +1183,15 @@ def create_user():
     username = (data.get("username") or "").strip()
     password = data.get("password") or ""
     role = data.get("role", "uploader")
+    display_name = (data.get("display_name") or "").strip() or None
     if not username or not password or role not in ("admin", "reviewer", "uploader"):
         return jsonify({"error": "Invalid input"}), 400
     try:
         conn = get_db_conn()
         with conn.cursor() as cur:
             cur.execute(
-                "INSERT INTO users (username, password_hash, role) VALUES (%s, %s, %s) RETURNING id",
-                (username, generate_password_hash(password), role),
+                "INSERT INTO users (username, password_hash, role, display_name) VALUES (%s, %s, %s, %s) RETURNING id",
+                (username, generate_password_hash(password), role, display_name),
             )
             user_id = cur.fetchone()[0]
         conn.commit()
@@ -1201,6 +1220,8 @@ def update_user(user_id):
                 cur.execute("UPDATE users SET password_hash = %s WHERE id = %s", (generate_password_hash(data["password"]), user_id))
             if "specialisms" in data:
                 cur.execute("UPDATE users SET specialisms = %s WHERE id = %s", (data["specialisms"], user_id))
+            if "display_name" in data:
+                cur.execute("UPDATE users SET display_name = %s WHERE id = %s", (data["display_name"] or None, user_id))
             if "project_ids" in data:
                 cur.execute("DELETE FROM user_projects WHERE user_id = %s", (user_id,))
                 for pid in (data["project_ids"] or []):
