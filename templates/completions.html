@@ -1744,27 +1744,54 @@
     creditor_claims: 'Creditor Claims Screen',
   };
 
-  function renderReviewScreenshots(images) {
+  function renderReviewScreenshots(container, images) {
+    container.innerHTML = '';
     if (!images || !Object.keys(images).length) {
-      return '<div style="text-align:center;color:#bbb;padding:2rem;">No screenshots were stored for this case.</div>';
+      container.innerHTML = '<div style="text-align:center;color:#bbb;padding:2rem;">No screenshots were stored for this case.</div>';
+      return;
     }
-    let html = '<div style="padding:0.5rem 0;">';
+
+    const wrap = document.createElement('div');
+    wrap.style.padding = '0.5rem 0';
+
     for (const [slot, files] of Object.entries(images)) {
       if (!files || !files.length) continue;
-      html += `<div style="margin-bottom:1.25rem;">
-        <div style="font-size:0.8rem;font-weight:700;color:#6366f1;margin-bottom:0.5rem;">${escHtml(SLOT_LABELS[slot] || slot)}</div>
-        <div style="display:flex;flex-wrap:wrap;gap:0.5rem;">`;
+
+      const slotDiv = document.createElement('div');
+      slotDiv.style.marginBottom = '1.25rem';
+
+      const lbl = document.createElement('div');
+      lbl.style.cssText = 'font-size:0.8rem;font-weight:700;color:#6366f1;margin-bottom:0.5rem;';
+      lbl.textContent = SLOT_LABELS[slot] || slot;
+      slotDiv.appendChild(lbl);
+
+      const gallery = document.createElement('div');
+      gallery.style.cssText = 'display:flex;flex-wrap:wrap;gap:0.5rem;';
+
       files.forEach(f => {
-        html += `<a href="${f.data}" target="_blank" style="display:block;">
-          <img src="${f.data}" alt="${escHtml(f.name)}"
-            style="max-height:200px;max-width:320px;border:1px solid #e5e7eb;border-radius:6px;cursor:zoom-in;"
-            title="${escHtml(f.name)}" />
-        </a>`;
+        const img = document.createElement('img');
+        img.src = f.data;
+        img.alt = f.name;
+        img.title = f.name;
+        img.style.cssText = 'max-height:200px;max-width:320px;border:1px solid #e5e7eb;border-radius:6px;cursor:zoom-in;display:block;';
+        img.addEventListener('click', () => {
+          const parts = f.data.split(',');
+          const mimeType = parts[0].split(':')[1].split(';')[0];
+          const byteStr = atob(parts[1]);
+          const arr = new Uint8Array(byteStr.length);
+          for (let i = 0; i < byteStr.length; i++) arr[i] = byteStr.charCodeAt(i);
+          const blobUrl = URL.createObjectURL(new Blob([arr], { type: mimeType }));
+          const win = window.open(blobUrl, '_blank');
+          if (win) setTimeout(() => URL.revokeObjectURL(blobUrl), 30000);
+        });
+        gallery.appendChild(img);
       });
-      html += '</div></div>';
+
+      slotDiv.appendChild(gallery);
+      wrap.appendChild(slotDiv);
     }
-    html += '</div>';
-    return html;
+
+    container.appendChild(wrap);
   }
 
   // Review modal tab switching
@@ -1780,7 +1807,7 @@
       }
       if (tab.dataset.tab === 'screenshots' && reviewCaseId && store[reviewCaseId]) {
         const el = document.getElementById('review-screenshots-content');
-        el.innerHTML = renderReviewScreenshots(store[reviewCaseId].images);
+        renderReviewScreenshots(el, store[reviewCaseId].images);
       }
     });
   });
