@@ -970,6 +970,13 @@ def init_db():
                 END $$
             """)
             cur.execute("""
+                DO $$ BEGIN
+                  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='cases' AND column_name='variation_data') THEN
+                    ALTER TABLE cases ADD COLUMN variation_data TEXT;
+                  END IF;
+                END $$;
+            """)
+            cur.execute("""
                 CREATE TABLE IF NOT EXISTS notifications (
                     id SERIAL PRIMARY KEY,
                     user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
@@ -1456,7 +1463,8 @@ Rules:
 - Use clear paragraph breaks where appropriate
 - Do not add any preamble, commentary, or closing remarks — return only the structured statement text
 - If the draft mentions a dividend improvement, lead with that outcome
-- Write in third person (referring to the debtor's position, not "I" or "we")\
+- Write in third person (referring to the debtor's position, not "I" or "we")
+- NEVER mention the variation meeting fee, nominee fee, or any fee charged for the variation itself — omit entirely if present in the draft\
 """
 
 
@@ -1515,86 +1523,282 @@ def tidy_variation_reason():
 # I&E Review (SFS mapping)
 # ---------------------------------------------------------------------------
 IE_SYSTEM_PROMPT = """\
-You are an expert UK debt adviser assistant trained to convert informal Income & Expenditure (I&E) statements into the Standard Financial Statement (SFS) format used by the Money Advice Trust / Money Adviser Network.
+You are an expert UK debt adviser assistant trained to convert informal Income & Expenditure (I&E) statements into the Standard Financial Statement (SFS) format used by the Money Adviser Network / Money and Pensions Service.
 
 You will receive an image of an Income & Expenditure statement. Your task is to:
 1. Extract every line item with its value
-2. Map each item to the correct SFS category
-3. Return a single, valid JSON object matching the schema below
-4. Flag any category that exceeds the SFS trigger figures
-5. Return nulls for any SFS field where the source document does not provide information
+2. Map each item to the correct SFS category and subcategory
+3. Calculate household-specific trigger figures for the three flexible spending categories using the 2026/27 SFS guidelines
+4. Flag any flexible category that exceeds its calculated trigger
+5. Return a single, valid JSON object matching the schema below
+6. Use null for any SFS field where the source document does not provide information
 
 ## SFS CATEGORY STRUCTURE
 
 Map every expenditure line into exactly ONE of these SFS categories and subcategories:
 
-HOME & CONTENTS: Rent, Mortgage, Ground rent / service charges, Council tax, Buildings & contents insurance, Appliance / furniture rental, TV licence, Other home & contents
+**HOME & CONTENTS** (no trigger figure — fixed costs)
+- Rent
+- Mortgage
+- Ground rent / service charges
+- Council tax
+- Buildings & contents insurance
+- Appliance / furniture rental
+- TV licence
+- Other home & contents
 
-UTILITIES: Gas, Electricity, Other fuel (oil, solid fuel), Water
+**UTILITIES** (no trigger figure — fixed costs)
+- Gas
+- Electricity
+- Other fuel (oil, solid fuel)
+- Water
 
-COMMUNICATIONS & LEISURE: Home phone, internet, TV package (includes streaming/film subscriptions), Mobile phone, Hobbies, leisure, sport, Gifts (birthdays, religious festivals), Pocket money
+**COMMUNICATIONS & LEISURE** ⚠️ FLEXIBLE — TRIGGER FIGURE APPLIES
+- Home phone, internet, TV package (includes streaming/film subscriptions)
+- Mobile phone
+- Hobbies, leisure, sport
+- Gifts (birthdays, religious festivals)
+- Pocket money
+- Newspapers, magazines
 
-FOOD & HOUSEKEEPING: Groceries (food, non-alcoholic drinks, toiletries, cleaning, pet food), Nappies & baby items, School meals & meals at work, Laundry & dry cleaning, Alcohol, Smoking products
+**FOOD & HOUSEKEEPING** ⚠️ FLEXIBLE — TRIGGER FIGURE APPLIES
+- Groceries (food, non-alcoholic drinks, cleaning products, pet food)
+- Nappies & baby items
+- School meals & meals at work
+- Laundry & dry cleaning
+- Alcohol
+- Smoking products
+- Vet bills
 
-PERSONAL COSTS: Clothing & footwear, Hairdressing, Toiletries (if itemised separately from groceries), Prescriptions, medicines, dentistry, optical, Life assurance / pension contributions / other insurances, Professional fees / union subscriptions, Other personal costs
+**PERSONAL COSTS** ⚠️ FLEXIBLE — TRIGGER FIGURE APPLIES
+- Clothing & footwear
+- Hairdressing
+- Toiletries (personal use)
+- Prescriptions, medicines, dentistry, optical
+- Other personal costs
 
-TRAVEL: Public transport, Hire purchase or conditional sale (vehicle), Car insurance, Road tax, MOT & ongoing maintenance, Breakdown cover, Fuel, parking, tolls, Other travel
+**TRAVEL** (no trigger figure — varies widely)
+- Public transport
+- Hire purchase or conditional sale (vehicle)
+- Car insurance
+- Road tax
+- MOT & ongoing maintenance
+- Breakdown cover
+- Fuel, parking, tolls
+- Other travel
 
-CHILDCARE & EDUCATION: Childcare, Child maintenance paid out, School trips, uniform, lessons, Adult education / training
+**CHILDCARE & EDUCATION** (no trigger figure)
+- Childcare
+- Child maintenance paid out
+- School trips, uniform, lessons
+- Adult education / training
 
-OTHER: Court fines, Any other essential expenditure
+**INSURANCES & PENSIONS** (no trigger figure)
+- Life assurance
+- Pension contributions
+- Other insurances
+- Professional fees / union subscriptions
+
+**OTHER** (no trigger figure)
+- Court fines
+- Any other essential expenditure
 
 ## INCOME CATEGORIES
-Salary / wages (take home), Self-employed income, Benefits & tax credits, Pensions, Maintenance received, Other income
+- Salary / wages (take home)
+- Self-employed income
+- Benefits & tax credits
+- Child Benefit (record separately if identifiable)
+- Pensions
+- Maintenance received
+- Other income
 
-## SFS TRIGGER FIGURES (single adult, no children — adjust if household differs)
-Flag a category as "over_trigger": true if it exceeds these monthly caps:
-- Communications & leisure (total): £79
-- Food & housekeeping (total): £262
-- Personal costs (total): £105
-- Travel (total, where vehicle owned): £148
+## SFS SPENDING GUIDELINES — MONTHLY (2026/27)
 
-Note: Trigger figures are guidelines, not absolute caps. Some categories (rent, council tax) are not subject to trigger figures. Where household size is unknown, apply single-adult triggers and note the assumption.
+Calculate the trigger figure for each flexible category by adding components based on household composition:
+
+| Category | First adult | Additional adult (each) | Child <16 (each) | Child 16-18 (each) |
+|---|---|---|---|---|
+| Communications & leisure | 276.00 | 171.00 | 72.00 | 148.00 |
+| Food & housekeeping | 423.00 | 296.00 | 136.00 | 251.00 |
+| Personal costs | 108.00 | 74.00 | 49.00 | 104.00 |
+
+trigger = first_adult + (additional_adults × additional_adult_rate) + (children_under_16 × child_under_16_rate) + (children_16_to_18 × child_16_18_rate)
+
+**If household composition is unknown:** assume 1 adult, 0 children, set "household_assumed": true, and add to "missing_information".
+
+## CHILD BENEFIT RATES 2026/27 (for reference / income reconciliation only)
+
+Weekly rates: £27.05 eldest/only child, £17.90 each additional child.
+Do NOT auto-populate Child Benefit if the source is silent — only note it as missing in "missing_information". If the source states a Child Benefit figure that materially differs from the expected rate, flag it in "mapping_notes".
 
 ## MAPPING RULES
 - "Hire Purchase or conditional sale vehicle" → Travel > Hire purchase
 - "Prescriptions and medicines" → Personal costs > Prescriptions, medicines, dentistry, optical
-- "Home phone, internet, TV package" → Communications & leisure > Home phone, internet, TV package
+- "Home phone, internet, TV package (including film subscriptions)" → Communications & leisure > Home phone, internet, TV package
 - "Hobbies, leisure or sport" → Communications & leisure > Hobbies, leisure, sport
 - "Groceries (food, pet food, non-alcoholic drinks, cleaning)" → Food & housekeeping > Groceries
-- If a line item could fit multiple categories, choose the most specific SFS subcategory and record reasoning in mapping_notes
-- If a line item does not clearly fit any SFS category, place it in OTHER > Any other essential expenditure and flag in mapping_notes
+- "Toiletries" listed separately → Personal costs > Toiletries
+- Life assurance / pensions / other insurances → Insurances & Pensions (not Personal Costs)
+- If a line item could fit multiple categories, choose the most specific SFS subcategory and record reasoning in "mapping_notes"
+- If a line item does not clearly fit any SFS category, place it in "OTHER > Any other essential expenditure" and flag in "mapping_notes"
 
 ## OUTPUT SCHEMA
 
 Return ONLY a valid JSON object. No preamble, no markdown fences, no commentary outside the JSON.
 
 {
-  "client": {"name": null, "household_size_adults": null, "household_size_children": null, "assumed_single_adult": true},
-  "income": {"salary_wages": 0.00, "self_employed": null, "benefits_tax_credits": null, "pensions": null, "maintenance_received": null, "other_income": null, "total_income": 0.00},
+  "sfs_version": "2026/27",
+  "client": {
+    "name": null,
+    "household_size_adults": null,
+    "household_size_children_under_16": null,
+    "household_size_children_16_to_18": null,
+    "household_assumed": true
+  },
+  "income": {
+    "salary_wages": null,
+    "self_employed": null,
+    "benefits_tax_credits": null,
+    "child_benefit": null,
+    "pensions": null,
+    "maintenance_received": null,
+    "other_income": null,
+    "total_income": 0.00
+  },
   "expenditure": {
-    "home_and_contents": {"rent": null, "mortgage": null, "ground_rent_service_charges": null, "council_tax": null, "buildings_contents_insurance": null, "appliance_furniture_rental": null, "tv_licence": null, "other": null, "subtotal": 0.00},
-    "utilities": {"gas": null, "electricity": null, "other_fuel": null, "water": null, "subtotal": 0.00},
-    "communications_and_leisure": {"home_phone_internet_tv": null, "mobile_phone": null, "hobbies_leisure_sport": null, "gifts": null, "pocket_money": null, "subtotal": 0.00, "trigger_figure": 79.00, "over_trigger": false},
-    "food_and_housekeeping": {"groceries": null, "nappies_baby_items": null, "school_meals_work_meals": null, "laundry_dry_cleaning": null, "alcohol": null, "smoking": null, "subtotal": 0.00, "trigger_figure": 262.00, "over_trigger": false},
-    "personal_costs": {"clothing_footwear": null, "hairdressing": null, "toiletries": null, "prescriptions_medicines_dental_optical": null, "life_assurance_pensions_insurances": null, "professional_fees_unions": null, "other": null, "subtotal": 0.00, "trigger_figure": 105.00, "over_trigger": false},
-    "travel": {"public_transport": null, "hire_purchase_vehicle": null, "car_insurance": null, "road_tax": null, "mot_maintenance": null, "breakdown_cover": null, "fuel_parking_tolls": null, "other": null, "subtotal": 0.00, "trigger_figure": 148.00, "over_trigger": false},
-    "childcare_and_education": {"childcare": null, "child_maintenance_paid": null, "school_trips_uniform_lessons": null, "adult_education": null, "subtotal": 0.00},
-    "other": {"court_fines": null, "other_essential": null, "subtotal": 0.00},
+    "home_and_contents": {
+      "rent": null,
+      "mortgage": null,
+      "ground_rent_service_charges": null,
+      "council_tax": null,
+      "buildings_contents_insurance": null,
+      "appliance_furniture_rental": null,
+      "tv_licence": null,
+      "other": null,
+      "subtotal": 0.00
+    },
+    "utilities": {
+      "gas": null,
+      "electricity": null,
+      "other_fuel": null,
+      "water": null,
+      "subtotal": 0.00
+    },
+    "communications_and_leisure": {
+      "home_phone_internet_tv": null,
+      "mobile_phone": null,
+      "hobbies_leisure_sport": null,
+      "gifts": null,
+      "pocket_money": null,
+      "newspapers_magazines": null,
+      "subtotal": 0.00,
+      "trigger_figure": 0.00,
+      "trigger_calculation": "276 (1st adult) = 276",
+      "over_trigger": false,
+      "variance_from_trigger": 0.00
+    },
+    "food_and_housekeeping": {
+      "groceries": null,
+      "nappies_baby_items": null,
+      "school_meals_work_meals": null,
+      "laundry_dry_cleaning": null,
+      "alcohol": null,
+      "smoking": null,
+      "vet_bills": null,
+      "subtotal": 0.00,
+      "trigger_figure": 0.00,
+      "trigger_calculation": "string",
+      "over_trigger": false,
+      "variance_from_trigger": 0.00
+    },
+    "personal_costs": {
+      "clothing_footwear": null,
+      "hairdressing": null,
+      "toiletries": null,
+      "prescriptions_medicines_dental_optical": null,
+      "other": null,
+      "subtotal": 0.00,
+      "trigger_figure": 0.00,
+      "trigger_calculation": "string",
+      "over_trigger": false,
+      "variance_from_trigger": 0.00
+    },
+    "travel": {
+      "public_transport": null,
+      "hire_purchase_vehicle": null,
+      "car_insurance": null,
+      "road_tax": null,
+      "mot_maintenance": null,
+      "breakdown_cover": null,
+      "fuel_parking_tolls": null,
+      "other": null,
+      "subtotal": 0.00
+    },
+    "childcare_and_education": {
+      "childcare": null,
+      "child_maintenance_paid": null,
+      "school_trips_uniform_lessons": null,
+      "adult_education": null,
+      "subtotal": 0.00
+    },
+    "insurances_and_pensions": {
+      "life_assurance": null,
+      "pension_contributions": null,
+      "other_insurances": null,
+      "professional_fees_unions": null,
+      "subtotal": 0.00
+    },
+    "other": {
+      "court_fines": null,
+      "other_essential": null,
+      "subtotal": 0.00
+    },
     "total_expenditure": 0.00
   },
-  "summary": {"total_income": 0.00, "total_expenditure": 0.00, "total_debt_payments": 0.00, "surplus_or_deficit": 0.00, "status": "surplus | deficit | balanced"},
-  "trigger_analysis": {"categories_over_trigger": [], "notes": ""},
-  "mapping_notes": [{"source_item": "", "mapped_to": "", "note": ""}],
+  "debts": {
+    "priority_arrears": null,
+    "non_priority_debts": null,
+    "total_debt_payments": null,
+    "note": "string"
+  },
+  "summary": {
+    "total_income": 0.00,
+    "total_expenditure": 0.00,
+    "total_debt_payments": 0.00,
+    "surplus_or_deficit": 0.00,
+    "status": "surplus | deficit | balanced",
+    "combined_flexible_spend": 0.00,
+    "combined_flexible_trigger": 0.00,
+    "combined_flexible_variance": 0.00
+  },
+  "trigger_analysis": {
+    "household_used_for_calculation": "1 adult, 0 children (assumed)",
+    "categories_over_trigger": [],
+    "categories_within_trigger": [],
+    "notes": "string"
+  },
+  "mapping_notes": [
+    {
+      "source_item": "string",
+      "mapped_to": "category > subcategory",
+      "value": 0.00,
+      "note": "string"
+    }
+  ],
   "missing_information": []
 }
 
-RULES:
-- All monetary values are GBP numbers with 2 decimal places
+## RULES
+- All monetary values are GBP, expressed as numbers with 2 decimal places (e.g. 300.00)
 - Use null (not 0) for fields the source document does not mention
-- Use 0.00 only when the source explicitly states zero
-- Calculate every subtotal and total yourself
-- Output must be valid, parseable JSON — no trailing commas, no comments, no markdown
+- Use 0.00 only when the source explicitly states zero, or for calculated subtotals/totals
+- Calculate every subtotal, total, trigger figure, and variance yourself
+- variance_from_trigger = subtotal - trigger_figure (positive = over, negative = under)
+- over_trigger = true only if subtotal > trigger_figure
+- combined_flexible_spend = sum of the three flexible category subtotals
+- combined_flexible_trigger = sum of the three flexible category trigger figures
+- If your calculated total differs from the source's stated total, use your calculated total and note in "mapping_notes"
+- Output must be valid, parseable JSON — no trailing commas, no comments, no markdown fences
 - Do not include any text before or after the JSON object\
 """
 
@@ -2204,7 +2408,91 @@ def get_case(case_id):
             "cache_creation_tokens": row["cache_creation_tokens"], "cache_read_tokens": row["cache_read_tokens"],
             "cashier_instruction_override": row.get("cashier_instruction_override"),
             "review_status": row.get("review_status"),
+            "variation_data": row.get("variation_data"),
+            "submitted_by": row.get("submitted_by"),
         })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/cases/<int:case_id>/variation-save", methods=["PUT"])
+@login_required
+def variation_save(case_id):
+    if current_user.role not in ("uploader", "admin", "reviewer"):
+        return jsonify({"error": "Forbidden"}), 403
+    data = request.get_json() or {}
+    section = data.get("section")
+    if section not in ("eos", "ie", "reason"):
+        return jsonify({"error": "Invalid section"}), 400
+    section_data = data.get("data")
+    try:
+        conn = get_db_conn()
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute("SELECT variation_data FROM cases WHERE id = %s", (case_id,))
+            row = cur.fetchone()
+            if not row:
+                conn.close()
+                return jsonify({"error": "Not found"}), 404
+            try:
+                vd = json.loads(row["variation_data"]) if row["variation_data"] else {}
+            except (json.JSONDecodeError, TypeError):
+                vd = {}
+            vd[section] = section_data
+            if "saved" not in vd:
+                vd["saved"] = {}
+            vd["saved"][section] = True
+            cur.execute("UPDATE cases SET variation_data = %s WHERE id = %s", (json.dumps(vd), case_id))
+        conn.commit()
+        conn.close()
+        return jsonify({"ok": True, "saved": vd.get("saved", {})})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/cases/<int:case_id>/send-for-review", methods=["POST"])
+@login_required
+def send_for_review(case_id):
+    if current_user.role not in ("uploader", "admin"):
+        return jsonify({"error": "Forbidden"}), 403
+    submitted_by = int(current_user.id)
+    try:
+        conn = get_db_conn()
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute("SELECT case_number FROM cases WHERE id = %s", (case_id,))
+            row = cur.fetchone()
+            if not row:
+                conn.close()
+                return jsonify({"error": "Not found"}), 404
+            case_number = row["case_number"]
+            cur.execute("UPDATE cases SET review_status = 'under_review' WHERE id = %s", (case_id,))
+            cur.execute(
+                "SELECT id FROM users WHERE role IN ('reviewer', 'admin') AND active = TRUE AND id != %s",
+                (submitted_by,),
+            )
+            for (uid,) in cur.fetchall():
+                cur.execute(
+                    "INSERT INTO notifications (user_id, case_id, message) VALUES (%s, %s, %s)",
+                    (uid, case_id, f"Variation sent for review: {case_number}"),
+                )
+        conn.commit()
+        conn.close()
+        return jsonify({"ok": True})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/cases/<int:case_id>/action", methods=["POST"])
+@login_required
+def action_case(case_id):
+    if current_user.role not in ("uploader", "admin"):
+        return jsonify({"error": "Forbidden"}), 403
+    try:
+        conn = get_db_conn()
+        with conn.cursor() as cur:
+            cur.execute("UPDATE cases SET review_status = 'actioned' WHERE id = %s", (case_id,))
+        conn.commit()
+        conn.close()
+        return jsonify({"ok": True})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -2245,7 +2533,7 @@ def review_case(case_id):
     status = "approved" if action == "approve" else "rejected"
     try:
         conn = get_db_conn()
-        with conn.cursor() as cur:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
             if instruction is not None:
                 cur.execute(
                     """UPDATE cases SET review_status=%s, review_note=%s,
@@ -2259,6 +2547,14 @@ def review_case(case_id):
                        reviewed_by=%s, reviewed_at=NOW() WHERE id=%s""",
                     (status, note or None, int(current_user.id), case_id),
                 )
+            if action == "approve":
+                cur.execute("SELECT submitted_by, case_number FROM cases WHERE id = %s", (case_id,))
+                row = cur.fetchone()
+                if row and row["submitted_by"]:
+                    cur.execute(
+                        "INSERT INTO notifications (user_id, case_id, message) VALUES (%s, %s, %s)",
+                        (row["submitted_by"], case_id, f"Variation approved — ready to action: {row['case_number']}"),
+                    )
         conn.commit()
         conn.close()
         return jsonify({"ok": True, "status": status})

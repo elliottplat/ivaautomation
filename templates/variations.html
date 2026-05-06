@@ -73,9 +73,11 @@
     .case-item .status-dot.pending-dot { background: #fbbf24; animation: pulse 1.5s infinite; }
     @keyframes pulse { 0%,100%{opacity:1}50%{opacity:.4} }
 
-    .case-item.status-pending  { border-left-color: #f59e0b; }
-    .case-item.status-approved { border-left-color: #22c55e; }
-    .case-item.status-rejected { border-left-color: #ef4444; }
+    .case-item.status-pending      { border-left-color: #f59e0b; }
+    .case-item.status-approved     { border-left-color: #22c55e; }
+    .case-item.status-rejected     { border-left-color: #ef4444; }
+    .case-item.status-under_review { border-left-color: #3b82f6; }
+    .case-item.status-actioned     { border-left-color: #6b7280; }
 
     .case-actions { display: flex; gap: 0.3rem; margin-top: 0.35rem; }
     .case-action-btn { font-size: 0.7rem; padding: 0.18rem 0.5rem; border: 1px solid #e0e0e0; border-radius: 5px; background: #fff; cursor: pointer; color: #666; transition: all 0.1s; }
@@ -292,6 +294,32 @@
     .ie-mapping-dest { color: #6366f1; }
     .ie-mapping-note { color: #888; font-style: italic; }
 
+    /* ── Workflow ── */
+    .workflow-bar { background: #fff; border-radius: 12px; box-shadow: 0 1px 6px rgba(0,0,0,0.07); padding: 0.85rem 1.25rem; margin-bottom: 1.25rem; display: flex; align-items: center; gap: 0.85rem; flex-wrap: wrap; }
+    .workflow-status { font-size: 0.82rem; font-weight: 700; }
+    .wf-chip { font-size: 0.75rem; font-weight: 700; padding: 0.25rem 0.7rem; border-radius: 10px; }
+    .wf-chip.draft    { background: #f3f4f6; color: #555; }
+    .wf-chip.review   { background: #dbeafe; color: #1d4ed8; }
+    .wf-chip.approved { background: #dcfce7; color: #15803d; }
+    .wf-chip.actioned { background: #f3f4f6; color: #555; }
+    .wf-chip.rejected { background: #fee2e2; color: #b91c1c; }
+    .workflow-bar-spacer { flex: 1; }
+    .btn-send-review { background: #6366f1; color: #fff; border: none; border-radius: 8px; padding: 0.55rem 1.4rem; font-size: 0.88rem; font-weight: 700; cursor: pointer; transition: background 0.2s; display: none; }
+    .btn-send-review:hover { background: #4f46e5; }
+    .btn-action { background: #22c55e; color: #fff; border: none; border-radius: 8px; padding: 0.55rem 1.4rem; font-size: 0.88rem; font-weight: 700; cursor: pointer; transition: background 0.2s; }
+    .btn-action:hover { background: #16a34a; }
+    .btn-wf-approve { background: #22c55e; color: #fff; border: none; border-radius: 8px; padding: 0.55rem 1.25rem; font-size: 0.88rem; font-weight: 700; cursor: pointer; }
+    .btn-wf-approve:hover { background: #16a34a; }
+    .btn-wf-reject  { background: #fff; color: #ef4444; border: 1.5px solid #fca5a5; border-radius: 8px; padding: 0.55rem 1.1rem; font-size: 0.88rem; font-weight: 700; cursor: pointer; }
+    .btn-wf-reject:hover { background: #fef2f2; }
+    .section-saved { border-left: 4px solid #22c55e !important; }
+    .section-saved .eos-card-header h3::after,
+    .section-saved .ie-form-title::after,
+    .section-saved .reason-title::after { content: ' ✓'; color: #22c55e; }
+    .save-section-btn { display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.45rem 1.1rem; background: #6366f1; color: #fff; border: none; border-radius: 7px; font-size: 0.84rem; font-weight: 600; cursor: pointer; transition: background 0.2s; margin-top: 0.85rem; }
+    .save-section-btn:hover { background: #4f46e5; }
+    .save-section-btn.saved { background: #22c55e; }
+
     /* ── Review Modal ── */
     .review-overlay { position: fixed; inset: 0; background: rgba(15,15,30,0.7); z-index: 500; display: none; }
     .review-overlay.open { display: flex; }
@@ -466,38 +494,6 @@
         </div>
       </form>
 
-      <!-- Variation Reason -->
-      <div class="reason-card" id="reason-card">
-        <div class="reason-title">Variation Reason</div>
-        <div class="var-buttons">
-          <button type="button" class="var-btn" data-var="case_number">📎 Case Ref</button>
-          <button type="button" class="var-btn" data-var="ff_amount">💷 F&amp;F Amount</button>
-          <button type="button" class="var-btn" data-var="creditors_claim">💳 Creditors Claim</button>
-          <button type="button" class="var-btn" data-var="variation_fee">📋 Variation Fee</button>
-          <button type="button" class="var-btn" data-var="current_dividend" id="varbtn-current_dividend">📈 Current Dividend</button>
-          <button type="button" class="var-btn" data-var="agreed_dividend"  id="varbtn-agreed_dividend">📊 Agreed Dividend</button>
-          <button type="button" class="var-btn" data-var="afd_current"      id="varbtn-afd_current">💰 Avail. for Dist.</button>
-          <button type="button" class="var-btn" data-var="outcome_uplift"   id="varbtn-outcome_uplift">📉 Outcome Uplift</button>
-          <button type="button" class="var-btn" data-var="ie_total_income"  id="varbtn-ie_total_income">💼 I&amp;E Income</button>
-          <button type="button" class="var-btn" data-var="ie_total_expenditure" id="varbtn-ie_total_expenditure">🧾 I&amp;E Expenditure</button>
-          <button type="button" class="var-btn" data-var="ie_disposable"    id="varbtn-ie_disposable">📋 Disposable Income</button>
-        </div>
-        <textarea class="reason-textarea" id="reason-textarea" placeholder="Draft the reason for this variation here. Use the buttons above to insert values at the cursor position…"></textarea>
-        <div class="reason-actions">
-          <button type="button" class="btn-tidy" id="btn-tidy">
-            <span id="tidy-label">✨ Tidy with AI</span>
-          </button>
-          <span id="tidy-status" style="font-size:0.8rem;color:#888;"></span>
-        </div>
-        <div class="reason-output-wrap" id="reason-output-wrap">
-          <div class="reason-output-label">
-            <span>Structured Result</span>
-            <button type="button" class="btn-use-tidied" id="btn-use-tidied">↑ Replace draft</button>
-          </div>
-          <div class="reason-output-box" id="reason-output-box"></div>
-        </div>
-      </div>
-
       <!-- I&E Review -->
       <div class="ie-form-card" id="ie-form-card">
         <div class="ie-form-title">Income &amp; Expenditure Review (SFS)</div>
@@ -529,7 +525,56 @@
         </div>
       </div>
 
+      <!-- Variation Reason -->
+      <div class="reason-card" id="reason-card">
+        <div class="reason-title">Variation Reason</div>
+        <div class="var-buttons">
+          <button type="button" class="var-btn" data-var="case_number">📎 Case Ref</button>
+          <button type="button" class="var-btn" data-var="ff_amount">💷 F&amp;F Amount</button>
+          <button type="button" class="var-btn" data-var="creditors_claim">💳 Creditors Claim</button>
+          <button type="button" class="var-btn" data-var="variation_fee">📋 Variation Fee</button>
+          <button type="button" class="var-btn" data-var="current_dividend" id="varbtn-current_dividend">📈 Current Dividend</button>
+          <button type="button" class="var-btn" data-var="agreed_dividend"  id="varbtn-agreed_dividend">📊 Agreed Dividend</button>
+          <button type="button" class="var-btn" data-var="afd_current"      id="varbtn-afd_current">💰 Avail. for Dist.</button>
+          <button type="button" class="var-btn" data-var="outcome_uplift"   id="varbtn-outcome_uplift">📉 Outcome Uplift</button>
+          <button type="button" class="var-btn" data-var="ie_total_income"  id="varbtn-ie_total_income">💼 I&amp;E Income</button>
+          <button type="button" class="var-btn" data-var="ie_total_expenditure" id="varbtn-ie_total_expenditure">🧾 I&amp;E Expenditure</button>
+          <button type="button" class="var-btn" data-var="ie_disposable"    id="varbtn-ie_disposable">📋 Disposable Income</button>
+        </div>
+        <textarea class="reason-textarea" id="reason-textarea" placeholder="Draft the reason for this variation here. Use the buttons above to insert values at the cursor position…"></textarea>
+        <div class="reason-actions">
+          <button type="button" class="btn-tidy" id="btn-tidy">
+            <span id="tidy-label">✨ Tidy with AI</span>
+          </button>
+          <span id="tidy-status" style="font-size:0.8rem;color:#888;"></span>
+        </div>
+        <div style="margin-top:0.65rem;">
+          <button type="button" class="save-section-btn" id="save-reason-btn">💾 Save Reason</button>
+          <span id="save-reason-status" style="font-size:0.8rem;color:#888;margin-left:0.75rem;"></span>
+        </div>
+        <div class="reason-output-wrap" id="reason-output-wrap">
+          <div class="reason-output-label">
+            <span>Structured Result</span>
+            <button type="button" class="btn-use-tidied" id="btn-use-tidied">↑ Replace draft</button>
+          </div>
+          <div class="reason-output-box" id="reason-output-box"></div>
+        </div>
+      </div>
+
       {% endif %}
+
+      <!-- Workflow bar -->
+      <div class="workflow-bar" id="workflow-bar" style="display:none;">
+        <span class="workflow-status" id="wf-status-text">Draft</span>
+        <span class="wf-chip draft" id="wf-chip">Draft</span>
+        <span id="wf-review-note" style="font-size:0.8rem;color:#888;display:none;"></span>
+        <div class="workflow-bar-spacer"></div>
+        <span id="wf-save-hint" style="font-size:0.78rem;color:#aaa;"></span>
+        <button class="btn-send-review" id="btn-send-review">📤 Send for Review</button>
+        <button class="btn-wf-approve" id="btn-wf-approve" style="display:none;">✓ Approve</button>
+        <button class="btn-wf-reject"  id="btn-wf-reject"  style="display:none;">✗ Reject</button>
+        <button class="btn-action"     id="btn-wf-action"   style="display:none;">✅ Mark as Actioned</button>
+      </div>
 
       <!-- Output area -->
       <div class="output-wrap" id="output-wrap">
@@ -675,7 +720,7 @@
   }
 
   function applyStatusClass(el, status) {
-    el.classList.remove('status-pending','status-approved','status-rejected');
+    el.classList.remove('status-pending','status-approved','status-rejected','status-under_review','status-actioned');
     if (status) el.classList.add('status-' + status);
   }
 
@@ -871,7 +916,7 @@
           <span class="eos-edit-note">✏ Current column is editable</span>
         </div>
         ${renderEosTable(state, true)}
-        <button class="save-eos-btn" id="save-eos-btn">💾 Save Changes</button>
+        <button class="save-section-btn" id="save-eos-btn">💾 Save EOS</button>
         <span id="save-eos-status" style="font-size:0.8rem;color:#888;margin-left:0.75rem;"></span>
       </div>`;
 
@@ -973,26 +1018,24 @@
     const saveStatus = document.getElementById('save-eos-status');
     if (saveBtn) {
       saveBtn.addEventListener('click', async () => {
-        if (!key || !entry) return;
+        if (!currentCaseId) { saveStatus.textContent = 'Generate EOS first.'; return; }
         saveBtn.disabled = true;
         saveStatus.textContent = 'Saving…';
         try {
-          const res = await fetch(`/api/cases/${key}/cashier`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ instruction: JSON.stringify(entry.eosState) }),
-          });
-          const data = await res.json();
-          if (data.error) { saveStatus.textContent = 'Error: ' + data.error; return; }
+          const result = await saveVariationSection('eos', entry.eosState);
+          if (result.error) { saveStatus.textContent = 'Error: ' + result.error; return; }
+          saved.eos = true;
           saveBtn.classList.add('saved');
-          saveBtn.textContent = '✓ Saved';
+          saveBtn.textContent = '✓ EOS Saved';
           saveStatus.textContent = '';
-          setTimeout(() => { saveBtn.classList.remove('saved'); saveBtn.textContent = '💾 Save Changes'; }, 2000);
-        } catch {
-          saveStatus.textContent = 'Save failed.';
-        } finally {
-          saveBtn.disabled = false;
-        }
+          // Green the EOS card
+          const eosCard = document.getElementById('eos-card-main');
+          if (eosCard) eosCard.classList.add('section-saved');
+          caseReviewStatus = result.review_status || caseReviewStatus;
+          updateWorkflowBar();
+          setTimeout(() => { saveBtn.classList.remove('saved'); saveBtn.textContent = '💾 Save EOS'; }, 2000);
+        } catch { saveStatus.textContent = 'Save failed.'; }
+        finally { saveBtn.disabled = false; }
       });
     }
   }
@@ -1048,6 +1091,9 @@
     if (entry.pending) { showCalculating(); return; }
 
     if (entry.parsedResult) {
+      currentCaseId = key;
+      caseReviewStatus = entry.reviewStatus;
+      updateWorkflowBar();
       renderResult(entry.parsedResult, key);
       return;
     }
@@ -1061,6 +1107,9 @@
         const data = await res.json();
         entry.rawJson = data.result || '';
         entry.reviewStatus = data.review_status;
+        caseReviewStatus = data.review_status;
+        caseSubmittedBy = data.submitted_by;
+        currentCaseId = key;
         // Restore saved eosState if present
         if (data.cashier_instruction_override) {
           try {
@@ -1073,13 +1122,93 @@
             entry.eosState = initEosState(entry.parsedResult);
           }
         } catch { entry.parsedResult = null; }
+        if (data.variation_data) {
+          try {
+            const vd = JSON.parse(data.variation_data);
+            if (vd.saved) { saved.eos = !!vd.saved.eos; saved.ie = !!vd.saved.ie; saved.reason = !!vd.saved.reason; }
+            if (vd.eos) { entry.eosState = vd.eos; }
+            if (vd.ie && typeof ieState !== 'undefined') { ieState = vd.ie; }
+            const reasonTA = document.getElementById('reason-textarea');
+            if (vd.reason && reasonTA) { reasonTA.value = vd.reason; }
+          } catch {}
+        }
       } catch {
         document.getElementById('output-wrap').innerHTML = '<div class="calculating-card"><p style="color:#ef4444;">Failed to load case.</p></div>';
         return;
       }
+    } else {
+      currentCaseId = key;
+      caseReviewStatus = entry.reviewStatus;
     }
 
+    // If ie state was restored, render it
+    if (typeof ieState !== 'undefined' && ieState) renderIE(ieState);
+    // Restore green states
+    if (saved.eos) { const c = document.getElementById('eos-card-main'); if(c) c.classList.add('section-saved'); }
+    if (saved.ie) { const c = document.getElementById('ie-output-wrap'); if(c) c.classList.add('section-saved'); }
+    if (saved.reason) { const c = document.getElementById('reason-card'); if(c) c.classList.add('section-saved'); }
+    updateWorkflowBar();
+
     renderResult(entry.parsedResult, key);
+  }
+
+  // ── Variation workflow state ──────────────────────────────────────────────
+  let currentCaseId = null;
+  let caseReviewStatus = null;
+  let caseSubmittedBy = null;
+  const saved = { eos: false, ie: false, reason: false };
+
+  function updateWorkflowBar() {
+    const bar = document.getElementById('workflow-bar');
+    if (!currentCaseId) { bar.style.display = 'none'; return; }
+    bar.style.display = '';
+
+    const chip = document.getElementById('wf-chip');
+    const statusText = document.getElementById('wf-status-text');
+    const sendBtn = document.getElementById('btn-send-review');
+    const approveBtn = document.getElementById('btn-wf-approve');
+    const rejectBtn = document.getElementById('btn-wf-reject');
+    const actionBtn = document.getElementById('btn-wf-action');
+    const hint = document.getElementById('wf-save-hint');
+
+    // Reset all action buttons
+    [sendBtn, approveBtn, rejectBtn, actionBtn].forEach(b => b.style.display = 'none');
+
+    const chipClasses = { pending: 'draft', draft: 'draft', under_review: 'review', approved: 'approved', actioned: 'actioned', rejected: 'rejected' };
+    const labels = { pending: 'In Progress', draft: 'Ready to Review', under_review: 'Under Review', approved: 'Approved', actioned: 'Actioned', rejected: 'Rejected' };
+    const status = caseReviewStatus || 'pending';
+    chip.className = 'wf-chip ' + (chipClasses[status] || 'draft');
+    chip.textContent = labels[status] || status;
+    statusText.textContent = labels[status] || status;
+
+    if (status === 'pending' || status === 'draft') {
+      const allSaved = saved.eos && saved.ie && saved.reason;
+      if (allSaved) {
+        sendBtn.style.display = '';
+        hint.textContent = '';
+      } else {
+        const missing = [];
+        if (!saved.eos) missing.push('EOS');
+        if (!saved.ie) missing.push('I&E');
+        if (!saved.reason) missing.push('Reason');
+        hint.textContent = 'Save ' + missing.join(', ') + ' to unlock';
+      }
+    } else if (status === 'under_review' && CAN_REVIEW) {
+      approveBtn.style.display = '';
+      rejectBtn.style.display = '';
+    } else if (status === 'approved' && USER_ROLE === 'uploader') {
+      actionBtn.style.display = '';
+    }
+  }
+
+  async function saveVariationSection(section, data) {
+    if (!currentCaseId) return { error: 'No case saved yet' };
+    const res = await fetch(`/api/cases/${currentCaseId}/variation-save`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ section, data }),
+    });
+    return res.json();
   }
 
   // ── File management ───────────────────────────────────────────────────────
@@ -1227,6 +1356,9 @@
               store[finalKey].parsedResult = { status: 'STOP', reason: 'Could not parse EOS result.' };
             }
             store[finalKey].reviewStatus = 'pending';
+            currentCaseId = finalKey;
+            caseReviewStatus = 'pending';
+            updateWorkflowBar();
             sidebarMarkDone(tempKey, finalKey);
             renderResult(store[finalKey].parsedResult, finalKey);
           }
@@ -1465,6 +1597,11 @@
       </div>`;
     }
 
+    html += `<div style="margin-top:0.85rem;">
+      <button class="save-section-btn" id="save-ie-btn">💾 Save I&amp;E</button>
+      <span id="save-ie-status" style="font-size:0.8rem;color:#888;margin-left:0.75rem;"></span>
+    </div>`;
+
     wrap.innerHTML = html;
     wireIEInputs(state);
   }
@@ -1487,6 +1624,30 @@
         refreshIETotals(state);
       });
     });
+
+    const ieSaveBtn = document.getElementById('save-ie-btn');
+    const ieSaveStatus = document.getElementById('save-ie-status');
+    if (ieSaveBtn) {
+      ieSaveBtn.addEventListener('click', async () => {
+        if (!currentCaseId) { ieSaveStatus.textContent = 'Generate EOS first.'; return; }
+        ieSaveBtn.disabled = true;
+        ieSaveStatus.textContent = 'Saving…';
+        try {
+          const result = await saveVariationSection('ie', state);
+          if (result.error) { ieSaveStatus.textContent = 'Error: ' + result.error; return; }
+          saved.ie = true;
+          ieSaveBtn.classList.add('saved');
+          ieSaveBtn.textContent = '✓ I&E Saved';
+          ieSaveStatus.textContent = '';
+          const ieCard = document.getElementById('ie-output-wrap');
+          if (ieCard) ieCard.classList.add('section-saved');
+          caseReviewStatus = result.review_status || caseReviewStatus;
+          updateWorkflowBar();
+          setTimeout(() => { ieSaveBtn.classList.remove('saved'); ieSaveBtn.textContent = '💾 Save I&E'; }, 2000);
+        } catch { ieSaveStatus.textContent = 'Save failed.'; }
+        finally { ieSaveBtn.disabled = false; }
+      });
+    }
   }
 
   function refreshIETotals(state) {
@@ -1766,6 +1927,91 @@
       tidyBtn.disabled = false;
       tidyLabel.textContent = '✨ Tidy with AI';
     }
+  });
+
+  // ── Reason save button ────────────────────────────────────────────────────
+  const reasonSaveBtn = document.getElementById('save-reason-btn');
+  const reasonSaveStatus = document.getElementById('save-reason-status');
+  if (reasonSaveBtn) {
+    reasonSaveBtn.addEventListener('click', async () => {
+      if (!currentCaseId) { reasonSaveStatus.textContent = 'Generate EOS first.'; return; }
+      const text = document.getElementById('reason-textarea').value.trim();
+      if (!text) { reasonSaveStatus.textContent = 'Write a reason first.'; return; }
+      reasonSaveBtn.disabled = true;
+      reasonSaveStatus.textContent = 'Saving…';
+      try {
+        const result = await saveVariationSection('reason', text);
+        if (result.error) { reasonSaveStatus.textContent = 'Error: ' + result.error; return; }
+        saved.reason = true;
+        reasonSaveBtn.classList.add('saved');
+        reasonSaveBtn.textContent = '✓ Reason Saved';
+        reasonSaveStatus.textContent = '';
+        const card = document.getElementById('reason-card');
+        if (card) card.classList.add('section-saved');
+        caseReviewStatus = result.review_status || caseReviewStatus;
+        updateWorkflowBar();
+        setTimeout(() => { reasonSaveBtn.classList.remove('saved'); reasonSaveBtn.textContent = '💾 Save Reason'; }, 2000);
+      } catch { reasonSaveStatus.textContent = 'Save failed.'; }
+      finally { reasonSaveBtn.disabled = false; }
+    });
+  }
+
+  // ── Workflow buttons ──────────────────────────────────────────────────────
+  // Send for review
+  document.getElementById('btn-send-review').addEventListener('click', async () => {
+    if (!currentCaseId) return;
+    const btn = document.getElementById('btn-send-review');
+    btn.disabled = true;
+    try {
+      const res = await fetch(`/api/cases/${currentCaseId}/send-for-review`, { method: 'POST' });
+      const data = await res.json();
+      if (data.error) { alert(data.error); return; }
+      caseReviewStatus = 'under_review';
+      updateSidebarStatus(String(currentCaseId), 'under_review');
+      updateWorkflowBar();
+    } catch { alert('Request failed.'); }
+    finally { btn.disabled = false; }
+  });
+
+  // Reviewer approve
+  document.getElementById('btn-wf-approve').addEventListener('click', async () => {
+    if (!currentCaseId) return;
+    const res = await fetch(`/api/cases/${currentCaseId}/review`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'approve', instruction: null }),
+    });
+    const data = await res.json();
+    if (data.error) { alert(data.error); return; }
+    caseReviewStatus = 'approved';
+    updateSidebarStatus(String(currentCaseId), 'approved');
+    updateWorkflowBar();
+  });
+
+  // Reviewer reject
+  document.getElementById('btn-wf-reject').addEventListener('click', async () => {
+    if (!currentCaseId) return;
+    const note = prompt('Rejection note (required):');
+    if (!note) return;
+    const res = await fetch(`/api/cases/${currentCaseId}/review`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'reject', note, instruction: null }),
+    });
+    const data = await res.json();
+    if (data.error) { alert(data.error); return; }
+    caseReviewStatus = 'rejected';
+    updateSidebarStatus(String(currentCaseId), 'rejected');
+    updateWorkflowBar();
+  });
+
+  // Mark as actioned
+  document.getElementById('btn-wf-action').addEventListener('click', async () => {
+    if (!currentCaseId) return;
+    const res = await fetch(`/api/cases/${currentCaseId}/action`, { method: 'POST' });
+    const data = await res.json();
+    if (data.error) { alert(data.error); return; }
+    caseReviewStatus = 'actioned';
+    updateSidebarStatus(String(currentCaseId), 'actioned');
+    updateWorkflowBar();
   });
 
   {% endif %}
