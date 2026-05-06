@@ -846,6 +846,7 @@
     </div>
     <div class="review-tabs">
       <button class="review-tab active" data-tab="cashier">Cashier Instruction</button>
+      <button class="review-tab" data-tab="screenshots">Screenshots</button>
       <button class="review-tab" data-tab="fulllog">Full Log</button>
     </div>
 
@@ -864,6 +865,13 @@
             <label for="review-rejection-note">Rejection Note <span style="color:#ef4444;">*</span></label>
             <textarea id="review-rejection-note" placeholder="Explain why this instruction is being rejected…"></textarea>
           </div>
+        </div>
+      </div>
+
+      <!-- Screenshots tab -->
+      <div class="review-tab-panel" id="review-tab-screenshots">
+        <div id="review-screenshots-content">
+          <div style="text-align:center;color:#bbb;padding:2rem;">Click tab to load…</div>
         </div>
       </div>
 
@@ -1304,6 +1312,11 @@
       try {
         const res  = await fetch(`/api/cases/${key}`);
         const data = await res.json();
+        let images = null;
+        try {
+          const vd = data.variation_data ? JSON.parse(data.variation_data) : null;
+          if (vd && vd.images) images = vd.images;
+        } catch {}
         store[key] = {
           caseNumber: data.case_number,
           fullText: data.result,
@@ -1316,6 +1329,7 @@
           },
           cashierOverride: data.cashier_instruction_override ?? null,
           reviewStatus: data.review_status,
+          images: images,
         };
         openModal(key, type, store[key]);
       } catch {
@@ -1663,26 +1677,35 @@
     reviewCaseId = key;
     reviewRejectMode = false;
 
-    // Ensure case is loaded
-    if (!store[key]) {
+    // Ensure case is loaded (and images are present)
+    if (!store[key] || store[key].images === undefined) {
       try {
         const res  = await fetch(`/api/cases/${key}`);
         const data = await res.json();
-        store[key] = {
-          caseNumber: data.case_number,
-          fullText: data.result,
-          pending: false,
-          usage: { input_tokens: data.input_tokens, output_tokens: data.output_tokens,
-                   cache_creation_tokens: data.cache_creation_tokens, cache_read_tokens: data.cache_read_tokens },
-          cashierOverride: data.cashier_instruction_override ?? null,
-          reviewStatus: data.review_status,
-        };
+        let images = null;
+        try {
+          const vd = data.variation_data ? JSON.parse(data.variation_data) : null;
+          if (vd && vd.images) images = vd.images;
+        } catch {}
+        if (store[key]) {
+          store[key].images = images;
+        } else {
+          store[key] = {
+            caseNumber: data.case_number,
+            fullText: data.result,
+            pending: false,
+            usage: { input_tokens: data.input_tokens, output_tokens: data.output_tokens,
+                     cache_creation_tokens: data.cache_creation_tokens, cache_read_tokens: data.cache_read_tokens },
+            cashierOverride: data.cashier_instruction_override ?? null,
+            reviewStatus: data.review_status,
+            images: images,
+          };
+        }
       } catch { alert('Failed to load case.'); return; }
     }
 
     const entry = store[key];
     const cashier = getCashierText(entry);
-    const dt = new Date().toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' });
 
     document.getElementById('review-case-number').textContent = entry.caseNumber || key;
     document.getElementById('review-case-meta').textContent = 'Cashier instruction for review';
@@ -1690,6 +1713,14 @@
     document.getElementById('review-edited-instruction').value = cashier;
     document.getElementById('review-rejection-note').value = '';
     document.getElementById('review-error').style.display = 'none';
+
+    // Reset tabs to cashier
+    document.querySelectorAll('.review-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.review-tab-panel').forEach(p => p.classList.remove('active'));
+    document.querySelector('.review-tab[data-tab="cashier"]').classList.add('active');
+    document.getElementById('review-tab-cashier').classList.add('active');
+    document.getElementById('review-screenshots-content').innerHTML = '<div style="text-align:center;color:#bbb;padding:2rem;">Click tab to load…</div>';
+    document.getElementById('review-fulllog-content').innerHTML = '<div style="text-align:center;color:#bbb;padding:2rem;">Loading full log…</div>';
 
     // Reset to initial state
     setReviewRejectMode(false);
@@ -1705,6 +1736,37 @@
     document.getElementById('review-error').style.display = 'none';
   }
 
+  const SLOT_LABELS = {
+    contribution_schedule: 'Contribution Schedule',
+    eos: 'Estimated Outcome Statement (EOS)',
+    modifications: 'Modifications',
+    rp: 'Receipts & Payments (R&P)',
+    creditor_claims: 'Creditor Claims Screen',
+  };
+
+  function renderReviewScreenshots(images) {
+    if (!images || !Object.keys(images).length) {
+      return '<div style="text-align:center;color:#bbb;padding:2rem;">No screenshots were stored for this case.</div>';
+    }
+    let html = '<div style="padding:0.5rem 0;">';
+    for (const [slot, files] of Object.entries(images)) {
+      if (!files || !files.length) continue;
+      html += `<div style="margin-bottom:1.25rem;">
+        <div style="font-size:0.8rem;font-weight:700;color:#6366f1;margin-bottom:0.5rem;">${escHtml(SLOT_LABELS[slot] || slot)}</div>
+        <div style="display:flex;flex-wrap:wrap;gap:0.5rem;">`;
+      files.forEach(f => {
+        html += `<a href="${f.data}" target="_blank" style="display:block;">
+          <img src="${f.data}" alt="${escHtml(f.name)}"
+            style="max-height:200px;max-width:320px;border:1px solid #e5e7eb;border-radius:6px;cursor:zoom-in;"
+            title="${escHtml(f.name)}" />
+        </a>`;
+      });
+      html += '</div></div>';
+    }
+    html += '</div>';
+    return html;
+  }
+
   // Review modal tab switching
   document.querySelectorAll('.review-tab').forEach(tab => {
     tab.addEventListener('click', () => {
@@ -1712,10 +1774,13 @@
       document.querySelectorAll('.review-tab-panel').forEach(p => p.classList.remove('active'));
       tab.classList.add('active');
       document.getElementById('review-tab-' + tab.dataset.tab).classList.add('active');
-      // Render full log on first switch to that tab
       if (tab.dataset.tab === 'fulllog' && reviewCaseId && store[reviewCaseId]) {
         const el = document.getElementById('review-fulllog-content');
         el.innerHTML = renderMarkdown(store[reviewCaseId].fullText || '', false);
+      }
+      if (tab.dataset.tab === 'screenshots' && reviewCaseId && store[reviewCaseId]) {
+        const el = document.getElementById('review-screenshots-content');
+        el.innerHTML = renderReviewScreenshots(store[reviewCaseId].images);
       }
     });
   });
