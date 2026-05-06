@@ -1897,6 +1897,7 @@
   }
 
   // ── File management ───────────────────────────────────────────────────────
+  const fileMap = {};
   {% if current_user.role in ['uploader', 'admin'] %}
   const slots = ['agreed_eos', 'modifications', 'chart_of_accounts'];
   slots.forEach(s => fileMap[s] = []);
