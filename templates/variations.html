@@ -1277,6 +1277,7 @@
           const result = await saveVariationSection('eos', entry.eosState);
           if (result.error) { saveStatus.textContent = 'Error: ' + result.error; return; }
           saved.eos = true;
+          if (entry) entry.savedFlags = { eos: true, ie: saved.ie, reason: saved.reason };
           saveBtn.classList.add('saved');
           saveBtn.textContent = '✓ EOS Saved';
           saveStatus.textContent = '';
@@ -1284,6 +1285,19 @@
           if (eosCard) eosCard.classList.add('section-saved');
           caseReviewStatus = result.review_status || caseReviewStatus;
           updateWorkflowBar();
+          // Capture and store images for reviewer (uploader/admin only)
+          {% if current_user.role in ['uploader', 'admin'] %}
+          try {
+            const toB64 = f => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res({ name: f.name, data: r.result }); r.onerror = rej; r.readAsDataURL(f); });
+            const imgData = {};
+            for (const slot of slots) { if (fileMap[slot] && fileMap[slot].length) imgData[slot] = await Promise.all(fileMap[slot].map(toB64)); }
+            if (ieFileMap && ieFileMap.length) imgData['ie_document'] = await Promise.all(ieFileMap.map(toB64));
+            if (Object.keys(imgData).length) {
+              await saveVariationSection('images', imgData);
+              if (entry) entry.images = imgData;
+            }
+          } catch {}
+          {% endif %}
           setTimeout(() => { saveBtn.classList.remove('saved'); saveBtn.textContent = '💾 Save EOS'; }, 2000);
         } catch(err) { saveStatus.textContent = 'Save failed: ' + (err && err.message ? err.message : String(err)); }
         finally { saveBtn.disabled = false; }
@@ -1384,8 +1398,18 @@
     if (entry.parsedResult) {
       currentCaseId = key;
       caseReviewStatus = entry.reviewStatus;
+      // Restore per-entry globals (switching between cases)
+      if (entry.ieState !== undefined) ieState = entry.ieState || null;
+      if (entry.savedFlags) { saved.eos = entry.savedFlags.eos; saved.ie = entry.savedFlags.ie; saved.reason = entry.savedFlags.reason; }
+      const reasonTA = document.getElementById('reason-textarea');
+      if (reasonTA && entry.savedReason != null) reasonTA.value = entry.savedReason;
+      if (ieState) renderIE(ieState);
+      if (saved.eos) { const c = document.getElementById('eos-card-main'); if(c) c.classList.add('section-saved'); }
+      if (saved.ie) { const c = document.getElementById('ie-output-wrap'); if(c) c.classList.add('section-saved'); }
+      if (saved.reason) { const c = document.getElementById('reason-card'); if(c) c.classList.add('section-saved'); }
       updateWorkflowBar();
       renderResult(entry.parsedResult, key);
+      if (entry.images) renderCaseImages(entry.images);
       return;
     }
 
@@ -1416,11 +1440,14 @@
         if (data.variation_data) {
           try {
             const vd = JSON.parse(data.variation_data);
-            if (vd.saved) { saved.eos = !!vd.saved.eos; saved.ie = !!vd.saved.ie; saved.reason = !!vd.saved.reason; }
+            if (vd.saved) {
+              saved.eos = !!vd.saved.eos; saved.ie = !!vd.saved.ie; saved.reason = !!vd.saved.reason;
+              entry.savedFlags = { eos: saved.eos, ie: saved.ie, reason: saved.reason };
+            }
             if (vd.eos) { entry.eosState = vd.eos; }
-            if (vd.ie) { ieState = vd.ie; }
-            const reasonTA = document.getElementById('reason-textarea');
-            if (vd.reason && reasonTA) { reasonTA.value = vd.reason; }
+            if (vd.ie) { ieState = vd.ie; entry.ieState = vd.ie; }
+            if (vd.reason) { entry.savedReason = vd.reason; const reasonTA = document.getElementById('reason-textarea'); if (reasonTA) reasonTA.value = vd.reason; }
+            if (vd.images) { entry.images = vd.images; }
           } catch {}
         }
       } catch {
@@ -1433,7 +1460,7 @@
     }
 
     // If ie state was restored, render it
-    if (typeof ieState !== 'undefined' && ieState) renderIE(ieState);
+    if (ieState) renderIE(ieState);
     // Restore green states
     if (saved.eos) { const c = document.getElementById('eos-card-main'); if(c) c.classList.add('section-saved'); }
     if (saved.ie) { const c = document.getElementById('ie-output-wrap'); if(c) c.classList.add('section-saved'); }
@@ -1441,6 +1468,7 @@
     updateWorkflowBar();
 
     renderResult(entry.parsedResult, key);
+    if (entry.images) renderCaseImages(entry.images);
   }
 
   // ── Variation workflow state ──────────────────────────────────────────────
@@ -1505,6 +1533,28 @@
       return { error: errText };
     }
     return res.json();
+  }
+
+  // ── Case images (screenshots for reviewer) ────────────────────────────────
+  function renderCaseImages(images) {
+    const existing = document.getElementById('case-images-section');
+    if (existing) existing.remove();
+    if (!images || !Object.keys(images).length) return;
+    const slotLabels = { agreed_eos: 'Agreed EOS', modifications: 'Schedule of Modifications', chart_of_accounts: 'Chart of Accounts', ie_document: 'I&E Document' };
+    let html = '<div id="case-images-section" style="margin-top:1.5rem;">';
+    html += '<div style="font-weight:700;font-size:1rem;margin-bottom:0.75rem;color:#374151;">📎 Uploaded Documents</div>';
+    for (const [slot, files] of Object.entries(images)) {
+      if (!files || !files.length) continue;
+      html += `<div style="margin-bottom:1rem;"><div style="font-size:0.8rem;font-weight:600;color:#6366f1;margin-bottom:0.4rem;">${escHtml(slotLabels[slot] || slot)}</div>`;
+      html += '<div style="display:flex;flex-wrap:wrap;gap:0.5rem;">';
+      files.forEach(f => {
+        html += `<a href="${f.data}" target="_blank" style="display:block;"><img src="${f.data}" alt="${escHtml(f.name)}" style="max-height:200px;max-width:320px;border:1px solid #e5e7eb;border-radius:6px;cursor:zoom-in;" title="${escHtml(f.name)}" /></a>`;
+      });
+      html += '</div></div>';
+    }
+    html += '</div>';
+    const wrap = document.getElementById('ie-output-wrap');
+    if (wrap) wrap.insertAdjacentHTML('afterend', html);
   }
 
   // ── File management ───────────────────────────────────────────────────────
@@ -2578,18 +2628,13 @@
     } catch {}
   }
 
-  loadCaseList();
-
-  (function() {
+  loadCaseList().then(() => {
     const urlCase = new URLSearchParams(window.location.search).get('case');
     if (urlCase) {
-      window.addEventListener('load', async () => {
-        await new Promise(r => setTimeout(r, 300));
-        const el = document.getElementById('case-item-' + urlCase);
-        if (el) { el.classList.add('active'); showOutputForKey(urlCase); }
-      });
+      const el = document.getElementById('case-item-' + urlCase);
+      if (el) { el.classList.add('active'); showOutputForKey(urlCase); }
     }
-  })();
+  });
 
   {% if current_user.role in ['reviewer', 'admin'] %}
   const notifBtn = document.getElementById('notif-btn');

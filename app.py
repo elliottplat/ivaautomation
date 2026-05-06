@@ -2462,7 +2462,7 @@ def variation_save(case_id):
         return jsonify({"error": "Forbidden"}), 403
     data = request.get_json() or {}
     section = data.get("section")
-    if section not in ("eos", "ie", "reason"):
+    if section not in ("eos", "ie", "reason", "images"):
         return jsonify({"error": "Invalid section"}), 400
     section_data = data.get("data")
     try:
@@ -2478,9 +2478,10 @@ def variation_save(case_id):
             except (json.JSONDecodeError, TypeError):
                 vd = {}
             vd[section] = section_data
-            if "saved" not in vd:
-                vd["saved"] = {}
-            vd["saved"][section] = True
+            if section != "images":
+                if "saved" not in vd:
+                    vd["saved"] = {}
+                vd["saved"][section] = True
             cur.execute("UPDATE cases SET variation_data = %s WHERE id = %s", (json.dumps(vd), case_id))
         conn.commit()
         conn.close()
