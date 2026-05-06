@@ -2313,6 +2313,13 @@
           if (data.error) { tidyStatus.textContent = 'Error: ' + data.error; outputWrap.classList.remove('visible'); }
         }
       }
+      // Auto-replace draft with tidied version so Save uses the AI-tidied text
+      if (tidied.trim()) {
+        document.getElementById('reason-textarea').value = tidied;
+        outputWrap.classList.remove('visible');
+        tidyStatus.textContent = '✓ Draft replaced with tidied version';
+        setTimeout(() => { tidyStatus.textContent = ''; }, 3000);
+      }
     } catch (err) {
       tidyStatus.textContent = 'Failed: ' + err.message;
     } finally {
