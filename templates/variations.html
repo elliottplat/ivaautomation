@@ -691,9 +691,130 @@
     }).catch(() => {});
   }
 
+  // Copy HTML + plain-text fallback — Word uses the HTML to reconstruct the table
+  async function copyHtmlToClip(btn, html, plainText) {
+    try {
+      const htmlBlob = new Blob([html], { type: 'text/html' });
+      const textBlob = new Blob([plainText || ''], { type: 'text/plain' });
+      await navigator.clipboard.write([new ClipboardItem({ 'text/html': htmlBlob, 'text/plain': textBlob })]);
+    } catch {
+      // Fallback: plain text only
+      await navigator.clipboard.writeText(plainText || '');
+    }
+    btn.classList.add('copied');
+    const orig = btn.textContent;
+    btn.textContent = '✓ Copied';
+    setTimeout(() => { btn.textContent = orig; btn.classList.remove('copied'); }, 1600);
+  }
+
   function copyBtn(rawValue, label) {
     const safe = String(rawValue === null || rawValue === undefined ? '' : rawValue).replace(/'/g, "\\'");
     return `<button class="copy-btn" title="Copy ${escHtml(label || '')}" onclick="copyToClip(this,'${safe}')">⧉</button>`;
+  }
+
+  // ── HTML table builders for Word-compatible copy ──────────────────────────
+
+  function _td(content, opts) {
+    const s = opts || {};
+    const base = 'padding:4pt 10pt;border:1px solid #bbb;vertical-align:middle;';
+    const styles = [
+      base,
+      s.right  ? 'text-align:right;font-family:"Courier New",monospace;' : 'text-align:left;',
+      s.bold   ? 'font-weight:bold;' : '',
+      s.bg     ? `background:${s.bg};` : '',
+      s.topBorder ? 'border-top:2px solid #555;' : '',
+      s.heavy  ? 'border-top:2.5px solid #222;border-bottom:2.5px solid #222;' : '',
+      s.red    ? 'color:#c00000;' : '',
+      s.span   ? '' : '',
+    ].join('');
+    const spanAttr = s.span ? ` colspan="${s.span}"` : '';
+    return `<td${spanAttr} style="${styles}">${content}</td>`;
+  }
+
+  function buildEosHtml(state) {
+    if (!state) return '';
+    const assets = state.assets_available || [];
+    const costs  = state.costs_and_disbursements || [];
+    const ta  = state.total_assets_available || {};
+    const tc  = state.total_costs || {};
+    const afd = state.available_for_distribution || {};
+    const uc  = state.unsecured_creditors || {};
+    const sd  = state.surplus_deficiency || {};
+    const div = state.estimated_dividend_pence_per_pound || {};
+
+    const hdr = {bold:true, bg:'#e8e8e8'};
+    const sec = {bold:true, bg:'#f2f2f2', span:3};
+    const tot = {bold:true, bg:'#f2f2f2', topBorder:true};
+    const totR = {...tot, right:true};
+    const gnd = {bold:true, heavy:true};
+    const gndR = {...gnd, right:true};
+
+    const rows = [
+      `<tr>${_td('Assets Available', sec)}</tr>`,
+      ...assets.map(r => `<tr>${_td(escHtml(r.label))}${_td(fmtFS(r.last_agreed),{right:true})}${_td(fmtFS(r.current),{right:true})}</tr>`),
+      `<tr>${_td('Total Assets Available',tot)}${_td(fmtFS(ta.last_agreed),totR)}${_td(fmtFS(ta.current),totR)}</tr>`,
+      `<tr>${_td('Estimated Costs &amp; Disbursements', sec)}</tr>`,
+      ...costs.map(r => `<tr>${_td(escHtml(r.label))}${_td(fmtFS(r.last_agreed),{right:true})}${_td(fmtFS(r.current),{right:true})}</tr>`),
+      `<tr>${_td('Total Estimated Costs &amp; Disbursements',tot)}${_td(fmtFS(tc.last_agreed),totR)}${_td(fmtFS(tc.current),totR)}</tr>`,
+      `<tr>${_td('Estimated Available For Distribution',gnd)}${_td(fmtFS(afd.last_agreed),gndR)}${_td(fmtFS(afd.current),gndR)}</tr>`,
+      `<tr>${_td('Unsecured Creditors')}${_td(fmtFS(uc.last_agreed),{right:true})}${_td(fmtFS(uc.current),{right:true})}</tr>`,
+      `<tr>${_td('Surplus/(Deficiency) Available',{red:(sd.last_agreed||0)<0||(sd.current||0)<0})}${_td(fmtFS(sd.last_agreed),{right:true,red:(sd.last_agreed||0)<0})}${_td(fmtFS(sd.current),{right:true,red:(sd.current||0)<0})}</tr>`,
+      `<tr>${_td('Estimated Dividend (p/£)',{bold:true})}${_td(fmtNum(div.last_agreed)+'p',{right:true,bold:true})}${_td(fmtNum(div.current)+'p',{right:true,bold:true})}</tr>`,
+    ].join('');
+
+    return `<table border="1" cellpadding="0" cellspacing="0" style="border-collapse:collapse;font-family:Calibri,Arial,sans-serif;font-size:10pt;">
+      <thead><tr>
+        ${_td('Line Item',{...hdr})}
+        ${_td('Last Agreed £',{...hdr,right:true})}
+        ${_td('Current Estimate £',{...hdr,right:true})}
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+  }
+
+  function buildIeHtml(state) {
+    if (!state) return '';
+    const rows = [];
+    const hdr = {bold:true, bg:'#e8e8e8'};
+    const sec = {bold:true, bg:'#f2f2f2', span:2};
+    const tot = {bold:true, bg:'#f2f2f2', topBorder:true};
+    const totR = {...tot, right:true};
+
+    rows.push(`<tr>${_td('Income', sec)}</tr>`);
+    IE_INCOME_FIELDS.forEach(f => {
+      const v = state.income[f.key];
+      rows.push(`<tr>${_td(escHtml(f.label))}${_td(v != null ? fmtIE(v) : '—', {right:true})}</tr>`);
+    });
+    rows.push(`<tr>${_td('Total Income',tot)}${_td(fmtIE(state.income.total_income),totR)}</tr>`);
+
+    IE_EXP_CATS.forEach(cat => {
+      const catObj = (state.expenditure && state.expenditure[cat.key]) || {};
+      let secLabel = escHtml(cat.label);
+      if (cat.flexible && catObj.trigger_figure != null) {
+        const over = catObj.over_trigger;
+        const tf = Number(catObj.trigger_figure).toFixed(2);
+        const vari = catObj.variance_from_trigger != null ? ` (${catObj.variance_from_trigger >= 0 ? '+' : ''}£${Math.abs(catObj.variance_from_trigger).toFixed(2)})` : '';
+        secLabel += ` — ${over ? '⚠ OVER' : '✓'} Trigger £${tf}${vari}`;
+      }
+      rows.push(`<tr>${_td(secLabel, sec)}</tr>`);
+      cat.fields.forEach(f => {
+        const v = catObj[f.key];
+        rows.push(`<tr>${_td(escHtml(f.label))}${_td(v != null ? fmtIE(v) : '—', {right:true})}</tr>`);
+      });
+      rows.push(`<tr>${_td(escHtml(cat.label)+' Subtotal',tot)}${_td(fmtIE(catObj.subtotal),totR)}</tr>`);
+    });
+
+    const surplus = state.summary.surplus_or_deficit;
+    rows.push(`<tr>${_td('Total Expenditure',{bold:true,heavy:true})}${_td(fmtIE(state.expenditure.total_expenditure),{right:true,bold:true,heavy:true})}</tr>`);
+    rows.push(`<tr>${_td(surplus >= 0 ? 'Disposable Income' : 'Deficit',{bold:true,red:surplus<0})}${_td(fmtIE(surplus),{right:true,bold:true,red:surplus<0})}</tr>`);
+
+    return `<table border="1" cellpadding="0" cellspacing="0" style="border-collapse:collapse;font-family:Calibri,Arial,sans-serif;font-size:10pt;">
+      <thead><tr>
+        ${_td('Item',{...hdr})}
+        ${_td('Monthly £',{...hdr,right:true})}
+      </tr></thead>
+      <tbody>${rows.join('')}</tbody>
+    </table>`;
   }
 
   // ── EOS state management ──────────────────────────────────────────────────
@@ -875,7 +996,7 @@
 
     return `
       <div style="display:flex;justify-content:flex-end;margin-bottom:0.5rem;">
-        <button class="copy-section-btn" onclick="copyToClip(this,'${safeAllText}')">⧉ Copy All</button>
+        <button class="copy-section-btn" id="eos-copy-all-btn">⧉ Copy Table</button>
       </div>
       <table class="fin-table">
         <thead>
@@ -1080,6 +1201,28 @@
           setTimeout(() => { saveBtn.classList.remove('saved'); saveBtn.textContent = '💾 Save EOS'; }, 2000);
         } catch(err) { saveStatus.textContent = 'Save failed: ' + (err && err.message ? err.message : String(err)); }
         finally { saveBtn.disabled = false; }
+      });
+    }
+
+    const eosCopyAll = document.getElementById('eos-copy-all-btn');
+    if (eosCopyAll) {
+      eosCopyAll.addEventListener('click', function() {
+        const state = entry.eosState;
+        const html = buildEosHtml(state);
+        const plain = [
+          ['Line Item','Last Agreed £','Current Estimate £'],
+          ['Assets Available','',''],
+          ...(state.assets_available||[]).map(r=>[r.label, fmtFSnum(r.last_agreed), fmtFSnum(r.current)]),
+          ['Total Assets Available', fmtFSnum((state.total_assets_available||{}).last_agreed), fmtFSnum((state.total_assets_available||{}).current)],
+          ['Estimated Costs & Disbursements','',''],
+          ...(state.costs_and_disbursements||[]).map(r=>[r.label, fmtFSnum(r.last_agreed), fmtFSnum(r.current)]),
+          ['Total Estimated Costs & Disbursements', fmtFSnum((state.total_costs||{}).last_agreed), fmtFSnum((state.total_costs||{}).current)],
+          ['Estimated Available For Distribution', fmtFSnum((state.available_for_distribution||{}).last_agreed), fmtFSnum((state.available_for_distribution||{}).current)],
+          ['Unsecured Creditors', fmtFSnum((state.unsecured_creditors||{}).last_agreed), fmtFSnum((state.unsecured_creditors||{}).current)],
+          ['Surplus/(Deficiency) Available', fmtFSnum((state.surplus_deficiency||{}).last_agreed), fmtFSnum((state.surplus_deficiency||{}).current)],
+          ['Estimated Dividend (p/£)', fmtNum((state.estimated_dividend_pence_per_pound||{}).last_agreed)+'p', fmtNum((state.estimated_dividend_pence_per_pound||{}).current)+'p'],
+        ].map(r=>r.join('\t')).join('\n');
+        copyHtmlToClip(this, html, plain);
       });
     }
   }
@@ -1705,26 +1848,27 @@
     const copyAllBtn = document.getElementById('ie-copy-all-btn');
     if (copyAllBtn) {
       copyAllBtn.addEventListener('click', function() {
-        const rows = [['Item', 'Monthly £'], ['', ''], ['Income', '']];
+        const html = buildIeHtml(state);
+        const plainRows = [['Item', 'Monthly £'], ['Income', '']];
         IE_INCOME_FIELDS.forEach(f => {
           const v = state.income[f.key];
-          rows.push([f.label, v != null ? Number(v).toFixed(2) : '']);
+          plainRows.push([f.label, v != null ? fmtIE(v) : '—']);
         });
-        rows.push(['Total Income', state.income.total_income != null ? Number(state.income.total_income).toFixed(2) : '']);
+        plainRows.push(['Total Income', fmtIE(state.income.total_income)]);
         IE_EXP_CATS.forEach(cat => {
           const catObj = (state.expenditure && state.expenditure[cat.key]) || {};
-          rows.push(['', '']);
-          rows.push([cat.label, '']);
+          plainRows.push(['', '']);
+          plainRows.push([cat.label, '']);
           cat.fields.forEach(f => {
             const v = catObj[f.key];
-            rows.push([f.label, v != null ? Number(v).toFixed(2) : '']);
+            plainRows.push([f.label, v != null ? fmtIE(v) : '—']);
           });
-          rows.push([cat.label + ' Subtotal', catObj.subtotal != null ? Number(catObj.subtotal).toFixed(2) : '']);
+          plainRows.push([cat.label + ' Subtotal', fmtIE(catObj.subtotal)]);
         });
-        rows.push(['', '']);
-        rows.push(['Total Expenditure', state.expenditure.total_expenditure != null ? Number(state.expenditure.total_expenditure).toFixed(2) : '']);
-        rows.push([surplusLabel, state.summary.surplus_or_deficit != null ? Number(state.summary.surplus_or_deficit).toFixed(2) : '']);
-        copyToClip(this, rows.map(r => r.join('\t')).join('\n'));
+        plainRows.push(['', '']);
+        plainRows.push(['Total Expenditure', fmtIE(state.expenditure.total_expenditure)]);
+        plainRows.push([surplusLabel, fmtIE(state.summary.surplus_or_deficit)]);
+        copyHtmlToClip(this, html, plainRows.map(r => r.join('\t')).join('\n'));
       });
     }
   }
