@@ -1565,10 +1565,340 @@
     if (wrap) wrap.insertAdjacentHTML('afterend', html);
   }
 
+  // ── I&E State (all roles — reviewer needs these to display saved I&E) ──────
+
+  let ieState = null;
+
+  const IE_INCOME_FIELDS = [
+    { key: 'salary_wages',         label: 'Salary / wages (take home)' },
+    { key: 'self_employed',        label: 'Self-employed income' },
+    { key: 'benefits_tax_credits', label: 'Benefits & tax credits' },
+    { key: 'child_benefit',        label: 'Child Benefit' },
+    { key: 'pensions',             label: 'Pensions' },
+    { key: 'maintenance_received', label: 'Maintenance received' },
+    { key: 'other_income',         label: 'Other income' },
+  ];
+
+  // flexible: true = has a household-calculated trigger figure from AI
+  const IE_EXP_CATS = [
+    { key: 'home_and_contents', label: 'Home & Contents', fields: [
+      { key: 'rent', label: 'Rent' },
+      { key: 'mortgage', label: 'Mortgage' },
+      { key: 'ground_rent_service_charges', label: 'Ground rent / service charges' },
+      { key: 'council_tax', label: 'Council tax' },
+      { key: 'buildings_contents_insurance', label: 'Buildings & contents insurance' },
+      { key: 'appliance_furniture_rental', label: 'Appliance / furniture rental' },
+      { key: 'tv_licence', label: 'TV licence' },
+      { key: 'other', label: 'Other' },
+    ]},
+    { key: 'utilities', label: 'Utilities', fields: [
+      { key: 'gas', label: 'Gas' },
+      { key: 'electricity', label: 'Electricity' },
+      { key: 'other_fuel', label: 'Other fuel' },
+      { key: 'water', label: 'Water' },
+    ]},
+    { key: 'communications_and_leisure', label: 'Communications & Leisure', flexible: true, fields: [
+      { key: 'home_phone_internet_tv', label: 'Home phone / internet / TV' },
+      { key: 'mobile_phone', label: 'Mobile phone' },
+      { key: 'hobbies_leisure_sport', label: 'Hobbies, leisure, sport' },
+      { key: 'gifts', label: 'Gifts' },
+      { key: 'pocket_money', label: 'Pocket money' },
+      { key: 'newspapers_magazines', label: 'Newspapers & magazines' },
+    ]},
+    { key: 'food_and_housekeeping', label: 'Food & Housekeeping', flexible: true, fields: [
+      { key: 'groceries', label: 'Groceries' },
+      { key: 'nappies_baby_items', label: 'Nappies & baby items' },
+      { key: 'school_meals_work_meals', label: 'School / work meals' },
+      { key: 'laundry_dry_cleaning', label: 'Laundry & dry cleaning' },
+      { key: 'alcohol', label: 'Alcohol' },
+      { key: 'smoking', label: 'Smoking products' },
+      { key: 'vet_bills', label: 'Vet bills' },
+    ]},
+    { key: 'personal_costs', label: 'Personal Costs', flexible: true, fields: [
+      { key: 'clothing_footwear', label: 'Clothing & footwear' },
+      { key: 'hairdressing', label: 'Hairdressing' },
+      { key: 'toiletries', label: 'Toiletries' },
+      { key: 'prescriptions_medicines_dental_optical', label: 'Prescriptions / medicines / dental / optical' },
+      { key: 'other', label: 'Other' },
+    ]},
+    { key: 'travel', label: 'Travel', fields: [
+      { key: 'public_transport', label: 'Public transport' },
+      { key: 'hire_purchase_vehicle', label: 'Hire purchase / vehicle' },
+      { key: 'car_insurance', label: 'Car insurance' },
+      { key: 'road_tax', label: 'Road tax' },
+      { key: 'mot_maintenance', label: 'MOT & maintenance' },
+      { key: 'breakdown_cover', label: 'Breakdown cover' },
+      { key: 'fuel_parking_tolls', label: 'Fuel / parking / tolls' },
+      { key: 'other', label: 'Other' },
+    ]},
+    { key: 'childcare_and_education', label: 'Childcare & Education', fields: [
+      { key: 'childcare', label: 'Childcare' },
+      { key: 'child_maintenance_paid', label: 'Child maintenance paid out' },
+      { key: 'school_trips_uniform_lessons', label: 'School trips / uniform / lessons' },
+      { key: 'adult_education', label: 'Adult education / training' },
+    ]},
+    { key: 'insurances_and_pensions', label: 'Insurances & Pensions', fields: [
+      { key: 'life_assurance', label: 'Life assurance' },
+      { key: 'pension_contributions', label: 'Pension contributions' },
+      { key: 'other_insurances', label: 'Other insurances' },
+      { key: 'professional_fees_unions', label: 'Professional fees / union subscriptions' },
+    ]},
+    { key: 'other', label: 'Other Essential', fields: [
+      { key: 'court_fines', label: 'Court fines' },
+      { key: 'other_essential', label: 'Other essential expenditure' },
+    ]},
+  ];
+
+  function recalcIE(state) {
+    if (!state) return;
+    if (!state.summary) state.summary = {};
+    let totalIncome = 0;
+    IE_INCOME_FIELDS.forEach(f => { totalIncome += state.income[f.key] || 0; });
+    state.income.total_income = Math.round(totalIncome * 100) / 100;
+    let totalExp = 0;
+    let combinedFlexSpend = 0, combinedFlexTrigger = 0;
+    IE_EXP_CATS.forEach(cat => {
+      const catObj = state.expenditure && state.expenditure[cat.key];
+      if (!catObj) return;
+      let sub = 0;
+      cat.fields.forEach(f => { sub += catObj[f.key] || 0; });
+      catObj.subtotal = Math.round(sub * 100) / 100;
+      if (cat.flexible && catObj.trigger_figure != null) {
+        catObj.over_trigger = catObj.subtotal > catObj.trigger_figure;
+        catObj.variance_from_trigger = Math.round((catObj.subtotal - catObj.trigger_figure) * 100) / 100;
+        combinedFlexSpend += catObj.subtotal;
+        combinedFlexTrigger += catObj.trigger_figure;
+      }
+      totalExp += catObj.subtotal;
+    });
+    state.expenditure.total_expenditure = Math.round(totalExp * 100) / 100;
+    const surplus = Math.round((state.income.total_income - totalExp) * 100) / 100;
+    state.summary.total_income = state.income.total_income;
+    state.summary.total_expenditure = state.expenditure.total_expenditure;
+    state.summary.surplus_or_deficit = surplus;
+    state.summary.status = surplus > 0 ? 'surplus' : surplus < 0 ? 'deficit' : 'balanced';
+    state.summary.combined_flexible_spend = Math.round(combinedFlexSpend * 100) / 100;
+    state.summary.combined_flexible_trigger = Math.round(combinedFlexTrigger * 100) / 100;
+    state.summary.combined_flexible_variance = Math.round((combinedFlexSpend - combinedFlexTrigger) * 100) / 100;
+  }
+
+  function fmtIE(n) {
+    if (n === null || n === undefined) return '—';
+    return '£' + Number(n).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  function ieInputHtml(section, field, value) {
+    const v = value === null || value === undefined ? '' : Number(value).toFixed(2);
+    const cls = (value === null || value === undefined) ? 'ie-input null-input' : 'ie-input';
+    return `<input type="number" class="${cls}" step="0.01" min="0" placeholder="—"
+      data-ie-section="${escHtml(section)}" data-ie-field="${escHtml(field)}" value="${v}" />`;
+  }
+
+  function renderIE(state) {
+    if (!state) return;
+    recalcIE(state);
+    const wrap = document.getElementById('ie-output-wrap');
+    wrap.className = 'ie-output-wrap visible';
+    const c = state.client || {};
+    const adultsDisplay = c.household_size_adults != null
+      ? c.household_size_adults + (c.household_assumed ? ' (assumed)' : '')
+      : (c.assumed_single_adult ? '1 (assumed)' : '—');
+    const childrenU16 = c.household_size_children_under_16 != null ? c.household_size_children_under_16 : '—';
+    const children1618 = c.household_size_children_16_to_18 != null ? c.household_size_children_16_to_18 : '—';
+    const taHousehold = (state.trigger_analysis && state.trigger_analysis.household_used_for_calculation) ? state.trigger_analysis.household_used_for_calculation : '';
+    const surplusClass = state.summary.surplus_or_deficit >= 0 ? 'surplus' : 'deficit';
+    const surplusLabel = state.summary.surplus_or_deficit >= 0 ? 'Disposable Income' : 'Deficit';
+    let html = `
+      <div class="ie-summary-bar">
+        <div class="ie-summary-tile">
+          <div class="tile-label">Total Income</div>
+          <div class="tile-value" id="ie-tile-income">${fmtIE(state.income.total_income)}</div>
+        </div>
+        <div class="ie-summary-tile">
+          <div class="tile-label">Total Expenditure</div>
+          <div class="tile-value" id="ie-tile-expenditure">${fmtIE(state.expenditure.total_expenditure)}</div>
+        </div>
+        <div class="ie-summary-tile ${surplusClass}">
+          <div class="tile-label" id="ie-tile-disp-label">${surplusLabel}</div>
+          <div class="tile-value" id="ie-tile-disposable">${fmtIE(state.summary.surplus_or_deficit)}</div>
+        </div>
+      </div>`;
+    html += `<div style="background:#f0fdf9;border:1px solid #6ee7b7;border-radius:8px;padding:0.6rem 1rem;margin-bottom:0.85rem;font-size:0.83rem;display:flex;gap:1.5rem;flex-wrap:wrap;align-items:center;">
+      <strong style="color:#059669;">👤 Household</strong>
+      ${c.name ? `<span><strong>Name:</strong> ${escHtml(c.name)}</span>` : ''}
+      <span><strong>Adults:</strong> ${adultsDisplay}</span>
+      <span><strong>Children &lt;16:</strong> ${childrenU16}</span>
+      <span><strong>Children 16–18:</strong> ${children1618}</span>
+      ${taHousehold ? `<span style="color:#555;font-style:italic;">${escHtml(taHousehold)}</span>` : ''}
+    </div>`;
+    html += `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem;">
+      <span style="font-size:0.75rem;color:#6366f1;font-weight:600;">✏ Values are editable — type to adjust</span>
+      <button class="copy-section-btn" id="ie-copy-all-btn">⧉ Copy All I&E</button>
+    </div>
+    <table class="fin-table" id="ie-fin-table">
+      <thead>
+        <tr>
+          <th style="text-align:left;width:60%;">Item</th>
+          <th>Monthly £</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr class="fin-section"><td colspan="2">Income</td></tr>
+        ${IE_INCOME_FIELDS.map(f => `<tr>
+          <td>${escHtml(f.label)}</td>
+          <td>${ieInputHtml('income', f.key, state.income[f.key])}${copyBtn(state.income[f.key] != null ? Number(state.income[f.key]).toFixed(2) : '', f.label)}</td>
+        </tr>`).join('')}
+        <tr class="fin-total">
+          <td>Total Income</td>
+          <td id="ie-income-total">${fmtIE(state.income.total_income)}${copyBtn(state.income.total_income != null ? Number(state.income.total_income).toFixed(2) : '', 'Total Income')}</td>
+        </tr>`;
+    IE_EXP_CATS.forEach(cat => {
+      const catObj = (state.expenditure && state.expenditure[cat.key]) || {};
+      const isOver = cat.flexible && catObj.over_trigger;
+      let sectionLabel = escHtml(cat.label);
+      if (cat.flexible) {
+        const tf = catObj.trigger_figure != null ? catObj.trigger_figure : '?';
+        const vari = catObj.variance_from_trigger != null ? catObj.variance_from_trigger : null;
+        const variStr = vari != null ? (vari >= 0 ? ` +£${Math.abs(vari).toFixed(2)}` : ` -£${Math.abs(vari).toFixed(2)}`) : '';
+        const badge = `<span class="trigger-badge ${isOver ? 'over' : 'ok'}" id="ie-trigger-${cat.key}" style="margin-left:0.6rem;">${isOver ? '⚠' : '✓'} Trigger £${typeof tf === 'number' ? tf.toFixed(2) : tf}${variStr}</span>`;
+        sectionLabel = escHtml(cat.label) + badge;
+      }
+      html += `<tr class="fin-section"><td colspan="2">${sectionLabel}</td></tr>`;
+      cat.fields.forEach(f => {
+        const val = catObj[f.key] !== undefined ? catObj[f.key] : null;
+        html += `<tr>
+          <td>${escHtml(f.label)}</td>
+          <td>${ieInputHtml(cat.key, f.key, val)}${copyBtn(val != null ? Number(val).toFixed(2) : '', f.label)}</td>
+        </tr>`;
+      });
+      html += `<tr class="fin-total">
+        <td>${escHtml(cat.label)} Subtotal</td>
+        <td id="ie-sub-${cat.key}">${fmtIE(catObj.subtotal)}${copyBtn(catObj.subtotal != null ? Number(catObj.subtotal).toFixed(2) : '', cat.label + ' subtotal')}</td>
+      </tr>`;
+    });
+    html += `<tr class="fin-grand">
+        <td>Total Expenditure</td>
+        <td id="ie-tile-exp-row">${fmtIE(state.expenditure.total_expenditure)}${copyBtn(state.expenditure.total_expenditure != null ? Number(state.expenditure.total_expenditure).toFixed(2) : '', 'Total Expenditure')}</td>
+      </tr>
+      <tr class="${state.summary.surplus_or_deficit < 0 ? 'fin-negative' : ''} fin-dividend">
+        <td id="ie-surplus-label-row">${surplusLabel}</td>
+        <td id="ie-tile-surplus-row">${fmtIE(state.summary.surplus_or_deficit)}${copyBtn(state.summary.surplus_or_deficit != null ? Number(state.summary.surplus_or_deficit).toFixed(2) : '', 'Disposable Income')}</td>
+      </tr>
+      </tbody>
+    </table>`;
+    const missing = state.missing_information || [];
+    if (missing.length) {
+      html += `<div class="ie-missing-card" style="margin-top:0.75rem;"><h4>⚠ Missing Information</h4><ul class="ie-missing-list">${missing.map(m => `<li>${escHtml(m)}</li>`).join('')}</ul></div>`;
+    }
+    const notes = state.mapping_notes || [];
+    if (notes.length) {
+      html += `<div class="ie-mapping-card" style="margin-top:0.75rem;"><h4>Mapping Notes</h4>${notes.map(n => `<div class="ie-mapping-row"><span class="ie-mapping-src">${escHtml(n.source_item)}</span><span class="ie-mapping-dest">→ ${escHtml(n.mapped_to)}</span><span class="ie-mapping-note">${escHtml(n.note || '')}</span></div>`).join('')}</div>`;
+    }
+    html += `<div style="margin-top:0.85rem;"><button class="save-section-btn" id="save-ie-btn">💾 Save I&amp;E</button><span id="save-ie-status" style="font-size:0.8rem;color:#888;margin-left:0.75rem;"></span></div>`;
+    wrap.innerHTML = html;
+    wireIEInputs(state);
+    const copyAllBtn = document.getElementById('ie-copy-all-btn');
+    if (copyAllBtn) {
+      copyAllBtn.addEventListener('click', function() {
+        const html = buildIeHtml(state);
+        const plainRows = [['Item', 'Monthly £'], ['Income', '']];
+        IE_INCOME_FIELDS.forEach(f => { const v = state.income[f.key]; plainRows.push([f.label, v != null ? fmtIE(v) : '—']); });
+        plainRows.push(['Total Income', fmtIE(state.income.total_income)]);
+        IE_EXP_CATS.forEach(cat => {
+          const catObj = (state.expenditure && state.expenditure[cat.key]) || {};
+          plainRows.push(['', '']); plainRows.push([cat.label, '']);
+          cat.fields.forEach(f => { const v = catObj[f.key]; plainRows.push([f.label, v != null ? fmtIE(v) : '—']); });
+          plainRows.push([cat.label + ' Subtotal', fmtIE(catObj.subtotal)]);
+        });
+        plainRows.push(['', '']); plainRows.push(['Total Expenditure', fmtIE(state.expenditure.total_expenditure)]);
+        plainRows.push([surplusLabel, fmtIE(state.summary.surplus_or_deficit)]);
+        copyHtmlToClip(this, html, plainRows.map(r => r.join('\t')).join('\n'));
+      });
+    }
+  }
+
+  function wireIEInputs(state) {
+    document.querySelectorAll('.ie-input').forEach(inp => {
+      inp.addEventListener('input', () => {
+        const section = inp.dataset.ieSection;
+        const field   = inp.dataset.ieField;
+        const val     = inp.value === '' ? null : (parseFloat(inp.value) || 0);
+        inp.classList.toggle('null-input', val === null);
+        if (section === 'income') { state.income[field] = val; } else { if (!state.expenditure[section]) state.expenditure[section] = {}; state.expenditure[section][field] = val; }
+        recalcIE(state);
+        refreshIETotals(state);
+      });
+    });
+    const ieSaveBtn = document.getElementById('save-ie-btn');
+    const ieSaveStatus = document.getElementById('save-ie-status');
+    if (ieSaveBtn) {
+      ieSaveBtn.addEventListener('click', async () => {
+        if (!currentCaseId) { ieSaveStatus.textContent = 'Load a case first.'; return; }
+        ieSaveBtn.disabled = true;
+        ieSaveStatus.textContent = 'Saving…';
+        try {
+          const result = await saveVariationSection('ie', state);
+          if (result.error) { ieSaveStatus.textContent = 'Error: ' + result.error; return; }
+          saved.ie = true;
+          if (store[String(currentCaseId)]) { const e2 = store[String(currentCaseId)]; if (!e2.savedFlags) e2.savedFlags = {}; e2.savedFlags.ie = true; e2.ieState = state; }
+          ieSaveBtn.classList.add('saved');
+          ieSaveBtn.textContent = '✓ I&E Saved';
+          ieSaveStatus.textContent = '';
+          const ieCard = document.getElementById('ie-output-wrap');
+          if (ieCard) ieCard.classList.add('section-saved');
+          const ieTable = ieCard && ieCard.querySelector('.fin-table');
+          if (ieTable) ieTable.replaceWith(createCollapsedIeTable(state));
+          caseReviewStatus = result.review_status || caseReviewStatus;
+          updateWorkflowBar();
+          setTimeout(() => { ieSaveBtn.classList.remove('saved'); ieSaveBtn.textContent = '💾 Save I&E'; }, 2000);
+        } catch(err) { ieSaveStatus.textContent = 'Save failed: ' + (err && err.message ? err.message : String(err)); }
+        finally { ieSaveBtn.disabled = false; }
+      });
+    }
+  }
+
+  function refreshIETotals(state) {
+    const incomeTile = document.getElementById('ie-tile-income');
+    const expTile    = document.getElementById('ie-tile-expenditure');
+    const dispTile   = document.getElementById('ie-tile-disposable');
+    const dispLabel  = document.getElementById('ie-tile-disp-label');
+    const incomeTotal = document.getElementById('ie-income-total');
+    const surplus = state.summary.surplus_or_deficit;
+    const surplusLabel = surplus >= 0 ? 'Disposable Income' : 'Deficit';
+    if (incomeTile)  incomeTile.textContent  = fmtIE(state.income.total_income);
+    if (expTile)     expTile.textContent     = fmtIE(state.expenditure.total_expenditure);
+    if (dispTile) {
+      dispTile.textContent = fmtIE(surplus);
+      const tile = dispTile.closest('.ie-summary-tile');
+      if (tile) { tile.classList.remove('surplus','deficit'); tile.classList.add(surplus >= 0 ? 'surplus' : 'deficit'); }
+      if (dispLabel) dispLabel.textContent = surplusLabel;
+    }
+    if (incomeTotal) { const copyB = incomeTotal.querySelector('.copy-btn'); incomeTotal.textContent = fmtIE(state.income.total_income); if (copyB) incomeTotal.appendChild(copyB); }
+    const expRow = document.getElementById('ie-tile-exp-row');
+    if (expRow) { const copyB = expRow.querySelector('.copy-btn'); expRow.textContent = fmtIE(state.expenditure.total_expenditure); if (copyB) expRow.appendChild(copyB); }
+    const surpRow = document.getElementById('ie-tile-surplus-row');
+    const surpLabelRow = document.getElementById('ie-surplus-label-row');
+    if (surpRow) { const copyB = surpRow.querySelector('.copy-btn'); surpRow.textContent = fmtIE(surplus); if (copyB) surpRow.appendChild(copyB); const tr = surpRow.closest('tr'); if (tr) { tr.classList.toggle('fin-negative', surplus < 0); } }
+    if (surpLabelRow) surpLabelRow.textContent = surplusLabel;
+    IE_EXP_CATS.forEach(cat => {
+      const sub = document.getElementById('ie-sub-' + cat.key);
+      const badge = document.getElementById('ie-trigger-' + cat.key);
+      const catObj = (state.expenditure && state.expenditure[cat.key]) || {};
+      if (sub) { const copyB = sub.querySelector('.copy-btn'); sub.textContent = fmtIE(catObj.subtotal); if (copyB) sub.appendChild(copyB); }
+      if (badge && cat.flexible) {
+        const over = catObj.over_trigger;
+        const tf = catObj.trigger_figure != null ? catObj.trigger_figure : '?';
+        const vari = catObj.variance_from_trigger != null ? catObj.variance_from_trigger : null;
+        const variStr = vari != null ? (vari >= 0 ? ` +£${Math.abs(vari).toFixed(2)}` : ` -£${Math.abs(vari).toFixed(2)}`) : '';
+        badge.className = 'trigger-badge ' + (over ? 'over' : 'ok');
+        badge.textContent = `${over ? '⚠' : '✓'} Trigger £${typeof tf === 'number' ? tf.toFixed(2) : tf}${variStr}`;
+      }
+    });
+  }
+
   // ── File management ───────────────────────────────────────────────────────
   {% if current_user.role in ['uploader', 'admin'] %}
   const slots = ['agreed_eos', 'modifications', 'chart_of_accounts'];
-  const fileMap = {};
   slots.forEach(s => fileMap[s] = []);
 
   function refreshSlot(slot) {
@@ -1740,410 +2070,7 @@
     if (workItemId) document.getElementById('hidden-work-item-id').value = workItemId;
   })();
 
-  // ── I&E State ─────────────────────────────────────────────────────────────
-
-  let ieState = null;
-
-  const IE_INCOME_FIELDS = [
-    { key: 'salary_wages',         label: 'Salary / wages (take home)' },
-    { key: 'self_employed',        label: 'Self-employed income' },
-    { key: 'benefits_tax_credits', label: 'Benefits & tax credits' },
-    { key: 'child_benefit',        label: 'Child Benefit' },
-    { key: 'pensions',             label: 'Pensions' },
-    { key: 'maintenance_received', label: 'Maintenance received' },
-    { key: 'other_income',         label: 'Other income' },
-  ];
-
-  // flexible: true = has a household-calculated trigger figure from AI
-  const IE_EXP_CATS = [
-    { key: 'home_and_contents', label: 'Home & Contents', fields: [
-      { key: 'rent', label: 'Rent' },
-      { key: 'mortgage', label: 'Mortgage' },
-      { key: 'ground_rent_service_charges', label: 'Ground rent / service charges' },
-      { key: 'council_tax', label: 'Council tax' },
-      { key: 'buildings_contents_insurance', label: 'Buildings & contents insurance' },
-      { key: 'appliance_furniture_rental', label: 'Appliance / furniture rental' },
-      { key: 'tv_licence', label: 'TV licence' },
-      { key: 'other', label: 'Other' },
-    ]},
-    { key: 'utilities', label: 'Utilities', fields: [
-      { key: 'gas', label: 'Gas' },
-      { key: 'electricity', label: 'Electricity' },
-      { key: 'other_fuel', label: 'Other fuel' },
-      { key: 'water', label: 'Water' },
-    ]},
-    { key: 'communications_and_leisure', label: 'Communications & Leisure', flexible: true, fields: [
-      { key: 'home_phone_internet_tv', label: 'Home phone / internet / TV' },
-      { key: 'mobile_phone', label: 'Mobile phone' },
-      { key: 'hobbies_leisure_sport', label: 'Hobbies, leisure, sport' },
-      { key: 'gifts', label: 'Gifts' },
-      { key: 'pocket_money', label: 'Pocket money' },
-      { key: 'newspapers_magazines', label: 'Newspapers & magazines' },
-    ]},
-    { key: 'food_and_housekeeping', label: 'Food & Housekeeping', flexible: true, fields: [
-      { key: 'groceries', label: 'Groceries' },
-      { key: 'nappies_baby_items', label: 'Nappies & baby items' },
-      { key: 'school_meals_work_meals', label: 'School / work meals' },
-      { key: 'laundry_dry_cleaning', label: 'Laundry & dry cleaning' },
-      { key: 'alcohol', label: 'Alcohol' },
-      { key: 'smoking', label: 'Smoking products' },
-      { key: 'vet_bills', label: 'Vet bills' },
-    ]},
-    { key: 'personal_costs', label: 'Personal Costs', flexible: true, fields: [
-      { key: 'clothing_footwear', label: 'Clothing & footwear' },
-      { key: 'hairdressing', label: 'Hairdressing' },
-      { key: 'toiletries', label: 'Toiletries' },
-      { key: 'prescriptions_medicines_dental_optical', label: 'Prescriptions / medicines / dental / optical' },
-      { key: 'other', label: 'Other' },
-    ]},
-    { key: 'travel', label: 'Travel', fields: [
-      { key: 'public_transport', label: 'Public transport' },
-      { key: 'hire_purchase_vehicle', label: 'Hire purchase / vehicle' },
-      { key: 'car_insurance', label: 'Car insurance' },
-      { key: 'road_tax', label: 'Road tax' },
-      { key: 'mot_maintenance', label: 'MOT & maintenance' },
-      { key: 'breakdown_cover', label: 'Breakdown cover' },
-      { key: 'fuel_parking_tolls', label: 'Fuel / parking / tolls' },
-      { key: 'other', label: 'Other' },
-    ]},
-    { key: 'childcare_and_education', label: 'Childcare & Education', fields: [
-      { key: 'childcare', label: 'Childcare' },
-      { key: 'child_maintenance_paid', label: 'Child maintenance paid out' },
-      { key: 'school_trips_uniform_lessons', label: 'School trips / uniform / lessons' },
-      { key: 'adult_education', label: 'Adult education / training' },
-    ]},
-    { key: 'insurances_and_pensions', label: 'Insurances & Pensions', fields: [
-      { key: 'life_assurance', label: 'Life assurance' },
-      { key: 'pension_contributions', label: 'Pension contributions' },
-      { key: 'other_insurances', label: 'Other insurances' },
-      { key: 'professional_fees_unions', label: 'Professional fees / union subscriptions' },
-    ]},
-    { key: 'other', label: 'Other Essential', fields: [
-      { key: 'court_fines', label: 'Court fines' },
-      { key: 'other_essential', label: 'Other essential expenditure' },
-    ]},
-  ];
-
-  function recalcIE(state) {
-    if (!state) return;
-    if (!state.summary) state.summary = {};
-
-    // Income total
-    let totalIncome = 0;
-    IE_INCOME_FIELDS.forEach(f => { totalIncome += state.income[f.key] || 0; });
-    state.income.total_income = Math.round(totalIncome * 100) / 100;
-
-    // Category subtotals + total expenditure
-    let totalExp = 0;
-    let combinedFlexSpend = 0, combinedFlexTrigger = 0;
-    IE_EXP_CATS.forEach(cat => {
-      const catObj = state.expenditure && state.expenditure[cat.key];
-      if (!catObj) return;
-      let sub = 0;
-      cat.fields.forEach(f => { sub += catObj[f.key] || 0; });
-      catObj.subtotal = Math.round(sub * 100) / 100;
-      if (cat.flexible && catObj.trigger_figure != null) {
-        catObj.over_trigger = catObj.subtotal > catObj.trigger_figure;
-        catObj.variance_from_trigger = Math.round((catObj.subtotal - catObj.trigger_figure) * 100) / 100;
-        combinedFlexSpend += catObj.subtotal;
-        combinedFlexTrigger += catObj.trigger_figure;
-      }
-      totalExp += catObj.subtotal;
-    });
-    state.expenditure.total_expenditure = Math.round(totalExp * 100) / 100;
-
-    // Summary
-    const surplus = Math.round((state.income.total_income - totalExp) * 100) / 100;
-    state.summary.total_income = state.income.total_income;
-    state.summary.total_expenditure = state.expenditure.total_expenditure;
-    state.summary.surplus_or_deficit = surplus;
-    state.summary.status = surplus > 0 ? 'surplus' : surplus < 0 ? 'deficit' : 'balanced';
-    state.summary.combined_flexible_spend = Math.round(combinedFlexSpend * 100) / 100;
-    state.summary.combined_flexible_trigger = Math.round(combinedFlexTrigger * 100) / 100;
-    state.summary.combined_flexible_variance = Math.round((combinedFlexSpend - combinedFlexTrigger) * 100) / 100;
-  }
-
-  function fmtIE(n) {
-    if (n === null || n === undefined) return '—';
-    return '£' + Number(n).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  }
-
-  function ieInputHtml(section, field, value) {
-    const v = value === null || value === undefined ? '' : Number(value).toFixed(2);
-    const cls = (value === null || value === undefined) ? 'ie-input null-input' : 'ie-input';
-    return `<input type="number" class="${cls}" step="0.01" min="0" placeholder="—"
-      data-ie-section="${escHtml(section)}" data-ie-field="${escHtml(field)}" value="${v}" />`;
-  }
-
-  function renderIE(state) {
-    if (!state) return;
-    recalcIE(state);
-    const wrap = document.getElementById('ie-output-wrap');
-    wrap.className = 'ie-output-wrap visible';
-
-    const c = state.client || {};
-    const adultsDisplay = c.household_size_adults != null
-      ? c.household_size_adults + (c.household_assumed ? ' (assumed)' : '')
-      : (c.assumed_single_adult ? '1 (assumed)' : '—');
-    const childrenU16 = c.household_size_children_under_16 != null ? c.household_size_children_under_16 : '—';
-    const children1618 = c.household_size_children_16_to_18 != null ? c.household_size_children_16_to_18 : '—';
-    const taHousehold = (state.trigger_analysis && state.trigger_analysis.household_used_for_calculation) ? state.trigger_analysis.household_used_for_calculation : '';
-
-    // Summary tiles
-    const surplusClass = state.summary.surplus_or_deficit >= 0 ? 'surplus' : 'deficit';
-    const surplusLabel = state.summary.surplus_or_deficit >= 0 ? 'Disposable Income' : 'Deficit';
-    let html = `
-      <div class="ie-summary-bar">
-        <div class="ie-summary-tile">
-          <div class="tile-label">Total Income</div>
-          <div class="tile-value" id="ie-tile-income">${fmtIE(state.income.total_income)}</div>
-        </div>
-        <div class="ie-summary-tile">
-          <div class="tile-label">Total Expenditure</div>
-          <div class="tile-value" id="ie-tile-expenditure">${fmtIE(state.expenditure.total_expenditure)}</div>
-        </div>
-        <div class="ie-summary-tile ${surplusClass}">
-          <div class="tile-label" id="ie-tile-disp-label">${surplusLabel}</div>
-          <div class="tile-value" id="ie-tile-disposable">${fmtIE(state.summary.surplus_or_deficit)}</div>
-        </div>
-      </div>`;
-
-    // Household info bar
-    html += `<div style="background:#f0fdf9;border:1px solid #6ee7b7;border-radius:8px;padding:0.6rem 1rem;margin-bottom:0.85rem;font-size:0.83rem;display:flex;gap:1.5rem;flex-wrap:wrap;align-items:center;">
-      <strong style="color:#059669;">👤 Household</strong>
-      ${c.name ? `<span><strong>Name:</strong> ${escHtml(c.name)}</span>` : ''}
-      <span><strong>Adults:</strong> ${adultsDisplay}</span>
-      <span><strong>Children &lt;16:</strong> ${childrenU16}</span>
-      <span><strong>Children 16–18:</strong> ${children1618}</span>
-      ${taHousehold ? `<span style="color:#555;font-style:italic;">${escHtml(taHousehold)}</span>` : ''}
-    </div>`;
-
-    // Build the main financial table
-    html += `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem;">
-      <span style="font-size:0.75rem;color:#6366f1;font-weight:600;">✏ Values are editable — type to adjust</span>
-      <button class="copy-section-btn" id="ie-copy-all-btn">⧉ Copy All I&E</button>
-    </div>
-    <table class="fin-table" id="ie-fin-table">
-      <thead>
-        <tr>
-          <th style="text-align:left;width:60%;">Item</th>
-          <th>Monthly £</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr class="fin-section"><td colspan="2">Income</td></tr>
-        ${IE_INCOME_FIELDS.map(f => `<tr>
-          <td>${escHtml(f.label)}</td>
-          <td>${ieInputHtml('income', f.key, state.income[f.key])}${copyBtn(state.income[f.key] != null ? Number(state.income[f.key]).toFixed(2) : '', f.label)}</td>
-        </tr>`).join('')}
-        <tr class="fin-total">
-          <td>Total Income</td>
-          <td id="ie-income-total">${fmtIE(state.income.total_income)}${copyBtn(state.income.total_income != null ? Number(state.income.total_income).toFixed(2) : '', 'Total Income')}</td>
-        </tr>`;
-
-    IE_EXP_CATS.forEach(cat => {
-      const catObj = (state.expenditure && state.expenditure[cat.key]) || {};
-      const isOver = cat.flexible && catObj.over_trigger;
-      let sectionLabel = escHtml(cat.label);
-      if (cat.flexible) {
-        const tf = catObj.trigger_figure != null ? catObj.trigger_figure : '?';
-        const vari = catObj.variance_from_trigger != null ? catObj.variance_from_trigger : null;
-        const variStr = vari != null ? (vari >= 0 ? ` +£${Math.abs(vari).toFixed(2)}` : ` -£${Math.abs(vari).toFixed(2)}`) : '';
-        const badge = `<span class="trigger-badge ${isOver ? 'over' : 'ok'}" id="ie-trigger-${cat.key}" style="margin-left:0.6rem;">${isOver ? '⚠' : '✓'} Trigger £${typeof tf === 'number' ? tf.toFixed(2) : tf}${variStr}</span>`;
-        sectionLabel = escHtml(cat.label) + badge;
-      }
-      html += `<tr class="fin-section"><td colspan="2">${sectionLabel}</td></tr>`;
-      cat.fields.forEach(f => {
-        const val = catObj[f.key] !== undefined ? catObj[f.key] : null;
-        html += `<tr>
-          <td>${escHtml(f.label)}</td>
-          <td>${ieInputHtml(cat.key, f.key, val)}${copyBtn(val != null ? Number(val).toFixed(2) : '', f.label)}</td>
-        </tr>`;
-      });
-      html += `<tr class="fin-total">
-        <td>${escHtml(cat.label)} Subtotal</td>
-        <td id="ie-sub-${cat.key}">${fmtIE(catObj.subtotal)}${copyBtn(catObj.subtotal != null ? Number(catObj.subtotal).toFixed(2) : '', cat.label + ' subtotal')}</td>
-      </tr>`;
-    });
-
-    html += `<tr class="fin-grand">
-        <td>Total Expenditure</td>
-        <td id="ie-tile-exp-row">${fmtIE(state.expenditure.total_expenditure)}${copyBtn(state.expenditure.total_expenditure != null ? Number(state.expenditure.total_expenditure).toFixed(2) : '', 'Total Expenditure')}</td>
-      </tr>
-      <tr class="${state.summary.surplus_or_deficit < 0 ? 'fin-negative' : ''} fin-dividend">
-        <td id="ie-surplus-label-row">${surplusLabel}</td>
-        <td id="ie-tile-surplus-row">${fmtIE(state.summary.surplus_or_deficit)}${copyBtn(state.summary.surplus_or_deficit != null ? Number(state.summary.surplus_or_deficit).toFixed(2) : '', 'Disposable Income')}</td>
-      </tr>
-      </tbody>
-    </table>`;
-
-    // Missing information
-    const missing = state.missing_information || [];
-    if (missing.length) {
-      html += `<div class="ie-missing-card" style="margin-top:0.75rem;">
-        <h4>⚠ Missing Information</h4>
-        <ul class="ie-missing-list">${missing.map(m => `<li>${escHtml(m)}</li>`).join('')}</ul>
-      </div>`;
-    }
-
-    // Mapping notes
-    const notes = state.mapping_notes || [];
-    if (notes.length) {
-      html += `<div class="ie-mapping-card" style="margin-top:0.75rem;">
-        <h4>Mapping Notes</h4>
-        ${notes.map(n => `<div class="ie-mapping-row">
-          <span class="ie-mapping-src">${escHtml(n.source_item)}</span>
-          <span class="ie-mapping-dest">→ ${escHtml(n.mapped_to)}</span>
-          <span class="ie-mapping-note">${escHtml(n.note || '')}</span>
-        </div>`).join('')}
-      </div>`;
-    }
-
-    html += `<div style="margin-top:0.85rem;">
-      <button class="save-section-btn" id="save-ie-btn">💾 Save I&amp;E</button>
-      <span id="save-ie-status" style="font-size:0.8rem;color:#888;margin-left:0.75rem;"></span>
-    </div>`;
-
-    wrap.innerHTML = html;
-    wireIEInputs(state);
-
-    // Wire copy-all button
-    const copyAllBtn = document.getElementById('ie-copy-all-btn');
-    if (copyAllBtn) {
-      copyAllBtn.addEventListener('click', function() {
-        const html = buildIeHtml(state);
-        const plainRows = [['Item', 'Monthly £'], ['Income', '']];
-        IE_INCOME_FIELDS.forEach(f => {
-          const v = state.income[f.key];
-          plainRows.push([f.label, v != null ? fmtIE(v) : '—']);
-        });
-        plainRows.push(['Total Income', fmtIE(state.income.total_income)]);
-        IE_EXP_CATS.forEach(cat => {
-          const catObj = (state.expenditure && state.expenditure[cat.key]) || {};
-          plainRows.push(['', '']);
-          plainRows.push([cat.label, '']);
-          cat.fields.forEach(f => {
-            const v = catObj[f.key];
-            plainRows.push([f.label, v != null ? fmtIE(v) : '—']);
-          });
-          plainRows.push([cat.label + ' Subtotal', fmtIE(catObj.subtotal)]);
-        });
-        plainRows.push(['', '']);
-        plainRows.push(['Total Expenditure', fmtIE(state.expenditure.total_expenditure)]);
-        plainRows.push([surplusLabel, fmtIE(state.summary.surplus_or_deficit)]);
-        copyHtmlToClip(this, html, plainRows.map(r => r.join('\t')).join('\n'));
-      });
-    }
-  }
-
-  function wireIEInputs(state) {
-    document.querySelectorAll('.ie-input').forEach(inp => {
-      inp.addEventListener('input', () => {
-        const section = inp.dataset.ieSection;
-        const field   = inp.dataset.ieField;
-        const val     = inp.value === '' ? null : (parseFloat(inp.value) || 0);
-        inp.classList.toggle('null-input', val === null);
-
-        if (section === 'income') {
-          state.income[field] = val;
-        } else {
-          if (!state.expenditure[section]) state.expenditure[section] = {};
-          state.expenditure[section][field] = val;
-        }
-        recalcIE(state);
-        refreshIETotals(state);
-      });
-    });
-
-    const ieSaveBtn = document.getElementById('save-ie-btn');
-    const ieSaveStatus = document.getElementById('save-ie-status');
-    if (ieSaveBtn) {
-      ieSaveBtn.addEventListener('click', async () => {
-        if (!currentCaseId) { ieSaveStatus.textContent = 'Generate EOS first.'; return; }
-        ieSaveBtn.disabled = true;
-        ieSaveStatus.textContent = 'Saving…';
-        try {
-          const result = await saveVariationSection('ie', state);
-          if (result.error) { ieSaveStatus.textContent = 'Error: ' + result.error; return; }
-          saved.ie = true;
-          ieSaveBtn.classList.add('saved');
-          ieSaveBtn.textContent = '✓ I&E Saved';
-          ieSaveStatus.textContent = '';
-          const ieCard = document.getElementById('ie-output-wrap');
-          if (ieCard) ieCard.classList.add('section-saved');
-          // Collapse: replace the full editable table with a clean read-only version
-          const ieTable = ieCard && ieCard.querySelector('.fin-table');
-          if (ieTable) ieTable.replaceWith(createCollapsedIeTable(state));
-          caseReviewStatus = result.review_status || caseReviewStatus;
-          updateWorkflowBar();
-          setTimeout(() => { ieSaveBtn.classList.remove('saved'); ieSaveBtn.textContent = '💾 Save I&E'; }, 2000);
-        } catch(err) { ieSaveStatus.textContent = 'Save failed: ' + (err && err.message ? err.message : String(err)); }
-        finally { ieSaveBtn.disabled = false; }
-      });
-    }
-  }
-
-  function refreshIETotals(state) {
-    // Summary tiles
-    const incomeTile = document.getElementById('ie-tile-income');
-    const expTile    = document.getElementById('ie-tile-expenditure');
-    const dispTile   = document.getElementById('ie-tile-disposable');
-    const dispLabel  = document.getElementById('ie-tile-disp-label');
-    const incomeTotal = document.getElementById('ie-income-total');
-    const surplus = state.summary.surplus_or_deficit;
-    const surplusLabel = surplus >= 0 ? 'Disposable Income' : 'Deficit';
-    if (incomeTile)  incomeTile.textContent  = fmtIE(state.income.total_income);
-    if (expTile)     expTile.textContent     = fmtIE(state.expenditure.total_expenditure);
-    if (dispTile) {
-      dispTile.textContent = fmtIE(surplus);
-      const tile = dispTile.closest('.ie-summary-tile');
-      if (tile) { tile.classList.remove('surplus','deficit'); tile.classList.add(surplus >= 0 ? 'surplus' : 'deficit'); }
-      if (dispLabel) dispLabel.textContent = surplusLabel;
-    }
-    if (incomeTotal) {
-      const copyB = incomeTotal.querySelector('.copy-btn');
-      incomeTotal.textContent = fmtIE(state.income.total_income);
-      if (copyB) incomeTotal.appendChild(copyB);
-    }
-
-    // Table row totals (single fin-table layout)
-    const expRow = document.getElementById('ie-tile-exp-row');
-    if (expRow) {
-      const copyB = expRow.querySelector('.copy-btn');
-      expRow.textContent = fmtIE(state.expenditure.total_expenditure);
-      if (copyB) expRow.appendChild(copyB);
-    }
-    const surpRow = document.getElementById('ie-tile-surplus-row');
-    const surpLabelRow = document.getElementById('ie-surplus-label-row');
-    if (surpRow) {
-      const copyB = surpRow.querySelector('.copy-btn');
-      surpRow.textContent = fmtIE(surplus);
-      if (copyB) surpRow.appendChild(copyB);
-      const tr = surpRow.closest('tr');
-      if (tr) { tr.classList.toggle('fin-negative', surplus < 0); }
-    }
-    if (surpLabelRow) surpLabelRow.textContent = surplusLabel;
-
-    // Category subtotals + trigger badges
-    IE_EXP_CATS.forEach(cat => {
-      const sub = document.getElementById('ie-sub-' + cat.key);
-      const badge = document.getElementById('ie-trigger-' + cat.key);
-      const catObj = (state.expenditure && state.expenditure[cat.key]) || {};
-      if (sub) {
-        const copyB = sub.querySelector('.copy-btn');
-        sub.textContent = fmtIE(catObj.subtotal);
-        if (copyB) sub.appendChild(copyB);
-      }
-      if (badge && cat.flexible) {
-        const over = catObj.over_trigger;
-        const tf = catObj.trigger_figure != null ? catObj.trigger_figure : '?';
-        const vari = catObj.variance_from_trigger != null ? catObj.variance_from_trigger : null;
-        const variStr = vari != null ? (vari >= 0 ? ` +£${Math.abs(vari).toFixed(2)}` : ` -£${Math.abs(vari).toFixed(2)}`) : '';
-        badge.className = 'trigger-badge ' + (over ? 'over' : 'ok');
-        badge.textContent = `${over ? '⚠' : '✓'} Trigger £${typeof tf === 'number' ? tf.toFixed(2) : tf}${variStr}`;
-      }
-    });
-  }
+  // ── I&E upload + generate (uploader/admin only) ──────────────────────────
 
   // I&E file management
   const ieFileMap = [];
