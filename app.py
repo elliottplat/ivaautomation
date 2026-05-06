@@ -1159,6 +1159,43 @@ def init_db():
                     notes TEXT
                 )
             """)
+            # ── Arrears tables
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS arrears_uploads (
+                    id SERIAL PRIMARY KEY,
+                    project_id INTEGER REFERENCES projects(id) ON DELETE CASCADE,
+                    upload_date DATE NOT NULL DEFAULT CURRENT_DATE,
+                    uploaded_by INTEGER REFERENCES users(id),
+                    record_count INTEGER DEFAULT 0,
+                    filename VARCHAR(255),
+                    created_at TIMESTAMP DEFAULT NOW()
+                )
+            """)
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS arrears_cases (
+                    id SERIAL PRIMARY KEY,
+                    upload_id INTEGER REFERENCES arrears_uploads(id) ON DELETE CASCADE,
+                    project_id INTEGER REFERENCES projects(id) ON DELETE CASCADE,
+                    client_name VARCHAR(255),
+                    phone_number VARCHAR(50),
+                    arrears_amount NUMERIC(12,2) DEFAULT 0,
+                    last_payment_date DATE,
+                    last_note TEXT,
+                    created_at TIMESTAMP DEFAULT NOW()
+                )
+            """)
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS arrears_project_config (
+                    id SERIAL PRIMARY KEY,
+                    project_id INTEGER REFERENCES projects(id) ON DELETE CASCADE UNIQUE,
+                    min_days_since_payment INTEGER,
+                    min_arrears_amount NUMERIC(12,2),
+                    require_both BOOLEAN DEFAULT FALSE,
+                    logic_description TEXT,
+                    updated_at TIMESTAMP DEFAULT NOW(),
+                    updated_by INTEGER REFERENCES users(id)
+                )
+            """)
             # Seed default projects
             cur.execute("""
                 INSERT INTO projects (name, slug) VALUES
@@ -1353,7 +1390,7 @@ def admin_projects_page():
 @app.route("/arrears")
 @login_required
 def arrears():
-    return render_template("coming_soon.html", task_type="Arrears")
+    return render_template("arrears.html")
 
 
 @app.route("/annuals")
@@ -2891,6 +2928,283 @@ def analyze():
             yield f"data: {json.dumps({'error': str(e)})}\n\n"
 
     return Response(stream_with_context(generate()), mimetype="text/event-stream")
+
+
+# ---------------------------------------------------------------------------
+# Arrears API
+# ---------------------------------------------------------------------------
+
+@app.route("/api/arrears/projects")
+@login_required
+def arrears_projects():
+    """Return projects the current user can access (admin sees all)."""
+    try:
+        conn = get_db_conn()
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            if current_user.role == "admin":
+                cur.execute("SELECT id, name, slug FROM projects WHERE active = TRUE ORDER BY name")
+            else:
+                cur.execute("""
+                    SELECT p.id, p.name, p.slug
+                    FROM projects p
+                    JOIN user_projects up ON up.project_id = p.id
+                    WHERE up.user_id = %s AND p.active = TRUE
+                    ORDER BY p.name
+                """, (int(current_user.id),))
+            rows = cur.fetchall()
+        conn.close()
+        return jsonify([dict(r) for r in rows])
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/arrears/upload", methods=["POST"])
+@login_required
+def arrears_upload():
+    """Accept a CSV upload for arrears data."""
+    if current_user.role not in ("uploader", "admin"):
+        return jsonify({"error": "Forbidden"}), 403
+    project_id = request.form.get("project_id")
+    upload_date = request.form.get("upload_date") or None
+    if not project_id:
+        return jsonify({"error": "project_id required"}), 400
+    f = request.files.get("file")
+    if not f:
+        return jsonify({"error": "file required"}), 400
+    try:
+        content = f.read().decode("utf-8-sig")
+        reader = csv.DictReader(io.StringIO(content))
+        rows_data = []
+        for row in reader:
+            client_name = (row.get("client_name") or row.get("Client Name") or "").strip() or None
+            phone_number = (row.get("phone_number") or row.get("Phone Number") or row.get("phone") or "").strip() or None
+            arrears_raw = (row.get("arrears_amount") or row.get("Arrears Amount") or "0").strip()
+            try:
+                arrears_amount = float(arrears_raw.replace(",", "").replace("£", "")) if arrears_raw else 0.0
+            except ValueError:
+                arrears_amount = 0.0
+            lpd_raw = (row.get("last_payment_date") or row.get("Last Payment Date") or "").strip()
+            last_payment_date = lpd_raw if lpd_raw else None
+            last_note = (row.get("last_note") or row.get("Last Note") or "").strip() or None
+            rows_data.append((client_name, phone_number, arrears_amount, last_payment_date, last_note))
+
+        conn = get_db_conn()
+        with conn.cursor() as cur:
+            cur.execute(
+                """INSERT INTO arrears_uploads (project_id, upload_date, uploaded_by, record_count, filename)
+                   VALUES (%s, COALESCE(%s::date, CURRENT_DATE), %s, %s, %s) RETURNING id""",
+                (project_id, upload_date, int(current_user.id), len(rows_data), f.filename),
+            )
+            upload_id = cur.fetchone()[0]
+            for (cn, ph, amt, lpd, ln) in rows_data:
+                cur.execute(
+                    """INSERT INTO arrears_cases (upload_id, project_id, client_name, phone_number,
+                       arrears_amount, last_payment_date, last_note)
+                       VALUES (%s, %s, %s, %s, %s, %s::date, %s)""",
+                    (upload_id, project_id, cn, ph, amt, lpd, ln),
+                )
+        conn.commit()
+        conn.close()
+        return jsonify({"ok": True, "upload_id": upload_id, "record_count": len(rows_data)})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+def _get_arrears_config(cur, project_id):
+    """Fetch arrears config for a project. Returns dict or None."""
+    cur.execute(
+        "SELECT * FROM arrears_project_config WHERE project_id = %s",
+        (project_id,),
+    )
+    return cur.fetchone()
+
+
+def _build_arrears_sql_filter(cfg):
+    """Return a SQL WHERE fragment and params for in-arrears logic."""
+    if cfg is None:
+        return "arrears_amount > 0", []
+
+    min_days = cfg["min_days_since_payment"]
+    min_amt = cfg["min_arrears_amount"]
+    require_both = cfg["require_both"]
+
+    rule1 = None
+    rule2 = None
+    params = []
+
+    if min_days is not None:
+        rule1 = "(CURRENT_DATE - last_payment_date) >= %s"
+        params.append(min_days)
+    if min_amt is not None:
+        rule2 = "arrears_amount >= %s"
+
+    if rule1 and rule2:
+        if require_both:
+            fragment = f"({rule1} AND {rule2})"
+            params.append(min_amt)
+        else:
+            fragment = f"({rule1} OR {rule2})"
+            params.append(min_amt)
+    elif rule1:
+        fragment = rule1
+    elif rule2:
+        fragment = rule2
+        params.append(min_amt)
+    else:
+        # No rules defined — fall back to amount > 0
+        fragment = "arrears_amount > 0"
+
+    return fragment, params
+
+
+@app.route("/api/arrears/dashboard")
+@login_required
+def arrears_dashboard():
+    """Return stats for a project: total live cases, in-arrears count, percentage."""
+    project_id = request.args.get("project_id")
+    if not project_id:
+        return jsonify({"error": "project_id required"}), 400
+    try:
+        conn = get_db_conn()
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            # Latest upload
+            cur.execute(
+                "SELECT id FROM arrears_uploads WHERE project_id = %s ORDER BY created_at DESC LIMIT 1",
+                (project_id,),
+            )
+            row = cur.fetchone()
+            if not row:
+                conn.close()
+                return jsonify({"total": 0, "in_arrears": 0, "percentage": 0.0, "upload_id": None})
+            upload_id = row["id"]
+
+            cur.execute(
+                "SELECT COUNT(*) AS total FROM arrears_cases WHERE upload_id = %s",
+                (upload_id,),
+            )
+            total = cur.fetchone()["total"]
+
+            cfg = _get_arrears_config(cur, int(project_id))
+            frag, params = _build_arrears_sql_filter(cfg)
+            sql = f"SELECT COUNT(*) AS cnt FROM arrears_cases WHERE upload_id = %s AND {frag}"
+            cur.execute(sql, [upload_id] + params)
+            in_arrears = cur.fetchone()["cnt"]
+
+        conn.close()
+        pct = round((in_arrears / total * 100), 1) if total else 0.0
+        return jsonify({"total": total, "in_arrears": in_arrears, "percentage": pct, "upload_id": upload_id})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/arrears/cases")
+@login_required
+def arrears_cases_list():
+    """Return in-arrears cases from the latest upload for a project."""
+    project_id = request.args.get("project_id")
+    if not project_id:
+        return jsonify({"error": "project_id required"}), 400
+    try:
+        conn = get_db_conn()
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute(
+                "SELECT id FROM arrears_uploads WHERE project_id = %s ORDER BY created_at DESC LIMIT 1",
+                (project_id,),
+            )
+            row = cur.fetchone()
+            if not row:
+                conn.close()
+                return jsonify([])
+            upload_id = row["id"]
+
+            cfg = _get_arrears_config(cur, int(project_id))
+            frag, params = _build_arrears_sql_filter(cfg)
+            sql = f"""
+                SELECT id, client_name, phone_number, arrears_amount,
+                       last_payment_date, last_note,
+                       (CURRENT_DATE - last_payment_date) AS days_overdue
+                FROM arrears_cases
+                WHERE upload_id = %s AND {frag}
+                ORDER BY arrears_amount DESC
+            """
+            cur.execute(sql, [upload_id] + params)
+            rows = cur.fetchall()
+        conn.close()
+        result = []
+        for r in rows:
+            d = dict(r)
+            if d["last_payment_date"]:
+                d["last_payment_date"] = d["last_payment_date"].isoformat()
+            d["days_overdue"] = int(d["days_overdue"]) if d["days_overdue"] is not None else None
+            d["arrears_amount"] = float(d["arrears_amount"]) if d["arrears_amount"] is not None else 0.0
+            result.append(d)
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/arrears/config/<int:project_id>", methods=["GET"])
+@login_required
+def get_arrears_config(project_id):
+    """Return the arrears logic config for a project."""
+    try:
+        conn = get_db_conn()
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cfg = _get_arrears_config(cur, project_id)
+        conn.close()
+        if not cfg:
+            return jsonify({"project_id": project_id, "min_days_since_payment": None,
+                            "min_arrears_amount": None, "require_both": False,
+                            "logic_description": ""})
+        d = dict(cfg)
+        if d.get("updated_at"):
+            d["updated_at"] = d["updated_at"].isoformat()
+        if d.get("min_arrears_amount") is not None:
+            d["min_arrears_amount"] = float(d["min_arrears_amount"])
+        return jsonify(d)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/arrears/config/<int:project_id>", methods=["POST"])
+@login_required
+def save_arrears_config(project_id):
+    """Save/update the arrears logic config. Admin only."""
+    if current_user.role != "admin":
+        return jsonify({"error": "Forbidden"}), 403
+    data = request.get_json() or {}
+    min_days = data.get("min_days_since_payment")
+    min_amt = data.get("min_arrears_amount")
+    require_both = bool(data.get("require_both", False))
+    logic_description = (data.get("logic_description") or "").strip() or None
+    try:
+        min_days = int(min_days) if min_days not in (None, "") else None
+    except (ValueError, TypeError):
+        min_days = None
+    try:
+        min_amt = float(min_amt) if min_amt not in (None, "") else None
+    except (ValueError, TypeError):
+        min_amt = None
+    try:
+        conn = get_db_conn()
+        with conn.cursor() as cur:
+            cur.execute("""
+                INSERT INTO arrears_project_config
+                    (project_id, min_days_since_payment, min_arrears_amount, require_both, logic_description, updated_at, updated_by)
+                VALUES (%s, %s, %s, %s, %s, NOW(), %s)
+                ON CONFLICT (project_id) DO UPDATE SET
+                    min_days_since_payment = EXCLUDED.min_days_since_payment,
+                    min_arrears_amount = EXCLUDED.min_arrears_amount,
+                    require_both = EXCLUDED.require_both,
+                    logic_description = EXCLUDED.logic_description,
+                    updated_at = NOW(),
+                    updated_by = EXCLUDED.updated_by
+            """, (project_id, min_days, min_amt, require_both, logic_description, int(current_user.id)))
+        conn.commit()
+        conn.close()
+        return jsonify({"ok": True})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 if __name__ == "__main__":
