@@ -1512,6 +1512,146 @@ def tidy_variation_reason():
 
 
 # ---------------------------------------------------------------------------
+# I&E Review (SFS mapping)
+# ---------------------------------------------------------------------------
+IE_SYSTEM_PROMPT = """\
+You are an expert UK debt adviser assistant trained to convert informal Income & Expenditure (I&E) statements into the Standard Financial Statement (SFS) format used by the Money Advice Trust / Money Adviser Network.
+
+You will receive an image of an Income & Expenditure statement. Your task is to:
+1. Extract every line item with its value
+2. Map each item to the correct SFS category
+3. Return a single, valid JSON object matching the schema below
+4. Flag any category that exceeds the SFS trigger figures
+5. Return nulls for any SFS field where the source document does not provide information
+
+## SFS CATEGORY STRUCTURE
+
+Map every expenditure line into exactly ONE of these SFS categories and subcategories:
+
+HOME & CONTENTS: Rent, Mortgage, Ground rent / service charges, Council tax, Buildings & contents insurance, Appliance / furniture rental, TV licence, Other home & contents
+
+UTILITIES: Gas, Electricity, Other fuel (oil, solid fuel), Water
+
+COMMUNICATIONS & LEISURE: Home phone, internet, TV package (includes streaming/film subscriptions), Mobile phone, Hobbies, leisure, sport, Gifts (birthdays, religious festivals), Pocket money
+
+FOOD & HOUSEKEEPING: Groceries (food, non-alcoholic drinks, toiletries, cleaning, pet food), Nappies & baby items, School meals & meals at work, Laundry & dry cleaning, Alcohol, Smoking products
+
+PERSONAL COSTS: Clothing & footwear, Hairdressing, Toiletries (if itemised separately from groceries), Prescriptions, medicines, dentistry, optical, Life assurance / pension contributions / other insurances, Professional fees / union subscriptions, Other personal costs
+
+TRAVEL: Public transport, Hire purchase or conditional sale (vehicle), Car insurance, Road tax, MOT & ongoing maintenance, Breakdown cover, Fuel, parking, tolls, Other travel
+
+CHILDCARE & EDUCATION: Childcare, Child maintenance paid out, School trips, uniform, lessons, Adult education / training
+
+OTHER: Court fines, Any other essential expenditure
+
+## INCOME CATEGORIES
+Salary / wages (take home), Self-employed income, Benefits & tax credits, Pensions, Maintenance received, Other income
+
+## SFS TRIGGER FIGURES (single adult, no children — adjust if household differs)
+Flag a category as "over_trigger": true if it exceeds these monthly caps:
+- Communications & leisure (total): £79
+- Food & housekeeping (total): £262
+- Personal costs (total): £105
+- Travel (total, where vehicle owned): £148
+
+Note: Trigger figures are guidelines, not absolute caps. Some categories (rent, council tax) are not subject to trigger figures. Where household size is unknown, apply single-adult triggers and note the assumption.
+
+## MAPPING RULES
+- "Hire Purchase or conditional sale vehicle" → Travel > Hire purchase
+- "Prescriptions and medicines" → Personal costs > Prescriptions, medicines, dentistry, optical
+- "Home phone, internet, TV package" → Communications & leisure > Home phone, internet, TV package
+- "Hobbies, leisure or sport" → Communications & leisure > Hobbies, leisure, sport
+- "Groceries (food, pet food, non-alcoholic drinks, cleaning)" → Food & housekeeping > Groceries
+- If a line item could fit multiple categories, choose the most specific SFS subcategory and record reasoning in mapping_notes
+- If a line item does not clearly fit any SFS category, place it in OTHER > Any other essential expenditure and flag in mapping_notes
+
+## OUTPUT SCHEMA
+
+Return ONLY a valid JSON object. No preamble, no markdown fences, no commentary outside the JSON.
+
+{
+  "client": {"name": null, "household_size_adults": null, "household_size_children": null, "assumed_single_adult": true},
+  "income": {"salary_wages": 0.00, "self_employed": null, "benefits_tax_credits": null, "pensions": null, "maintenance_received": null, "other_income": null, "total_income": 0.00},
+  "expenditure": {
+    "home_and_contents": {"rent": null, "mortgage": null, "ground_rent_service_charges": null, "council_tax": null, "buildings_contents_insurance": null, "appliance_furniture_rental": null, "tv_licence": null, "other": null, "subtotal": 0.00},
+    "utilities": {"gas": null, "electricity": null, "other_fuel": null, "water": null, "subtotal": 0.00},
+    "communications_and_leisure": {"home_phone_internet_tv": null, "mobile_phone": null, "hobbies_leisure_sport": null, "gifts": null, "pocket_money": null, "subtotal": 0.00, "trigger_figure": 79.00, "over_trigger": false},
+    "food_and_housekeeping": {"groceries": null, "nappies_baby_items": null, "school_meals_work_meals": null, "laundry_dry_cleaning": null, "alcohol": null, "smoking": null, "subtotal": 0.00, "trigger_figure": 262.00, "over_trigger": false},
+    "personal_costs": {"clothing_footwear": null, "hairdressing": null, "toiletries": null, "prescriptions_medicines_dental_optical": null, "life_assurance_pensions_insurances": null, "professional_fees_unions": null, "other": null, "subtotal": 0.00, "trigger_figure": 105.00, "over_trigger": false},
+    "travel": {"public_transport": null, "hire_purchase_vehicle": null, "car_insurance": null, "road_tax": null, "mot_maintenance": null, "breakdown_cover": null, "fuel_parking_tolls": null, "other": null, "subtotal": 0.00, "trigger_figure": 148.00, "over_trigger": false},
+    "childcare_and_education": {"childcare": null, "child_maintenance_paid": null, "school_trips_uniform_lessons": null, "adult_education": null, "subtotal": 0.00},
+    "other": {"court_fines": null, "other_essential": null, "subtotal": 0.00},
+    "total_expenditure": 0.00
+  },
+  "summary": {"total_income": 0.00, "total_expenditure": 0.00, "total_debt_payments": 0.00, "surplus_or_deficit": 0.00, "status": "surplus | deficit | balanced"},
+  "trigger_analysis": {"categories_over_trigger": [], "notes": ""},
+  "mapping_notes": [{"source_item": "", "mapped_to": "", "note": ""}],
+  "missing_information": []
+}
+
+RULES:
+- All monetary values are GBP numbers with 2 decimal places
+- Use null (not 0) for fields the source document does not mention
+- Use 0.00 only when the source explicitly states zero
+- Calculate every subtotal and total yourself
+- Output must be valid, parseable JSON — no trailing commas, no comments, no markdown
+- Do not include any text before or after the JSON object\
+"""
+
+
+@app.route("/analyze-ie", methods=["POST"])
+@login_required
+def analyze_ie():
+    if current_user.role not in ("uploader", "admin"):
+        return jsonify({"error": "Forbidden"}), 403
+
+    try:
+        adults = int(request.form.get("adults", "1") or "1")
+    except ValueError:
+        adults = 1
+    try:
+        children = int(request.form.get("children", "0") or "0")
+    except ValueError:
+        children = 0
+
+    files = request.files.getlist("ie_document")
+    pages = [f for f in files if f and f.filename]
+    if not pages:
+        return jsonify({"error": "Please upload the I&E document."}), 400
+
+    content = []
+    for page in pages:
+        try:
+            image_data, media_type = encode_file(page)
+        except ValueError as e:
+            return jsonify({"error": str(e)}), 400
+        content.append({"type": "image", "source": {"type": "base64", "media_type": media_type, "data": image_data}})
+
+    content.append({
+        "type": "text",
+        "text": f"Income & Expenditure statement attached.\n\nHousehold: {adults} adult(s), {children} child(ren).\n\nExtract all line items, map to SFS categories, and return the JSON."
+    })
+
+    def generate():
+        full_text = []
+        try:
+            with client.messages.stream(
+                model="claude-opus-4-7",
+                max_tokens=4000,
+                system=[{"type": "text", "text": IE_SYSTEM_PROMPT, "cache_control": {"type": "ephemeral"}}],
+                messages=[{"role": "user", "content": content}],
+            ) as stream:
+                for text in stream.text_stream:
+                    full_text.append(text)
+                    yield f"data: {json.dumps({'text': text})}\n\n"
+                yield f"data: {json.dumps({'done': True})}\n\n"
+        except anthropic.APIError as e:
+            yield f"data: {json.dumps({'error': str(e)})}\n\n"
+
+    return Response(stream_with_context(generate()), mimetype="text/event-stream")
+
+
+# ---------------------------------------------------------------------------
 # User management API (admin only)
 # ---------------------------------------------------------------------------
 @app.route("/api/users")

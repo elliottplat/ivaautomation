@@ -240,6 +240,58 @@
     .btn-use-tidied { font-size: 0.75rem; font-weight: 600; padding: 0.22rem 0.65rem; border: 1.5px solid #c7d2fe; border-radius: 6px; background: #eef2ff; color: #4f46e5; cursor: pointer; transition: background 0.15s; }
     .btn-use-tidied:hover { background: #e0e7ff; }
 
+    /* ── I&E Section ── */
+    .ie-form-card { background: #fff; border-radius: 12px; box-shadow: 0 1px 6px rgba(0,0,0,0.07); padding: 1rem 1.25rem; margin-bottom: 1.25rem; border-top: 3px solid #10b981; }
+    .ie-form-title { font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #059669; margin-bottom: 0.85rem; }
+    .ie-form-row { display: flex; align-items: center; gap: 1.25rem; flex-wrap: wrap; margin-bottom: 0.85rem; }
+    .ie-field { display: flex; align-items: center; gap: 0.5rem; }
+    .ie-field label { font-size: 0.82rem; font-weight: 700; color: #555; white-space: nowrap; }
+    .ie-field input[type="number"] { width: 70px; border: 1.5px solid #d0d5dd; border-radius: 7px; padding: 0.42rem 0.6rem; font-size: 0.9rem; font-family: inherit; }
+    .ie-field input:focus { outline: none; border-color: #10b981; }
+    .ie-doc-row { margin-bottom: 0.75rem; }
+    .btn-ie-submit { background: #10b981; color: #fff; border: none; border-radius: 9px; padding: 0.6rem 1.6rem; font-size: 0.88rem; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 0.5rem; transition: background 0.2s; }
+    .btn-ie-submit:hover:not(:disabled) { background: #059669; }
+    .btn-ie-submit:disabled { opacity: 0.6; cursor: not-allowed; }
+
+    .ie-output-wrap { display: none; margin-top: 1.25rem; }
+    .ie-output-wrap.visible { display: block; }
+    .ie-summary-bar { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.85rem; margin-bottom: 1rem; }
+    @media (max-width: 600px) { .ie-summary-bar { grid-template-columns: 1fr; } }
+    .ie-summary-tile { background: #fff; border-radius: 10px; box-shadow: 0 1px 6px rgba(0,0,0,0.07); padding: 0.85rem 1rem; text-align: center; }
+    .ie-summary-tile .tile-label { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; color: #999; margin-bottom: 0.3rem; }
+    .ie-summary-tile .tile-value { font-size: 1.15rem; font-weight: 700; font-family: ui-monospace, monospace; color: #1a1a2e; }
+    .ie-summary-tile.surplus .tile-value { color: #16a34a; }
+    .ie-summary-tile.deficit  .tile-value { color: #dc2626; }
+
+    .ie-section-card { background: #fff; border-radius: 10px; box-shadow: 0 1px 5px rgba(0,0,0,0.06); padding: 0.9rem 1.1rem; margin-bottom: 0.75rem; }
+    .ie-section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.6rem; }
+    .ie-section-title { font-size: 0.82rem; font-weight: 700; color: #333; }
+    .trigger-badge { font-size: 0.7rem; font-weight: 700; padding: 0.18rem 0.55rem; border-radius: 8px; }
+    .trigger-badge.ok   { background: #dcfce7; color: #15803d; }
+    .trigger-badge.over { background: #fee2e2; color: #b91c1c; }
+    .ie-table { width: 100%; border-collapse: collapse; }
+    .ie-table td { padding: 0.38rem 0.25rem; font-size: 0.85rem; border-bottom: 1px solid #f5f5f5; }
+    .ie-table td:first-child { color: #555; }
+    .ie-table td:last-child { text-align: right; }
+    .ie-table tr.ie-total td { font-weight: 700; border-top: 2px solid #e5e7eb; border-bottom: none; background: #f9fafb; }
+    .ie-table tr.ie-total td:last-child { color: #6366f1; font-family: ui-monospace, monospace; }
+    .ie-input { width: 100px; border: 1.5px solid #e5e7eb; border-radius: 6px; padding: 0.28rem 0.45rem; font-size: 0.84rem; font-family: ui-monospace, monospace; text-align: right; transition: border-color 0.2s; }
+    .ie-input:focus { outline: none; border-color: #10b981; background: #f0fdf9; }
+    .null-input { background: #fafafa; color: #aaa; }
+
+    .ie-missing-card { background: #fff7ed; border: 1px solid #fed7aa; border-radius: 10px; padding: 0.9rem 1.1rem; margin-bottom: 0.75rem; }
+    .ie-missing-card h4 { font-size: 0.82rem; font-weight: 700; color: #92400e; margin-bottom: 0.5rem; }
+    .ie-missing-list { list-style: none; display: flex; flex-wrap: wrap; gap: 0.35rem; }
+    .ie-missing-list li { font-size: 0.78rem; background: #fff; border: 1px solid #fed7aa; border-radius: 6px; padding: 0.18rem 0.55rem; color: #7c2d12; }
+
+    .ie-mapping-card { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 10px; padding: 0.9rem 1.1rem; margin-bottom: 0.75rem; }
+    .ie-mapping-card h4 { font-size: 0.82rem; font-weight: 700; color: #555; margin-bottom: 0.5rem; }
+    .ie-mapping-row { font-size: 0.8rem; color: #555; padding: 0.25rem 0; border-bottom: 1px solid #f0f0f0; display: grid; grid-template-columns: auto 1fr 1fr; gap: 0.5rem; }
+    .ie-mapping-row:last-child { border-bottom: none; }
+    .ie-mapping-src { font-weight: 600; }
+    .ie-mapping-dest { color: #6366f1; }
+    .ie-mapping-note { color: #888; font-style: italic; }
+
     /* ── Review Modal ── */
     .review-overlay { position: fixed; inset: 0; background: rgba(15,15,30,0.7); z-index: 500; display: none; }
     .review-overlay.open { display: flex; }
@@ -426,6 +478,9 @@
           <button type="button" class="var-btn" data-var="agreed_dividend"  id="varbtn-agreed_dividend">📊 Agreed Dividend</button>
           <button type="button" class="var-btn" data-var="afd_current"      id="varbtn-afd_current">💰 Avail. for Dist.</button>
           <button type="button" class="var-btn" data-var="outcome_uplift"   id="varbtn-outcome_uplift">📉 Outcome Uplift</button>
+          <button type="button" class="var-btn" data-var="ie_total_income"  id="varbtn-ie_total_income">💼 I&amp;E Income</button>
+          <button type="button" class="var-btn" data-var="ie_total_expenditure" id="varbtn-ie_total_expenditure">🧾 I&amp;E Expenditure</button>
+          <button type="button" class="var-btn" data-var="ie_disposable"    id="varbtn-ie_disposable">📋 Disposable Income</button>
         </div>
         <textarea class="reason-textarea" id="reason-textarea" placeholder="Draft the reason for this variation here. Use the buttons above to insert values at the cursor position…"></textarea>
         <div class="reason-actions">
@@ -443,10 +498,46 @@
         </div>
       </div>
 
+      <!-- I&E Review -->
+      <div class="ie-form-card" id="ie-form-card">
+        <div class="ie-form-title">Income &amp; Expenditure Review (SFS)</div>
+        <div class="ie-form-row">
+          <div class="ie-field">
+            <label for="ie-adults">Adults</label>
+            <input type="number" id="ie-adults" min="1" max="10" value="1" />
+          </div>
+          <div class="ie-field">
+            <label for="ie-children">Children</label>
+            <input type="number" id="ie-children" min="0" max="10" value="0" />
+          </div>
+        </div>
+        <div class="ie-doc-row">
+          <div class="card" style="margin-bottom:0;">
+            <div class="slot-label"><span class="dot" id="dot-ie_document"></span>I&amp;E Document</div>
+            <div class="upload-area" id="area-ie_document">
+              <span class="area-text">Click or drag image(s) here</span>
+              <input type="file" name="ie_document" id="inp-ie_document" accept="image/*" multiple />
+            </div>
+            <div class="file-list" id="list-ie_document"></div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:0.75rem;margin-top:0.75rem;">
+          <button type="button" class="btn-ie-submit" id="btn-ie-submit">
+            <span id="ie-btn-label">Analyse I&amp;E</span>
+          </button>
+          <span id="ie-submit-status" style="font-size:0.8rem;color:#888;"></span>
+        </div>
+      </div>
+
       {% endif %}
 
       <!-- Output area -->
       <div class="output-wrap" id="output-wrap">
+        <!-- filled by JS -->
+      </div>
+
+      <!-- I&E Output -->
+      <div class="ie-output-wrap" id="ie-output-wrap">
         <!-- filled by JS -->
       </div>
 
@@ -1163,6 +1254,362 @@
     if (workItemId) document.getElementById('hidden-work-item-id').value = workItemId;
   })();
 
+  // ── I&E State ─────────────────────────────────────────────────────────────
+
+  let ieState = null;
+
+  const IE_INCOME_FIELDS = [
+    { key: 'salary_wages',         label: 'Salary / wages (take home)' },
+    { key: 'self_employed',        label: 'Self-employed income' },
+    { key: 'benefits_tax_credits', label: 'Benefits & tax credits' },
+    { key: 'pensions',             label: 'Pensions' },
+    { key: 'maintenance_received', label: 'Maintenance received' },
+    { key: 'other_income',         label: 'Other income' },
+  ];
+
+  const IE_EXP_CATS = [
+    { key: 'home_and_contents', label: 'Home & Contents', fields: [
+      { key: 'rent', label: 'Rent' },
+      { key: 'mortgage', label: 'Mortgage' },
+      { key: 'ground_rent_service_charges', label: 'Ground rent / service charges' },
+      { key: 'council_tax', label: 'Council tax' },
+      { key: 'buildings_contents_insurance', label: 'Buildings & contents insurance' },
+      { key: 'appliance_furniture_rental', label: 'Appliance / furniture rental' },
+      { key: 'tv_licence', label: 'TV licence' },
+      { key: 'other', label: 'Other' },
+    ]},
+    { key: 'utilities', label: 'Utilities', fields: [
+      { key: 'gas', label: 'Gas' },
+      { key: 'electricity', label: 'Electricity' },
+      { key: 'other_fuel', label: 'Other fuel' },
+      { key: 'water', label: 'Water' },
+    ]},
+    { key: 'communications_and_leisure', label: 'Communications & Leisure', trigger: 79, fields: [
+      { key: 'home_phone_internet_tv', label: 'Home phone / internet / TV' },
+      { key: 'mobile_phone', label: 'Mobile phone' },
+      { key: 'hobbies_leisure_sport', label: 'Hobbies, leisure, sport' },
+      { key: 'gifts', label: 'Gifts' },
+      { key: 'pocket_money', label: 'Pocket money' },
+    ]},
+    { key: 'food_and_housekeeping', label: 'Food & Housekeeping', trigger: 262, fields: [
+      { key: 'groceries', label: 'Groceries' },
+      { key: 'nappies_baby_items', label: 'Nappies & baby items' },
+      { key: 'school_meals_work_meals', label: 'School / work meals' },
+      { key: 'laundry_dry_cleaning', label: 'Laundry & dry cleaning' },
+      { key: 'alcohol', label: 'Alcohol' },
+      { key: 'smoking', label: 'Smoking products' },
+    ]},
+    { key: 'personal_costs', label: 'Personal Costs', trigger: 105, fields: [
+      { key: 'clothing_footwear', label: 'Clothing & footwear' },
+      { key: 'hairdressing', label: 'Hairdressing' },
+      { key: 'toiletries', label: 'Toiletries' },
+      { key: 'prescriptions_medicines_dental_optical', label: 'Prescriptions / medicines / dental / optical' },
+      { key: 'life_assurance_pensions_insurances', label: 'Life assurance / pensions / insurances' },
+      { key: 'professional_fees_unions', label: 'Professional fees / unions' },
+      { key: 'other', label: 'Other' },
+    ]},
+    { key: 'travel', label: 'Travel', trigger: 148, fields: [
+      { key: 'public_transport', label: 'Public transport' },
+      { key: 'hire_purchase_vehicle', label: 'Hire purchase / vehicle' },
+      { key: 'car_insurance', label: 'Car insurance' },
+      { key: 'road_tax', label: 'Road tax' },
+      { key: 'mot_maintenance', label: 'MOT & maintenance' },
+      { key: 'breakdown_cover', label: 'Breakdown cover' },
+      { key: 'fuel_parking_tolls', label: 'Fuel / parking / tolls' },
+      { key: 'other', label: 'Other' },
+    ]},
+    { key: 'childcare_and_education', label: 'Childcare & Education', fields: [
+      { key: 'childcare', label: 'Childcare' },
+      { key: 'child_maintenance_paid', label: 'Child maintenance paid out' },
+      { key: 'school_trips_uniform_lessons', label: 'School trips / uniform / lessons' },
+      { key: 'adult_education', label: 'Adult education / training' },
+    ]},
+    { key: 'other', label: 'Other Essential', fields: [
+      { key: 'court_fines', label: 'Court fines' },
+      { key: 'other_essential', label: 'Other essential expenditure' },
+    ]},
+  ];
+
+  function recalcIE(state) {
+    if (!state) return;
+    // Income total
+    let totalIncome = 0;
+    IE_INCOME_FIELDS.forEach(f => { totalIncome += state.income[f.key] || 0; });
+    state.income.total_income = Math.round(totalIncome * 100) / 100;
+
+    // Category subtotals + total expenditure
+    let totalExp = 0;
+    IE_EXP_CATS.forEach(cat => {
+      const catObj = state.expenditure[cat.key];
+      if (!catObj) return;
+      let sub = 0;
+      cat.fields.forEach(f => { sub += catObj[f.key] || 0; });
+      catObj.subtotal = Math.round(sub * 100) / 100;
+      if (cat.trigger != null) catObj.over_trigger = catObj.subtotal > cat.trigger;
+      totalExp += catObj.subtotal;
+    });
+    state.expenditure.total_expenditure = Math.round(totalExp * 100) / 100;
+
+    // Summary
+    const surplus = Math.round((state.income.total_income - totalExp) * 100) / 100;
+    state.summary.total_income = state.income.total_income;
+    state.summary.total_expenditure = state.expenditure.total_expenditure;
+    state.summary.surplus_or_deficit = surplus;
+    state.summary.status = surplus > 0 ? 'surplus' : surplus < 0 ? 'deficit' : 'balanced';
+  }
+
+  function fmtIE(n) {
+    if (n === null || n === undefined) return '—';
+    return '£' + Number(n).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  function ieInputHtml(section, field, value) {
+    const v = value === null || value === undefined ? '' : Number(value).toFixed(2);
+    const cls = (value === null || value === undefined) ? 'ie-input null-input' : 'ie-input';
+    return `<input type="number" class="${cls}" step="0.01" min="0" placeholder="—"
+      data-ie-section="${escHtml(section)}" data-ie-field="${escHtml(field)}" value="${v}" />`;
+  }
+
+  function renderIE(state) {
+    if (!state) return;
+    recalcIE(state);
+    const wrap = document.getElementById('ie-output-wrap');
+    wrap.className = 'ie-output-wrap visible';
+
+    // Summary bar
+    const surplusClass = state.summary.surplus_or_deficit >= 0 ? 'surplus' : 'deficit';
+    const surplusLabel = state.summary.surplus_or_deficit >= 0 ? 'Disposable Income' : 'Deficit';
+    let html = `
+      <div class="ie-summary-bar">
+        <div class="ie-summary-tile">
+          <div class="tile-label">Total Income</div>
+          <div class="tile-value" id="ie-tile-income">${fmtIE(state.income.total_income)}</div>
+        </div>
+        <div class="ie-summary-tile">
+          <div class="tile-label">Total Expenditure</div>
+          <div class="tile-value" id="ie-tile-expenditure">${fmtIE(state.expenditure.total_expenditure)}</div>
+        </div>
+        <div class="ie-summary-tile ${surplusClass}">
+          <div class="tile-label">${surplusLabel}</div>
+          <div class="tile-value" id="ie-tile-disposable">${fmtIE(state.summary.surplus_or_deficit)}</div>
+        </div>
+      </div>`;
+
+    // Client info
+    const c = state.client || {};
+    html += `<div class="ie-section-card" style="background:#f0fdf9;border:1px solid #6ee7b7;">
+      <div class="ie-section-header">
+        <span class="ie-section-title">👤 Client / Household</span>
+      </div>
+      <table class="ie-table">
+        ${c.name ? `<tr><td>Name</td><td style="text-align:right;font-weight:600;">${escHtml(c.name)}</td></tr>` : ''}
+        <tr><td>Adults</td><td style="text-align:right;">${c.household_size_adults ?? (c.assumed_single_adult ? '1 (assumed)' : '—')}</td></tr>
+        <tr><td>Children</td><td style="text-align:right;">${c.household_size_children ?? '—'}</td></tr>
+      </table>
+    </div>`;
+
+    // Income section
+    html += `<div class="ie-section-card">
+      <div class="ie-section-header"><span class="ie-section-title">💼 Income</span></div>
+      <table class="ie-table">
+        ${IE_INCOME_FIELDS.map(f => `<tr>
+          <td>${escHtml(f.label)}</td>
+          <td>${ieInputHtml('income', f.key, state.income[f.key])}</td>
+        </tr>`).join('')}
+        <tr class="ie-total"><td>Total Income</td><td id="ie-income-total">${fmtIE(state.income.total_income)}</td></tr>
+      </table>
+    </div>`;
+
+    // Expenditure categories
+    IE_EXP_CATS.forEach(cat => {
+      const catObj = (state.expenditure && state.expenditure[cat.key]) || {};
+      const hasTrigger = cat.trigger != null;
+      const isOver = hasTrigger && catObj.over_trigger;
+      const triggerBadge = hasTrigger
+        ? `<span class="trigger-badge ${isOver ? 'over' : 'ok'}" id="ie-trigger-${cat.key}">${isOver ? '⚠ Over trigger £' + cat.trigger : '✓ Within £' + cat.trigger}</span>`
+        : '';
+      html += `<div class="ie-section-card">
+        <div class="ie-section-header">
+          <span class="ie-section-title">${escHtml(cat.label)}</span>
+          ${triggerBadge}
+        </div>
+        <table class="ie-table">
+          ${cat.fields.map(f => `<tr>
+            <td>${escHtml(f.label)}</td>
+            <td>${ieInputHtml(cat.key, f.key, catObj[f.key] !== undefined ? catObj[f.key] : null)}</td>
+          </tr>`).join('')}
+          <tr class="ie-total"><td>Subtotal</td><td id="ie-sub-${cat.key}">${fmtIE(catObj.subtotal)}</td></tr>
+        </table>
+      </div>`;
+    });
+
+    // Missing information
+    const missing = state.missing_information || [];
+    if (missing.length) {
+      html += `<div class="ie-missing-card">
+        <h4>⚠ Missing Information</h4>
+        <ul class="ie-missing-list">${missing.map(m => `<li>${escHtml(m)}</li>`).join('')}</ul>
+      </div>`;
+    }
+
+    // Mapping notes
+    const notes = state.mapping_notes || [];
+    if (notes.length) {
+      html += `<div class="ie-mapping-card">
+        <h4>Mapping Notes</h4>
+        ${notes.map(n => `<div class="ie-mapping-row">
+          <span class="ie-mapping-src">${escHtml(n.source_item)}</span>
+          <span class="ie-mapping-dest">→ ${escHtml(n.mapped_to)}</span>
+          <span class="ie-mapping-note">${escHtml(n.note || '')}</span>
+        </div>`).join('')}
+      </div>`;
+    }
+
+    wrap.innerHTML = html;
+    wireIEInputs(state);
+  }
+
+  function wireIEInputs(state) {
+    document.querySelectorAll('.ie-input').forEach(inp => {
+      inp.addEventListener('input', () => {
+        const section = inp.dataset.ieSection;
+        const field   = inp.dataset.ieField;
+        const val     = inp.value === '' ? null : (parseFloat(inp.value) || 0);
+        inp.classList.toggle('null-input', val === null);
+
+        if (section === 'income') {
+          state.income[field] = val;
+        } else {
+          if (!state.expenditure[section]) state.expenditure[section] = {};
+          state.expenditure[section][field] = val;
+        }
+        recalcIE(state);
+        refreshIETotals(state);
+      });
+    });
+  }
+
+  function refreshIETotals(state) {
+    // Update summary tiles
+    const incomeTile = document.getElementById('ie-tile-income');
+    const expTile    = document.getElementById('ie-tile-expenditure');
+    const dispTile   = document.getElementById('ie-tile-disposable');
+    const incomeTotal = document.getElementById('ie-income-total');
+    if (incomeTile) incomeTile.textContent = fmtIE(state.income.total_income);
+    if (expTile)    expTile.textContent    = fmtIE(state.expenditure.total_expenditure);
+    if (dispTile) {
+      dispTile.textContent = fmtIE(state.summary.surplus_or_deficit);
+      const tile = dispTile.closest('.ie-summary-tile');
+      if (tile) { tile.classList.remove('surplus','deficit'); tile.classList.add(state.summary.surplus_or_deficit >= 0 ? 'surplus' : 'deficit'); }
+      dispTile.closest('.ie-summary-tile').querySelector('.tile-label').textContent =
+        state.summary.surplus_or_deficit >= 0 ? 'Disposable Income' : 'Deficit';
+    }
+    if (incomeTotal) incomeTotal.textContent = fmtIE(state.income.total_income);
+    // Category subtotals + trigger badges
+    IE_EXP_CATS.forEach(cat => {
+      const sub = document.getElementById('ie-sub-' + cat.key);
+      const badge = document.getElementById('ie-trigger-' + cat.key);
+      const catObj = state.expenditure[cat.key] || {};
+      if (sub)   sub.textContent = fmtIE(catObj.subtotal);
+      if (badge && cat.trigger != null) {
+        const over = catObj.over_trigger;
+        badge.className = 'trigger-badge ' + (over ? 'over' : 'ok');
+        badge.textContent = over ? `⚠ Over trigger £${cat.trigger}` : `✓ Within £${cat.trigger}`;
+      }
+    });
+  }
+
+  // I&E file management
+  const ieFileMap = [];
+  const ieDocArea  = document.getElementById('area-ie_document');
+  const ieDocInput = document.getElementById('inp-ie_document');
+  const ieDocDot   = document.getElementById('dot-ie_document');
+  const ieDocList  = document.getElementById('list-ie_document');
+
+  function refreshIESlot() {
+    if (ieFileMap.length) {
+      ieDocArea.classList.add('has-files'); ieDocDot.classList.add('filled');
+      ieDocArea.querySelector('.area-text').textContent = ieFileMap.length + ' file(s) selected';
+    } else {
+      ieDocArea.classList.remove('has-files'); ieDocDot.classList.remove('filled');
+      ieDocArea.querySelector('.area-text').textContent = 'Click or drag image(s) here';
+    }
+    ieDocList.innerHTML = '';
+    ieFileMap.forEach((f, i) => {
+      const item = document.createElement('div');
+      item.className = 'file-item';
+      item.innerHTML = `<span class="fname" title="${f.name}">${f.name}</span><button type="button" data-ie-idx="${i}">×</button>`;
+      ieDocList.appendChild(item);
+    });
+  }
+
+  ieDocArea.addEventListener('click', e => { if (e.target !== ieDocInput) ieDocInput.click(); });
+  ieDocInput.addEventListener('change', () => { ieFileMap.push(...ieDocInput.files); ieDocInput.value = ''; refreshIESlot(); });
+  ieDocArea.addEventListener('dragover', e => { e.preventDefault(); ieDocArea.classList.add('drag'); });
+  ieDocArea.addEventListener('dragleave', () => ieDocArea.classList.remove('drag'));
+  ieDocArea.addEventListener('drop', e => { e.preventDefault(); ieDocArea.classList.remove('drag'); ieFileMap.push(...e.dataTransfer.files); refreshIESlot(); });
+  document.addEventListener('click', e => {
+    const btn = e.target.closest('[data-ie-idx]');
+    if (!btn) return;
+    ieFileMap.splice(Number(btn.dataset.ieIdx), 1);
+    refreshIESlot();
+  });
+
+  // I&E form submit
+  document.getElementById('btn-ie-submit').addEventListener('click', async () => {
+    if (!ieFileMap.length) { document.getElementById('ie-submit-status').textContent = 'Please upload the I&E document.'; return; }
+    const btn    = document.getElementById('btn-ie-submit');
+    const label  = document.getElementById('ie-btn-label');
+    const status = document.getElementById('ie-submit-status');
+    btn.disabled = true;
+    label.innerHTML = '<div class="tidy-spinner"></div> Analysing…';
+    status.textContent = '';
+
+    const wrap = document.getElementById('ie-output-wrap');
+    wrap.className = 'ie-output-wrap visible';
+    wrap.innerHTML = '<div class="calculating-card"><div class="calculating-spinner"></div><p>Mapping to SFS — this may take a moment…</p></div>';
+
+    const fd = new FormData();
+    fd.append('adults',   document.getElementById('ie-adults').value || '1');
+    fd.append('children', document.getElementById('ie-children').value || '0');
+    ieFileMap.forEach(f => fd.append('ie_document', f));
+
+    try {
+      const res = await fetch('/analyze-ie', { method: 'POST', body: fd });
+      if (!res.ok) throw new Error('Server error ' + res.status);
+      const reader  = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '', rawJson = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop();
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          const data = JSON.parse(line.slice(6));
+          if (data.text) rawJson += data.text;
+          if (data.error) { wrap.innerHTML = `<div class="calculating-card"><p style="color:#ef4444;">${escHtml(data.error)}</p></div>`; return; }
+          if (data.done) {
+            try {
+              ieState = JSON.parse(rawJson.trim());
+              renderIE(ieState);
+            } catch {
+              wrap.innerHTML = '<div class="calculating-card"><p style="color:#ef4444;">Could not parse I&E result.</p></div>';
+            }
+          }
+        }
+      }
+    } catch (err) {
+      wrap.innerHTML = `<div class="calculating-card"><p style="color:#ef4444;">${escHtml(err.message)}</p></div>`;
+    } finally {
+      btn.disabled = false;
+      label.textContent = 'Analyse I&E';
+    }
+  });
+
   // ── Variation Reason ─────────────────────────────────────────────────────
 
   function getVariableValue(varName) {
@@ -1209,6 +1656,18 @@
         const res = activeEntry && activeEntry.parsedResult;
         const u = res && res.summary && res.summary.outcome_uplift_pence_per_pound;
         return u != null ? (Number(u).toFixed(2) + 'p/£') : '[Uplift]';
+      }
+      case 'ie_total_income': {
+        if (!ieState || ieState.income == null) return '[I&E Total Income]';
+        return '£' + Number(ieState.income.total_income || 0).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      }
+      case 'ie_total_expenditure': {
+        if (!ieState || ieState.expenditure == null) return '[I&E Total Expenditure]';
+        return '£' + Number(ieState.expenditure.total_expenditure || 0).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      }
+      case 'ie_disposable': {
+        if (!ieState || ieState.summary == null) return '[Disposable Income]';
+        return '£' + Number(ieState.summary.surplus_or_deficit || 0).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
       }
       default: return '[' + varName + ']';
     }
