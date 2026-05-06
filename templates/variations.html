@@ -74,9 +74,12 @@
     @keyframes pulse { 0%,100%{opacity:1}50%{opacity:.4} }
 
     .case-item.status-pending      { border-left-color: #f59e0b; }
-    .case-item.status-approved     { border-left-color: #22c55e; }
-    .case-item.status-rejected     { border-left-color: #ef4444; }
-    .case-item.status-under_review { border-left-color: #3b82f6; }
+    .case-item.status-under_review { border-left-color: #fb923c !important; background: #fff7ed; }
+    .case-item.status-under_review .cn { color: #c2410c; }
+    .case-item.status-approved     { border-left-color: #22c55e !important; background: #f0fdf4; }
+    .case-item.status-approved .cn { color: #15803d; }
+    .case-item.status-rejected     { border-left-color: #ef4444 !important; background: #fef2f2; }
+    .case-item.status-rejected .cn { color: #b91c1c; }
     .case-item.status-actioned     { border-left-color: #6b7280; }
 
     .case-actions { display: flex; gap: 0.3rem; margin-top: 0.35rem; }
@@ -531,7 +534,8 @@
 
       {% endif %}
 
-      <!-- Variation Reason - visible to all roles -->
+      <!-- Variation Reason - uploader/admin only; reviewers see it in the review modal -->
+      {% if current_user.role in ['uploader', 'admin'] %}
       <div class="reason-card" id="reason-card">
         <div class="reason-title">Variation Reason</div>
         {% if current_user.role in ['uploader', 'admin'] %}
@@ -572,6 +576,7 @@
         </div>
         {% endif %}
       </div>
+      {% endif %}
 
       <!-- Workflow bar -->
       <div class="workflow-bar" id="workflow-bar" style="display:none;">
@@ -613,6 +618,7 @@
     </div>
     <div class="review-tabs">
       <button class="review-tab active" data-tab="eos">EOS</button>
+      <button class="review-tab" data-tab="reason">Reason</button>
       <button class="review-tab" data-tab="compliance">Compliance</button>
       <button class="review-tab" data-tab="fulllog">Full JSON</button>
     </div>
@@ -626,6 +632,11 @@
             <label for="review-rejection-note">Rejection Note <span style="color:#ef4444;">*</span></label>
             <textarea id="review-rejection-note" placeholder="Explain why this EOS is being rejected…"></textarea>
           </div>
+        </div>
+      </div>
+      <div class="review-tab-panel" id="review-tab-reason">
+        <div id="review-reason-content" style="padding:0.25rem 0;">
+          <div style="text-align:center;color:#bbb;padding:2rem;">Click tab to load…</div>
         </div>
       </div>
       <div class="review-tab-panel" id="review-tab-compliance">
@@ -2442,7 +2453,15 @@
       eosEl.innerHTML = '<p style="color:#bbb;padding:1rem;">No EOS data available.</p>';
     }
 
-    // Populate compliance tab lazily
+    // Populate reason tab
+    const reasonEl = document.getElementById('review-reason-content');
+    if (entry.savedReason) {
+      reasonEl.innerHTML = `<div style="white-space:pre-wrap;font-size:0.9rem;line-height:1.7;color:#1a1a2e;padding:0.25rem 0;">${escHtml(entry.savedReason)}</div>`;
+    } else {
+      reasonEl.innerHTML = '<p style="color:#bbb;padding:1rem 0;">No reason has been saved for this case yet.</p>';
+    }
+
+    // Populate compliance and fulllog tabs lazily
     document.getElementById('review-compliance-content').innerHTML = '<div style="text-align:center;color:#bbb;padding:2rem;">Click tab to load…</div>';
     document.getElementById('review-fulllog-content').innerHTML = '<div style="text-align:center;color:#bbb;padding:2rem;">Click tab to load…</div>';
 
