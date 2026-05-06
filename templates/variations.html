@@ -817,6 +817,88 @@
     </table>`;
   }
 
+  // ── Collapsed (post-save) I&E table builder ──────────────────────────────
+
+  function createCollapsedIeTable(state) {
+    if (!state) return document.createElement('div');
+    const wrap = document.createElement('div');
+
+    // Filter: only rows where value != null and != 0 (keep totals always)
+    const isBlank = v => v === null || v === undefined;
+
+    let rows = [];
+    const hdr = {bold:true, bg:'#e8e8e8'};
+    const sec = {bold:true, bg:'#f2f2f2', span:2};
+    const tot = {bold:true, bg:'#f2f2f2', topBorder:true};
+    const totR = {...tot, right:true};
+
+    rows.push(`<tr>${_td('Income', sec)}</tr>`);
+    let incomeHasData = false;
+    IE_INCOME_FIELDS.forEach(f => {
+      const v = state.income[f.key];
+      if (!isBlank(v) && v !== 0) {
+        rows.push(`<tr>${_td(escHtml(f.label))}${_td(fmtIE(v), {right:true})}</tr>`);
+        incomeHasData = true;
+      }
+    });
+    if (!incomeHasData) rows.push(`<tr>${_td('—', {span:2})}</tr>`);
+    rows.push(`<tr>${_td('Total Income',tot)}${_td(fmtIE(state.income.total_income),totR)}</tr>`);
+
+    IE_EXP_CATS.forEach(cat => {
+      const catObj = (state.expenditure && state.expenditure[cat.key]) || {};
+      const populated = cat.fields.filter(f => !isBlank(catObj[f.key]) && catObj[f.key] !== 0);
+      if (!populated.length && !catObj.subtotal) return; // skip empty categories
+
+      let secLabel = escHtml(cat.label);
+      if (cat.flexible && catObj.trigger_figure != null) {
+        const over = catObj.over_trigger;
+        const tf = Number(catObj.trigger_figure).toFixed(2);
+        const vari = catObj.variance_from_trigger != null ? ` (${catObj.variance_from_trigger >= 0 ? '+' : ''}£${Math.abs(catObj.variance_from_trigger).toFixed(2)})` : '';
+        secLabel += ` — ${over ? '⚠ OVER' : '✓'} Trigger £${tf}${vari}`;
+      }
+      rows.push(`<tr>${_td(secLabel, sec)}</tr>`);
+      populated.forEach(f => {
+        rows.push(`<tr>${_td(escHtml(f.label))}${_td(fmtIE(catObj[f.key]), {right:true})}</tr>`);
+      });
+      rows.push(`<tr>${_td(escHtml(cat.label)+' Subtotal',tot)}${_td(fmtIE(catObj.subtotal),totR)}</tr>`);
+    });
+
+    const surplus = state.summary.surplus_or_deficit;
+    rows.push(`<tr>${_td('Total Expenditure',{bold:true,heavy:true})}${_td(fmtIE(state.expenditure.total_expenditure),{right:true,bold:true,heavy:true})}</tr>`);
+    rows.push(`<tr>${_td(surplus >= 0 ? 'Disposable Income' : 'Deficit',{bold:true,red:surplus<0})}${_td(fmtIE(surplus),{right:true,bold:true,red:surplus<0})}</tr>`);
+
+    const tableHtml = `<table border="1" cellpadding="0" cellspacing="0" style="border-collapse:collapse;font-family:Calibri,Arial,sans-serif;font-size:10pt;width:100%;">
+      <thead><tr>
+        ${_td('Item',{...hdr})}
+        ${_td('Monthly £',{...hdr,right:true})}
+      </tr></thead>
+      <tbody>${rows.join('')}</tbody>
+    </table>`;
+    wrap.innerHTML = tableHtml;
+
+    const toggle = document.createElement('div');
+    toggle.style.cssText = 'text-align:right;margin-top:0.4rem;';
+    const lnk = document.createElement('button');
+    lnk.className = 'copy-section-btn';
+    lnk.style.float = 'none';
+    lnk.textContent = '⊕ Show all fields';
+    lnk.addEventListener('click', () => {
+      const ieWrap = document.getElementById('ie-output-wrap');
+      if (ieWrap) {
+        const old = ieWrap.querySelector('table');
+        if (old) {
+          const newWrap = document.createElement('div');
+          newWrap.innerHTML = buildIeHtml(state);
+          old.replaceWith(newWrap.firstElementChild);
+        }
+      }
+      toggle.remove();
+    });
+    toggle.appendChild(lnk);
+    wrap.appendChild(toggle);
+    return wrap;
+  }
+
   // ── EOS state management ──────────────────────────────────────────────────
 
   // Deep-copy the initial EOS from AI into a mutable state object
@@ -1075,11 +1157,15 @@
       </div>`;
 
     // EOS editable table
+    const adminDeleteBtn = USER_ROLE === 'admin'
+      ? `<button id="btn-delete-case" style="padding:0.28rem 0.75rem;background:#fff0f0;color:#dc2626;border:1.5px solid #fecaca;border-radius:6px;font-size:0.78rem;font-weight:700;cursor:pointer;margin-left:auto;">🗑 Delete Case</button>`
+      : '';
     const eosCard = `
       <div class="eos-card" id="eos-card-main">
         <div class="eos-card-header">
           <h3>📊 Estimated Outcome Statement</h3>
           <span class="eos-edit-note">✏ Current column is editable</span>
+          ${adminDeleteBtn}
         </div>
         ${renderEosTable(state, true)}
         <button class="save-section-btn" id="save-eos-btn">💾 Save EOS</button>
@@ -1204,6 +1290,25 @@
       });
     }
 
+    const delBtn = document.getElementById('btn-delete-case');
+    if (delBtn) {
+      delBtn.addEventListener('click', async () => {
+        if (!currentCaseId) return;
+        if (!confirm('Permanently delete this case? This cannot be undone.')) return;
+        const res = await fetch(`/api/cases/${currentCaseId}`, { method: 'DELETE' });
+        if (res.ok) {
+          delete store[String(currentCaseId)];
+          document.getElementById('output-wrap').className = 'output-wrap';
+          document.getElementById('output-wrap').innerHTML = '';
+          document.getElementById('ie-output-wrap').className = 'ie-output-wrap';
+          const si = document.getElementById('case-item-' + currentCaseId);
+          if (si) si.remove();
+          currentCaseId = null;
+          updateWorkflowBar();
+        } else { alert('Delete failed.'); }
+      });
+    }
+
     const eosCopyAll = document.getElementById('eos-copy-all-btn');
     if (eosCopyAll) {
       eosCopyAll.addEventListener('click', function() {
@@ -1313,7 +1418,7 @@
             const vd = JSON.parse(data.variation_data);
             if (vd.saved) { saved.eos = !!vd.saved.eos; saved.ie = !!vd.saved.ie; saved.reason = !!vd.saved.reason; }
             if (vd.eos) { entry.eosState = vd.eos; }
-            if (vd.ie && typeof ieState !== 'undefined') { ieState = vd.ie; }
+            if (vd.ie) { ieState = vd.ie; }
             const reasonTA = document.getElementById('reason-textarea');
             if (vd.reason && reasonTA) { reasonTA.value = vd.reason; }
           } catch {}
@@ -1908,6 +2013,9 @@
           ieSaveStatus.textContent = '';
           const ieCard = document.getElementById('ie-output-wrap');
           if (ieCard) ieCard.classList.add('section-saved');
+          // Collapse: replace the full editable table with a clean read-only version
+          const ieTable = ieCard && ieCard.querySelector('.fin-table');
+          if (ieTable) ieTable.replaceWith(createCollapsedIeTable(state));
           caseReviewStatus = result.review_status || caseReviewStatus;
           updateWorkflowBar();
           setTimeout(() => { ieSaveBtn.classList.remove('saved'); ieSaveBtn.textContent = '💾 Save I&E'; }, 2000);

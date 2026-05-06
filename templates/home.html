@@ -451,7 +451,8 @@
       div.innerHTML = `<div class="notif-dot"></div><div><div class="notif-item-text">${escHtml(n.message)}</div><div class="notif-item-time">${dt}</div></div>`;
       div.addEventListener('click', async () => {
         if (!n.read) { await fetch(`/api/notifications/${n.id}/read`, { method: 'POST' }); n.read = true; renderNotifications(); }
-        window.location.href = '/completions?case=' + n.case_id;
+        const dest = TOOL_URLS[n.task_type] || '/completions';
+        window.location.href = dest + '?case=' + n.case_id;
       });
       notifList.appendChild(div);
     });

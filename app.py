@@ -1990,7 +1990,8 @@ def get_notifications():
         conn = get_db_conn()
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute(
-                """SELECT n.id, n.case_id, n.message, n.read, n.created_at, c.case_number
+                """SELECT n.id, n.case_id, n.message, n.read, n.created_at,
+                          c.case_number, c.task_type
                    FROM notifications n JOIN cases c ON n.case_id = c.id
                    WHERE n.user_id = %s ORDER BY n.created_at DESC LIMIT 30""",
                 (int(current_user.id),),
