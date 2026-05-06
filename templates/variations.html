@@ -1073,52 +1073,50 @@
           saveBtn.classList.add('saved');
           saveBtn.textContent = '✓ EOS Saved';
           saveStatus.textContent = '';
-          // Green the EOS card
           const eosCard = document.getElementById('eos-card-main');
           if (eosCard) eosCard.classList.add('section-saved');
           caseReviewStatus = result.review_status || caseReviewStatus;
           updateWorkflowBar();
           setTimeout(() => { saveBtn.classList.remove('saved'); saveBtn.textContent = '💾 Save EOS'; }, 2000);
-        } catch { saveStatus.textContent = 'Save failed.'; }
+        } catch(err) { saveStatus.textContent = 'Save failed: ' + (err && err.message ? err.message : String(err)); }
         finally { saveBtn.disabled = false; }
       });
     }
   }
 
   function refreshEosTotals(state) {
-    // Re-render just the total/calculated rows in place
     const ta = state.total_assets_available || {};
     const tc = state.total_costs || {};
     const afd = state.available_for_distribution || {};
-    const uc = state.unsecured_creditors || {};
     const sd = state.surplus_deficiency || {};
     const div = state.estimated_dividend_pence_per_pound || {};
 
-    const table = document.querySelector('.eos-table');
+    const table = document.querySelector('.fin-table');
     if (!table) return;
-    const rows = table.querySelectorAll('tr');
-    rows.forEach(row => {
+    table.querySelectorAll('tr').forEach(row => {
       const cells = row.querySelectorAll('td');
       if (!cells.length) return;
       const label = cells[0].textContent.trim();
 
       const updateCells = (la, cur) => {
-        if (cells[1]) cells[1].textContent = fmt(la);
+        if (cells[1]) { const cb = cells[1].querySelector('.copy-btn'); cells[1].textContent = fmtFS(la); if(cb) cells[1].appendChild(cb); }
         if (cells[2]) {
-          // Don't overwrite if it has an input
           const inp = cells[2].querySelector('.eos-input');
-          if (!inp) cells[2].textContent = fmt(cur);
+          if (!inp) { const cb = cells[2].querySelector('.copy-btn'); cells[2].textContent = fmtFS(cur); if(cb) cells[2].appendChild(cb); }
         }
       };
 
-      if (label === 'Total Assets Available')    updateCells(ta.last_agreed,  ta.current);
-      else if (label === 'Total Costs')           updateCells(tc.last_agreed,  tc.current);
-      else if (label === 'Available for Distribution') updateCells(afd.last_agreed, afd.current);
-      else if (label === 'Surplus / (Deficiency)') {
-        if (cells[1]) { cells[1].textContent = fmt(sd.last_agreed); cells[1].className = (sd.last_agreed||0) < 0 ? 'deficiency' : 'surplus'; }
-        if (cells[2]) { const inp = cells[2].querySelector('.eos-input'); if (!inp) { cells[2].textContent = fmt(sd.current); cells[2].className = (sd.current||0) < 0 ? 'deficiency' : 'surplus'; } }
+      if (label === 'Total Assets Available') updateCells(ta.last_agreed, ta.current);
+      else if (label.startsWith('Total Estimated Costs')) updateCells(tc.last_agreed, tc.current);
+      else if (label.startsWith('Estimated Available For')) updateCells(afd.last_agreed, afd.current);
+      else if (label.startsWith('Surplus')) {
+        const isNeg_la = (sd.last_agreed||0) < 0;
+        const isNeg_cur = (sd.current||0) < 0;
+        if (cells[1]) { const cb = cells[1].querySelector('.copy-btn'); cells[1].textContent = fmtFS(sd.last_agreed); if(cb) cells[1].appendChild(cb); }
+        if (cells[2]) { const inp = cells[2].querySelector('.eos-input'); if (!inp) { const cb = cells[2].querySelector('.copy-btn'); cells[2].textContent = fmtFS(sd.current); if(cb) cells[2].appendChild(cb); } }
+        row.classList.toggle('fin-negative', isNeg_la || isNeg_cur);
       }
-      else if (label === 'Estimated Dividend (p/£)') {
+      else if (label.startsWith('Estimated Dividend')) {
         if (cells[1]) cells[1].textContent = fmtNum(div.last_agreed) + 'p';
         if (cells[2]) { const inp = cells[2].querySelector('.eos-input'); if (!inp) cells[2].textContent = fmtNum(div.current) + 'p'; }
       }
@@ -1247,12 +1245,17 @@
   }
 
   async function saveVariationSection(section, data) {
-    if (!currentCaseId) return { error: 'No case saved yet' };
+    if (!currentCaseId) return { error: 'No case saved yet — generate EOS first' };
     const res = await fetch(`/api/cases/${currentCaseId}/variation-save`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ section, data }),
     });
+    if (!res.ok) {
+      let errText = `HTTP ${res.status}`;
+      try { const j = await res.json(); errText = j.error || errText; } catch {}
+      return { error: errText };
+    }
     return res.json();
   }
 
@@ -1764,7 +1767,7 @@
           caseReviewStatus = result.review_status || caseReviewStatus;
           updateWorkflowBar();
           setTimeout(() => { ieSaveBtn.classList.remove('saved'); ieSaveBtn.textContent = '💾 Save I&E'; }, 2000);
-        } catch { ieSaveStatus.textContent = 'Save failed.'; }
+        } catch(err) { ieSaveStatus.textContent = 'Save failed: ' + (err && err.message ? err.message : String(err)); }
         finally { ieSaveBtn.disabled = false; }
       });
     }
@@ -2103,7 +2106,7 @@
         caseReviewStatus = result.review_status || caseReviewStatus;
         updateWorkflowBar();
         setTimeout(() => { reasonSaveBtn.classList.remove('saved'); reasonSaveBtn.textContent = '💾 Save Reason'; }, 2000);
-      } catch { reasonSaveStatus.textContent = 'Save failed.'; }
+      } catch(err) { reasonSaveStatus.textContent = 'Save failed: ' + (err && err.message ? err.message : String(err)); }
       finally { reasonSaveBtn.disabled = false; }
     });
   }
