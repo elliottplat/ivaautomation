@@ -1,0 +1,1343 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Variations – Omni Group</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body { font-family: system-ui, -apple-system, sans-serif; background: #f0f2f5; color: #1a1a2e; min-height: 100vh; display: flex; flex-direction: column; }
+
+    /* ── Topbar ── */
+    .topbar { background: #fff; border-bottom: 1px solid #e5e7eb; padding: 0.65rem 1.5rem; display: flex; align-items: center; gap: 1rem; position: sticky; top: 0; z-index: 10; flex-shrink: 0; }
+    .topbar a.back { text-decoration: none; color: #6366f1; font-size: 0.88rem; font-weight: 600; display: flex; align-items: center; gap: 0.3rem; }
+    .topbar a.back:hover { color: #4f46e5; }
+    .topbar img { height: 32px; width: auto; }
+    .topbar h1 { font-size: 1.05rem; font-weight: 700; }
+    .topbar-spacer { flex: 1; }
+    .topbar-right { display: flex; align-items: center; gap: 1rem; }
+    .topbar-user { font-size: 0.82rem; color: #777; }
+    .topbar-user strong { color: #333; }
+    .topbar-link { font-size: 0.82rem; font-weight: 600; color: #6366f1; text-decoration: none; }
+    .topbar-link:hover { color: #4f46e5; }
+
+    .admin-menu-wrap { position: relative; }
+    .admin-menu-btn { display: flex; align-items: center; gap: 0.3rem; font-size: 0.82rem; font-weight: 600; color: #6366f1; background: none; border: 1.5px solid #e0e7ff; border-radius: 7px; padding: 0.3rem 0.75rem; cursor: pointer; transition: background 0.15s, border-color 0.15s; }
+    .admin-menu-btn:hover { background: #f5f5ff; border-color: #6366f1; }
+    .admin-menu-btn .chevron { font-size: 0.6rem; transition: transform 0.15s; }
+    .admin-menu-btn.open .chevron { transform: rotate(180deg); }
+    .admin-dropdown { position: absolute; top: calc(100% + 6px); right: 0; background: #fff; border-radius: 10px; box-shadow: 0 8px 28px rgba(0,0,0,0.13); border: 1px solid #e5e7eb; min-width: 180px; padding: 0.35rem 0; display: none; z-index: 300; }
+    .admin-dropdown.open { display: block; }
+    .admin-dropdown a, .admin-dropdown button { display: flex; align-items: center; gap: 0.5rem; width: 100%; padding: 0.6rem 1rem; font-size: 0.84rem; font-weight: 500; color: #333; text-decoration: none; background: none; border: none; cursor: pointer; transition: background 0.1s; }
+    .admin-dropdown a:hover, .admin-dropdown button:hover { background: #f5f5ff; color: #4f46e5; }
+    .admin-dropdown .divider { height: 1px; background: #f0f0f0; margin: 0.25rem 0; }
+    .admin-dropdown .danger { color: #ef4444; }
+    .admin-dropdown .danger:hover { background: #fef2f2; color: #dc2626; }
+
+    /* notifications */
+    .notif-wrap { position: relative; }
+    .notif-btn { background: none; border: none; font-size: 1.25rem; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0.2rem; position: relative; }
+    .notif-badge { position: absolute; top: -3px; right: -5px; background: #ef4444; color: #fff; font-size: 0.65rem; font-weight: 700; border-radius: 10px; min-width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; padding: 0 3px; display: none; }
+    .notif-dropdown { position: absolute; top: calc(100% + 8px); right: 0; background: #fff; border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.15); border: 1px solid #e5e7eb; width: 300px; max-height: 380px; display: flex; flex-direction: column; overflow: hidden; display: none; z-index: 200; }
+    .notif-dropdown.open { display: flex; }
+    .notif-dropdown-header { padding: 0.75rem 1rem; border-bottom: 1px solid #f0f0f0; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
+    .notif-dropdown-header span { font-size: 0.85rem; font-weight: 700; color: #333; }
+    .notif-mark-all { font-size: 0.75rem; color: #6366f1; cursor: pointer; background: none; border: none; font-weight: 600; }
+    .notif-mark-all:hover { color: #4f46e5; }
+    .notif-list { flex: 1; overflow-y: auto; }
+    .notif-empty { padding: 1.5rem; text-align: center; color: #bbb; font-size: 0.82rem; }
+    .notif-item { padding: 0.75rem 1rem; border-bottom: 1px solid #f5f5f5; cursor: pointer; transition: background 0.1s; display: flex; align-items: flex-start; gap: 0.5rem; }
+    .notif-item:hover { background: #f5f5ff; }
+    .notif-item.unread { background: #fafafe; }
+    .notif-dot { width: 8px; height: 8px; border-radius: 50%; background: #6366f1; flex-shrink: 0; margin-top: 5px; }
+    .notif-item.read .notif-dot { background: transparent; }
+    .notif-item-text { font-size: 0.82rem; color: #333; line-height: 1.4; }
+    .notif-item-time { font-size: 0.72rem; color: #aaa; margin-top: 0.2rem; }
+
+    /* ── Shell layout ── */
+    .shell { flex: 1; display: flex; overflow: hidden; }
+
+    /* ── Sidebar ── */
+    .sidebar { width: 230px; flex-shrink: 0; background: #fff; border-right: 1px solid #e5e7eb; display: flex; flex-direction: column; overflow: hidden; }
+    .sidebar-header { padding: 0.85rem 1rem 0.6rem; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #999; border-bottom: 1px solid #f0f0f0; flex-shrink: 0; }
+    .case-list { flex: 1; overflow-y: auto; padding: 0.4rem 0; }
+    .sidebar-empty { padding: 1rem; font-size: 0.8rem; color: #ccc; text-align: center; }
+
+    .case-item { padding: 0.6rem 0.85rem; cursor: pointer; border-left: 3px solid transparent; transition: background 0.1s, border-color 0.1s; }
+    .case-item:hover { background: #f5f5ff; }
+    .case-item.active { background: #f0f0ff; border-left-color: #6366f1; }
+    .case-item .cn { font-size: 0.85rem; font-weight: 600; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .case-item .dt { font-size: 0.72rem; color: #aaa; margin-top: 0.1rem; }
+    .case-item .status-dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; margin-right: 0.35rem; vertical-align: middle; background: #d1d5db; }
+    .case-item .status-dot.pending-dot { background: #fbbf24; animation: pulse 1.5s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1}50%{opacity:.4} }
+
+    .case-item.status-pending  { border-left-color: #f59e0b; }
+    .case-item.status-approved { border-left-color: #22c55e; }
+    .case-item.status-rejected { border-left-color: #ef4444; }
+
+    .case-actions { display: flex; gap: 0.3rem; margin-top: 0.35rem; }
+    .case-action-btn { font-size: 0.7rem; padding: 0.18rem 0.5rem; border: 1px solid #e0e0e0; border-radius: 5px; background: #fff; cursor: pointer; color: #666; transition: all 0.1s; }
+    .case-action-btn:hover { border-color: #6366f1; color: #6366f1; background: #f5f5ff; }
+    .case-action-btn.review { border-color: #c7d2fe; color: #4f46e5; background: #eef2ff; }
+    .case-action-btn.review:hover { background: #e0e7ff; }
+
+    /* ── Main column ── */
+    .main-col { flex: 1; overflow-y: auto; padding: 1.5rem 1.75rem; }
+    .content-wrap { max-width: 860px; }
+
+    /* ── Case bar ── */
+    .case-bar { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1rem; flex-wrap: wrap; }
+    .case-bar label { font-size: 0.82rem; font-weight: 700; color: #555; white-space: nowrap; }
+    .case-bar input[type="text"], .case-bar select { border: 1.5px solid #d0d5dd; border-radius: 8px; padding: 0.5rem 0.85rem; font-size: 0.9rem; font-family: inherit; transition: border-color 0.2s; background: #fff; }
+    .case-bar input[type="text"] { flex: 1; max-width: 220px; }
+    .case-bar select { min-width: 200px; }
+    .case-bar input:focus, .case-bar select:focus { outline: none; border-color: #6366f1; }
+
+    /* ── F&F Inputs ── */
+    .ff-inputs { background: #fff; border-radius: 12px; box-shadow: 0 1px 6px rgba(0,0,0,0.07); padding: 1rem 1.25rem; margin-bottom: 1.25rem; }
+    .ff-inputs-title { font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #999; margin-bottom: 0.85rem; }
+    .ff-inputs-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.85rem; }
+    @media (max-width: 600px) { .ff-inputs-grid { grid-template-columns: 1fr; } }
+    .ff-field { display: flex; flex-direction: column; gap: 0.3rem; }
+    .ff-field label { font-size: 0.78rem; font-weight: 700; color: #555; }
+    .ff-field input[type="number"], .ff-field input[type="text"] { border: 1.5px solid #d0d5dd; border-radius: 8px; padding: 0.5rem 0.85rem; font-size: 0.9rem; font-family: inherit; transition: border-color 0.2s; }
+    .ff-field input:focus { outline: none; border-color: #6366f1; }
+    .ff-toggle-row { display: flex; align-items: center; gap: 0.75rem; }
+    .ff-toggle-label { font-size: 0.78rem; font-weight: 700; color: #555; }
+    .toggle-switch { position: relative; display: inline-block; width: 40px; height: 22px; }
+    .toggle-switch input { opacity: 0; width: 0; height: 0; }
+    .toggle-slider { position: absolute; cursor: pointer; inset: 0; background: #d1d5db; border-radius: 22px; transition: background 0.2s; }
+    .toggle-slider:before { content: ''; position: absolute; height: 16px; width: 16px; left: 3px; bottom: 3px; background: #fff; border-radius: 50%; transition: transform 0.2s; }
+    .toggle-switch input:checked + .toggle-slider { background: #6366f1; }
+    .toggle-switch input:checked + .toggle-slider:before { transform: translateX(18px); }
+    .ff-fee-amount-wrap { display: none; }
+    .ff-fee-amount-wrap.visible { display: block; }
+
+    /* ── Upload cards ── */
+    .doc-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; margin-bottom: 1.25rem; }
+    @media (max-width: 750px) { .doc-grid { grid-template-columns: 1fr; } }
+
+    .card { background: #fff; border-radius: 12px; box-shadow: 0 1px 6px rgba(0,0,0,0.07); padding: 1rem 1.1rem; }
+    .slot-label { font-size: 0.78rem; font-weight: 700; color: #555; margin-bottom: 0.6rem; display: flex; align-items: center; gap: 0.4rem; }
+    .dot { width: 7px; height: 7px; border-radius: 50%; background: #d1d5db; flex-shrink: 0; transition: background 0.2s; }
+    .dot.filled { background: #6366f1; }
+    .upload-area { border: 2px dashed #d0d5dd; border-radius: 8px; padding: 1rem; text-align: center; cursor: pointer; transition: border-color 0.2s, background 0.2s; position: relative; }
+    .upload-area:hover, .upload-area.drag { border-color: #6366f1; background: #f5f5ff; }
+    .upload-area.has-files { border-color: #6366f1; background: #f5f5ff; border-style: solid; }
+    .area-text { font-size: 0.78rem; color: #aaa; pointer-events: none; }
+    .upload-area input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+    .file-list { margin-top: 0.5rem; }
+    .file-item { display: flex; align-items: center; justify-content: space-between; font-size: 0.78rem; color: #555; padding: 0.2rem 0; }
+    .file-item .fname { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 120px; }
+    .file-item button { background: none; border: none; color: #bbb; cursor: pointer; font-size: 0.9rem; }
+    .file-item button:hover { color: #ef4444; }
+
+    /* ── Submit row ── */
+    .submit-row { display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem; }
+    .btn-submit { background: #6366f1; color: #fff; border: none; border-radius: 9px; padding: 0.7rem 2rem; font-size: 0.95rem; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 0.5rem; transition: background 0.2s; }
+    .btn-submit:hover:not(:disabled) { background: #4f46e5; }
+    .btn-submit:disabled { opacity: 0.6; cursor: not-allowed; }
+    .btn-spinner { width: 16px; height: 16px; border: 2.5px solid rgba(255,255,255,0.4); border-top-color: #fff; border-radius: 50%; animation: spin 0.7s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Output area ── */
+    .output-wrap { display: none; }
+    .output-wrap.visible { display: block; }
+    .output-section-title { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #999; margin-bottom: 0.6rem; }
+
+    .calculating-card { background: #fff; border-radius: 12px; box-shadow: 0 1px 6px rgba(0,0,0,0.07); padding: 2rem; text-align: center; }
+    .calculating-spinner { width: 36px; height: 36px; border: 3px solid #e0e7ff; border-top-color: #6366f1; border-radius: 50%; animation: spin 0.7s linear infinite; margin: 0 auto 1rem; }
+    .calculating-card p { font-size: 0.88rem; color: #888; }
+
+    .result-grid { display: flex; flex-direction: column; gap: 1rem; }
+
+    /* stop card */
+    .stop-card { background: #fef2f2; border: 1px solid #fecaca; border-radius: 12px; padding: 1.25rem 1.5rem; display: flex; gap: 0.75rem; align-items: flex-start; }
+    .stop-icon { font-size: 1.4rem; flex-shrink: 0; }
+    .stop-card h3 { font-size: 0.95rem; font-weight: 700; color: #b91c1c; margin-bottom: 0.3rem; }
+    .stop-card p { font-size: 0.88rem; color: #7f1d1d; line-height: 1.5; }
+
+    /* EOS table card */
+    .eos-card { background: #fff; border-radius: 12px; box-shadow: 0 1px 6px rgba(0,0,0,0.07); padding: 1.25rem 1.5rem; }
+    .eos-card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.85rem; }
+    .eos-card h3 { font-size: 0.95rem; font-weight: 700; }
+    .eos-edit-note { font-size: 0.75rem; color: #6366f1; background: #eef2ff; border-radius: 6px; padding: 0.25rem 0.65rem; }
+
+    .eos-table { width: 100%; border-collapse: collapse; }
+    .eos-table th { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; color: #999; padding: 0.5rem 0.5rem; text-align: right; border-bottom: 2px solid #e5e7eb; }
+    .eos-table th:first-child { text-align: left; }
+    .eos-table td { padding: 0.45rem 0.5rem; font-size: 0.88rem; border-bottom: 1px solid #f5f5f5; }
+    .eos-table td:not(:first-child) { text-align: right; font-family: ui-monospace, monospace; }
+    .eos-table tr.section-header td { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; color: #999; background: #f9fafb; padding: 0.35rem 0.5rem; border-bottom: none; }
+    .eos-table tr.total-row td { font-weight: 700; border-top: 2px solid #e5e7eb; border-bottom: none; background: #f9fafb; }
+    .eos-table tr.total-row.highlight td { color: #6366f1; }
+    .eos-table tr.grand-total td { font-weight: 700; font-size: 0.92rem; border-top: 2px solid #6366f1; border-bottom: 2px solid #6366f1; }
+    .eos-table tr.surplus td { color: #16a34a; font-weight: 700; }
+    .eos-table tr.deficiency td { color: #dc2626; font-weight: 700; }
+    .eos-table tr.divider-row td { padding: 0.2rem; border-bottom: 2px solid #e5e7eb; }
+
+    .eos-input { width: 100px; border: 1.5px solid #e5e7eb; border-radius: 6px; padding: 0.3rem 0.5rem; font-size: 0.85rem; font-family: ui-monospace, monospace; text-align: right; transition: border-color 0.2s; }
+    .eos-input:focus { outline: none; border-color: #6366f1; background: #f5f5ff; }
+    .eos-input:disabled { background: #f9fafb; color: #aaa; border-color: transparent; }
+
+    .save-eos-btn { display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.45rem 1.1rem; background: #6366f1; color: #fff; border: none; border-radius: 7px; font-size: 0.84rem; font-weight: 600; cursor: pointer; transition: background 0.2s; margin-top: 0.85rem; }
+    .save-eos-btn:hover { background: #4f46e5; }
+    .save-eos-btn.saved { background: #22c55e; }
+
+    /* compliance card */
+    .compliance-card { background: #fff7ed; border: 1px solid #fed7aa; border-radius: 12px; padding: 1.25rem 1.5rem; }
+    .compliance-card h3 { font-size: 0.95rem; font-weight: 700; color: #92400e; margin-bottom: 0.75rem; }
+    .compliance-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; margin-bottom: 0.75rem; }
+    @media (max-width: 600px) { .compliance-grid { grid-template-columns: 1fr; } }
+    .compliance-field { background: #fff; border-radius: 7px; padding: 0.55rem 0.75rem; }
+    .compliance-field .cf-label { font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; color: #999; margin-bottom: 0.2rem; }
+    .compliance-field .cf-value { font-size: 0.88rem; color: #333; font-family: ui-monospace, monospace; }
+    .status-chip { display: inline-block; font-size: 0.72rem; font-weight: 700; padding: 0.15rem 0.55rem; border-radius: 8px; }
+    .status-chip.ok { background: #dcfce7; color: #15803d; }
+    .status-chip.breach { background: #fee2e2; color: #b91c1c; }
+    .compliance-notes { font-size: 0.85rem; color: #7c2d12; line-height: 1.6; background: #fff; border-radius: 7px; padding: 0.65rem 0.85rem; }
+
+    /* summary card */
+    .summary-card { background: #fff; border-radius: 12px; box-shadow: 0 1px 6px rgba(0,0,0,0.07); padding: 1.25rem 1.5rem; }
+    .summary-card h3 { font-size: 0.95rem; font-weight: 700; margin-bottom: 0.85rem; }
+    .summary-field { margin-bottom: 0.6rem; }
+    .summary-field:last-child { margin-bottom: 0; }
+    .summary-label { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; color: #999; margin-bottom: 0.25rem; }
+    .summary-value { font-size: 0.88rem; color: #333; line-height: 1.6; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 7px; padding: 0.55rem 0.8rem; }
+    .flags-list { list-style: none; }
+    .flags-list li { font-size: 0.84rem; color: #7c2d12; padding: 0.25rem 0; padding-left: 1.25rem; position: relative; line-height: 1.5; }
+    .flags-list li::before { content: '⚠'; position: absolute; left: 0; }
+
+    /* locked model card */
+    .model-card { background: #fff; border-radius: 12px; box-shadow: 0 1px 6px rgba(0,0,0,0.07); padding: 1.25rem 1.5rem; }
+    .model-card h3 { font-size: 0.95rem; font-weight: 700; margin-bottom: 0.85rem; }
+    .model-detail { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.6rem; }
+    @media (max-width: 600px) { .model-detail { grid-template-columns: 1fr 1fr; } }
+    .model-field { background: #f9fafb; border-radius: 7px; padding: 0.55rem 0.75rem; }
+    .model-field .mf-label { font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; color: #999; margin-bottom: 0.2rem; }
+    .model-field .mf-value { font-size: 0.88rem; color: #333; font-family: ui-monospace, monospace; }
+
+    /* ── Review Modal ── */
+    .review-overlay { position: fixed; inset: 0; background: rgba(15,15,30,0.7); z-index: 500; display: none; }
+    .review-overlay.open { display: flex; }
+    .review-panel { background: #fff; width: 100%; max-width: 900px; margin: auto; border-radius: 16px; display: flex; flex-direction: column; max-height: 92vh; box-shadow: 0 24px 80px rgba(0,0,0,0.3); }
+    .review-header { padding: 1.1rem 1.5rem; border-bottom: 1px solid #f0f0f0; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
+    .review-header-left h2 { font-size: 1.05rem; font-weight: 700; }
+    .review-meta { font-size: 0.78rem; color: #888; margin-top: 0.15rem; }
+    .review-close { background: none; border: none; font-size: 1.6rem; color: #999; cursor: pointer; line-height: 1; }
+    .review-close:hover { color: #333; }
+    .review-tabs { display: flex; border-bottom: 1px solid #f0f0f0; flex-shrink: 0; }
+    .review-tab { padding: 0.7rem 1.25rem; font-size: 0.85rem; font-weight: 600; color: #888; background: none; border: none; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+    .review-tab.active { color: #6366f1; border-bottom-color: #6366f1; }
+    .review-body { flex: 1; overflow-y: auto; padding: 1.5rem; }
+    .review-tab-panel { display: none; }
+    .review-tab-panel.active { display: block; }
+    .review-section-title { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #999; margin-bottom: 0.6rem; }
+    .review-reject-section { display: none; }
+    .review-reject-section.visible { display: block; }
+    .review-field { margin-bottom: 1rem; }
+    .review-field label { display: block; font-size: 0.85rem; font-weight: 600; color: #333; margin-bottom: 0.35rem; }
+    .review-field .optional { font-weight: 400; color: #aaa; }
+    .review-field textarea { width: 100%; border: 1.5px solid #d0d5dd; border-radius: 8px; padding: 0.7rem 0.9rem; font-size: 0.88rem; font-family: inherit; resize: vertical; min-height: 90px; line-height: 1.5; transition: border-color 0.2s; }
+    .review-field textarea:focus { outline: none; border-color: #6366f1; }
+    .review-json-section { margin-bottom: 1.25rem; }
+    .review-json-section h4 { font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; color: #999; margin-bottom: 0.5rem; }
+    .review-json-pre { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 0.85rem 1rem; font-family: ui-monospace, monospace; font-size: 0.82rem; color: #333; white-space: pre-wrap; word-break: break-word; }
+    .review-footer { padding: 0.85rem 1.5rem; border-top: 1px solid #f0f0f0; display: flex; align-items: center; gap: 0.75rem; flex-shrink: 0; }
+    .review-error { color: #b91c1c; font-size: 0.82rem; flex: 1; }
+    .review-actions { display: flex; gap: 0.6rem; margin-left: auto; }
+    .btn-review-approve { background: #22c55e; color: #fff; border: none; border-radius: 8px; padding: 0.6rem 1.4rem; font-size: 0.9rem; font-weight: 700; cursor: pointer; transition: background 0.2s; }
+    .btn-review-approve:hover { background: #16a34a; }
+    .btn-review-reject { background: #fff; color: #ef4444; border: 1.5px solid #fca5a5; border-radius: 8px; padding: 0.6rem 1.25rem; font-size: 0.9rem; font-weight: 700; cursor: pointer; transition: all 0.2s; }
+    .btn-review-reject:hover { background: #fef2f2; }
+    .btn-review-cancel { background: #fff; color: #555; border: 1.5px solid #d0d5dd; border-radius: 8px; padding: 0.6rem 1.1rem; font-size: 0.88rem; font-weight: 600; cursor: pointer; }
+    .btn-submit-reject { background: #ef4444; color: #fff; border: none; border-radius: 8px; padding: 0.6rem 1.25rem; font-size: 0.88rem; font-weight: 700; cursor: pointer; }
+    .btn-submit-reject:hover { background: #dc2626; }
+    .status-badge-inline { font-size: 0.7rem; font-weight: 700; padding: 0.2rem 0.5rem; border-radius: 8px; display: inline-block; margin-left: 0.5rem; }
+    .status-badge-inline.approved { background: #dcfce7; color: #15803d; }
+    .status-badge-inline.rejected { background: #fee2e2; color: #b91c1c; }
+    .status-badge-inline.pending  { background: #fff7ed; color: #c2410c; }
+  </style>
+</head>
+<body>
+
+<div class="topbar">
+  <a class="back" href="/">&#8592; Home</a>
+  <img src="/static/logo.png" alt="Omni Group" />
+  <h1>Variations</h1>
+  <div class="topbar-spacer"></div>
+  <div class="topbar-right">
+    {% if current_user.role in ['reviewer', 'admin'] %}
+    <div class="notif-wrap">
+      <button class="notif-btn" id="notif-btn" title="Notifications">🔔<span class="notif-badge" id="notif-badge"></span></button>
+      <div class="notif-dropdown" id="notif-dropdown">
+        <div class="notif-dropdown-header"><span>Notifications</span><button class="notif-mark-all" id="notif-mark-all">Mark all read</button></div>
+        <div class="notif-list" id="notif-list"><div class="notif-empty">No notifications</div></div>
+      </div>
+    </div>
+    {% endif %}
+
+    <span class="topbar-user">Signed in as <strong>{{ current_user.username }}</strong></span>
+
+    {% if current_user.role == 'admin' %}
+    <div class="admin-menu-wrap">
+      <button class="admin-menu-btn" id="admin-menu-btn">⚙ Admin <span class="chevron">▼</span></button>
+      <div class="admin-dropdown" id="admin-dropdown">
+        <a href="/completions">✅ Completions</a>
+        <a href="/admin/corrections">📋 Review Log</a>
+        <a href="/admin/users">👥 Users</a>
+        <a href="/admin/projects">🏢 Projects</a>
+        <div class="divider"></div>
+        <a href="/logout" class="danger">Sign out</a>
+      </div>
+    </div>
+    {% else %}
+    <a href="/logout" class="topbar-link">Sign out</a>
+    {% endif %}
+  </div>
+</div>
+
+<div class="shell">
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-header">Worked Cases</div>
+    <div class="case-list" id="case-list">
+      <div class="sidebar-empty" id="sidebar-empty">No cases yet</div>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <div class="main-col">
+    <div class="content-wrap">
+
+      {% if current_user.role in ['uploader', 'admin'] %}
+
+      <div class="case-bar">
+        <label for="case-number">Case Number</label>
+        <input type="text" id="case-number" placeholder="e.g. IVA-00123" autocomplete="off" />
+        <label for="variation-type">Type</label>
+        <select id="variation-type">
+          <option value="full_and_final">Full &amp; Final Offer</option>
+        </select>
+      </div>
+
+      <input type="hidden" id="hidden-work-item-id" value="" />
+
+      <!-- F&F Inputs -->
+      <div class="ff-inputs" id="ff-inputs">
+        <div class="ff-inputs-title">Full &amp; Final Offer Inputs</div>
+        <div class="ff-inputs-grid">
+          <div class="ff-field">
+            <label for="ff-amount">Full &amp; Final Offer Amount (£)</label>
+            <input type="number" id="ff-amount" step="0.01" min="0" placeholder="0.00" />
+          </div>
+          <div class="ff-field">
+            <label for="creditors-claim">Creditors Claim Amount (£)</label>
+            <input type="number" id="creditors-claim" step="0.01" min="0" placeholder="0.00" />
+          </div>
+          <div class="ff-field" style="grid-column: 1/-1;">
+            <div class="ff-toggle-row">
+              <span class="ff-toggle-label">Variation Fee</span>
+              <label class="toggle-switch">
+                <input type="checkbox" id="variation-fee-toggle" checked />
+                <span class="toggle-slider"></span>
+              </label>
+              <span id="variation-fee-status" style="font-size:0.8rem;color:#666;">Yes</span>
+              <div class="ff-fee-amount-wrap visible" id="ff-fee-amount-wrap">
+                <input type="number" id="variation-fee-amount" step="0.01" min="0" value="400.00" style="width:110px;border:1.5px solid #d0d5dd;border-radius:8px;padding:0.4rem 0.7rem;font-size:0.88rem;" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <form id="analyze-form" enctype="multipart/form-data">
+        <div class="doc-grid">
+
+          <div class="card">
+            <div class="slot-label"><span class="dot" id="dot-agreed_eos"></span>Agreed EOS</div>
+            <div class="upload-area" id="area-agreed_eos">
+              <span class="area-text">Click or drag images here</span>
+              <input type="file" name="agreed_eos" id="inp-agreed_eos" accept="image/*" multiple />
+            </div>
+            <div class="file-list" id="list-agreed_eos"></div>
+          </div>
+
+          <div class="card">
+            <div class="slot-label"><span class="dot" id="dot-modifications"></span>Schedule of Modifications</div>
+            <div class="upload-area" id="area-modifications">
+              <span class="area-text">Click or drag images here</span>
+              <input type="file" name="modifications" id="inp-modifications" accept="image/*" multiple />
+            </div>
+            <div class="file-list" id="list-modifications"></div>
+          </div>
+
+          <div class="card">
+            <div class="slot-label"><span class="dot" id="dot-chart_of_accounts"></span>Chart of Accounts</div>
+            <div class="upload-area" id="area-chart_of_accounts">
+              <span class="area-text">Click or drag images here</span>
+              <input type="file" name="chart_of_accounts" id="inp-chart_of_accounts" accept="image/*" multiple />
+            </div>
+            <div class="file-list" id="list-chart_of_accounts"></div>
+          </div>
+
+        </div>
+
+        <div class="submit-row">
+          <button type="submit" class="btn-submit" id="submit-btn">
+            <span id="btn-label">Generate EOS</span>
+          </button>
+        </div>
+      </form>
+
+      {% endif %}
+
+      <!-- Output area -->
+      <div class="output-wrap" id="output-wrap">
+        <!-- filled by JS -->
+      </div>
+
+    </div>
+  </div>
+
+</div><!-- /shell -->
+
+<!-- Review Modal -->
+<div class="review-overlay" id="review-overlay">
+  <div class="review-panel">
+    <div class="review-header">
+      <div class="review-header-left">
+        <h2>Case Review — <span id="review-case-number"></span></h2>
+        <div class="review-meta" id="review-case-meta"></div>
+      </div>
+      <button class="review-close" id="review-close">×</button>
+    </div>
+    <div class="review-tabs">
+      <button class="review-tab active" data-tab="eos">EOS</button>
+      <button class="review-tab" data-tab="compliance">Compliance</button>
+      <button class="review-tab" data-tab="fulllog">Full JSON</button>
+    </div>
+    <div class="review-body">
+      <div class="review-tab-panel active" id="review-tab-eos">
+        <div id="review-eos-content">
+          <div style="text-align:center;color:#bbb;padding:2rem;">Loading…</div>
+        </div>
+        <div class="review-reject-section" id="review-reject-section">
+          <div class="review-field" style="margin-top:1rem;">
+            <label for="review-rejection-note">Rejection Note <span style="color:#ef4444;">*</span></label>
+            <textarea id="review-rejection-note" placeholder="Explain why this EOS is being rejected…"></textarea>
+          </div>
+        </div>
+      </div>
+      <div class="review-tab-panel" id="review-tab-compliance">
+        <div id="review-compliance-content">
+          <div style="text-align:center;color:#bbb;padding:2rem;">Loading…</div>
+        </div>
+      </div>
+      <div class="review-tab-panel" id="review-tab-fulllog">
+        <div id="review-fulllog-content">
+          <div style="text-align:center;color:#bbb;padding:2rem;">Loading…</div>
+        </div>
+      </div>
+    </div>
+    <div class="review-footer">
+      <div class="review-error" id="review-error"></div>
+      <div class="review-actions" id="review-initial-actions">
+        <button class="btn-review-reject" id="btn-review-reject">✗ Reject</button>
+        <button class="btn-review-approve" id="btn-review-approve">✓ Approve</button>
+      </div>
+      <div class="review-actions" id="review-reject-actions" style="display:none;">
+        <button class="btn-review-cancel" id="btn-cancel-reject">Cancel</button>
+        <button class="btn-submit-reject" id="btn-submit-reject">Submit Rejection</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const USER_ROLE = "{{ current_user.role }}";
+  const CAN_REVIEW = (USER_ROLE === 'reviewer' || USER_ROLE === 'admin');
+
+  // store: key → { caseNumber, rawJson, parsedResult, eosState, pending, usage, reviewStatus }
+  const store = {};
+  let reviewCaseId = null;
+  let reviewRejectMode = false;
+
+  function escHtml(s) {
+    return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  function fmt(n) {
+    if (n === undefined || n === null) return '—';
+    return '£' + Number(n).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  function fmtNum(n) {
+    if (n === undefined || n === null) return '';
+    return Number(n).toFixed(2);
+  }
+
+  // ── EOS state management ──────────────────────────────────────────────────
+
+  // Deep-copy the initial EOS from AI into a mutable state object
+  function initEosState(parsedResult) {
+    if (!parsedResult || !parsedResult.eos) return null;
+    return JSON.parse(JSON.stringify(parsedResult.eos));
+  }
+
+  function recalcEosState(state) {
+    if (!state) return;
+    // Total assets
+    let ta_la = 0, ta_cur = 0;
+    (state.assets_available || []).forEach(r => {
+      ta_la  += (r.last_agreed  || 0);
+      ta_cur += (r.current      || 0);
+    });
+    state.total_assets_available = { last_agreed: ta_la, current: ta_cur };
+
+    // Total costs
+    let tc_la = 0, tc_cur = 0;
+    (state.costs_and_disbursements || []).forEach(r => {
+      tc_la  += (r.last_agreed  || 0);
+      tc_cur += (r.current      || 0);
+    });
+    state.total_costs = { last_agreed: tc_la, current: tc_cur };
+
+    // Available for distribution
+    const afd_la  = ta_la  - tc_la;
+    const afd_cur = ta_cur - tc_cur;
+    state.available_for_distribution = { last_agreed: afd_la, current: afd_cur };
+
+    // Unsecured creditors stays as-is (user editable)
+    const uc_la  = (state.unsecured_creditors && state.unsecured_creditors.last_agreed)  || 0;
+    const uc_cur = (state.unsecured_creditors && state.unsecured_creditors.current)       || 0;
+
+    // Surplus / deficiency
+    state.surplus_deficiency = { last_agreed: afd_la - uc_la, current: afd_cur - uc_cur };
+
+    // Dividend p/£
+    const div_la  = uc_la  > 0 ? Math.min(100, (afd_la  / uc_la)  * 100) : 0;
+    const div_cur = uc_cur > 0 ? Math.min(100, (afd_cur / uc_cur) * 100) : 0;
+    state.estimated_dividend_pence_per_pound = {
+      last_agreed: Math.max(0, Math.round(div_la  * 100) / 100),
+      current:     Math.max(0, Math.round(div_cur * 100) / 100),
+    };
+  }
+
+  // ── Sidebar ───────────────────────────────────────────────────────────────
+  function sidebarSetEmpty() {
+    const el = document.getElementById('sidebar-empty');
+    if (el) el.style.display = Object.keys(store).length ? 'none' : '';
+  }
+
+  function applyStatusClass(el, status) {
+    el.classList.remove('status-pending','status-approved','status-rejected');
+    if (status) el.classList.add('status-' + status);
+  }
+
+  function sidebarAddPending(key, caseNumber, dt) {
+    const el = document.createElement('div');
+    el.className = 'case-item';
+    el.id = 'case-item-' + key;
+    const label = caseNumber || 'Untitled';
+    const dtStr = dt.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+    el.innerHTML = `<span class="cn"><span class="status-dot pending-dot"></span>${escHtml(label)}</span><span class="dt">${dtStr} · generating…</span>`;
+    el.addEventListener('click', () => showOutputForKey(key));
+    document.getElementById('case-list').prepend(el);
+    document.getElementById('sidebar-empty').style.display = 'none';
+  }
+
+  function sidebarMarkDone(oldKey, newKey) {
+    const el = document.getElementById('case-item-' + oldKey);
+    if (!el) return;
+    const finalKey = newKey || oldKey;
+    el.id = 'case-item-' + finalKey;
+    const entry = store[finalKey];
+    if (!entry) return;
+    const label = entry.caseNumber || finalKey;
+    const dt = new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+    el.querySelector('.cn').innerHTML = '<span class="status-dot"></span>' + escHtml(label);
+    el.querySelector('.dt').textContent = dt + ' · done';
+    el.onclick = () => showOutputForKey(finalKey);
+    applyStatusClass(el, entry.reviewStatus || 'pending');
+    addReviewBtn(el, finalKey);
+  }
+
+  function addReviewBtn(el, key) {
+    if (!CAN_REVIEW) return;
+    let actions = el.querySelector('.case-actions');
+    if (!actions) { actions = document.createElement('div'); actions.className = 'case-actions'; el.appendChild(actions); }
+    if (!actions.querySelector('.review')) {
+      const btn = document.createElement('button');
+      btn.className = 'case-action-btn review';
+      btn.textContent = 'Review';
+      btn.addEventListener('click', e => { e.stopPropagation(); openReviewModal(key); });
+      actions.appendChild(btn);
+    }
+  }
+
+  function sidebarAddStored(id, caseNumber, createdAt, reviewStatus) {
+    store[String(id)] = { caseNumber, rawJson: null, parsedResult: null, eosState: null, pending: false, usage: null, reviewStatus };
+    const el = document.createElement('div');
+    el.className = 'case-item';
+    el.id = 'case-item-' + id;
+    const dt = new Date(createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
+    el.innerHTML = `<span class="cn"><span class="status-dot"></span>${escHtml(caseNumber)}</span><span class="dt">${dt}</span>`;
+    applyStatusClass(el, reviewStatus || 'pending');
+    el.addEventListener('click', () => showOutputForKey(String(id)));
+    document.getElementById('case-list').appendChild(el);
+    addReviewBtn(el, String(id));
+    document.getElementById('sidebar-empty').style.display = 'none';
+  }
+
+  function updateSidebarStatus(key, status) {
+    const el = document.getElementById('case-item-' + key);
+    if (el) applyStatusClass(el, status);
+    if (store[key]) store[key].reviewStatus = status;
+  }
+
+  // ── Output rendering ──────────────────────────────────────────────────────
+  function showCalculating() {
+    const wrap = document.getElementById('output-wrap');
+    wrap.className = 'output-wrap visible';
+    wrap.innerHTML = `
+      <div class="calculating-card">
+        <div class="calculating-spinner"></div>
+        <p>Generating EOS — this may take a moment…</p>
+      </div>`;
+  }
+
+  function renderEosTable(state, editable) {
+    if (!state) return '<p style="color:#bbb;">No EOS data.</p>';
+
+    const rows_assets = (state.assets_available || []).map((r, i) => {
+      const cur = editable
+        ? `<input type="number" class="eos-input" data-section="assets" data-idx="${i}" data-col="current" value="${fmtNum(r.current)}" step="0.01" />`
+        : fmt(r.current);
+      return `<tr><td>${escHtml(r.label)}</td><td>${fmt(r.last_agreed)}</td><td>${cur}</td></tr>`;
+    }).join('');
+
+    const ta = state.total_assets_available || {};
+    const rows_costs = (state.costs_and_disbursements || []).map((r, i) => {
+      const cur = editable
+        ? `<input type="number" class="eos-input" data-section="costs" data-idx="${i}" data-col="current" value="${fmtNum(r.current)}" step="0.01" />`
+        : fmt(r.current);
+      return `<tr><td>${escHtml(r.label)}</td><td>${fmt(r.last_agreed)}</td><td>${cur}</td></tr>`;
+    }).join('');
+
+    const tc = state.total_costs || {};
+    const afd = state.available_for_distribution || {};
+    const uc = state.unsecured_creditors || {};
+    const sd = state.surplus_deficiency || {};
+    const div = state.estimated_dividend_pence_per_pound || {};
+
+    const sdClass_la  = (sd.last_agreed  || 0) < 0 ? 'deficiency' : 'surplus';
+    const sdClass_cur = (sd.current      || 0) < 0 ? 'deficiency' : 'surplus';
+    const sdLabel_la  = (sd.last_agreed  || 0) < 0 ? 'Deficiency' : 'Surplus';
+    const sdLabel_cur = (sd.current      || 0) < 0 ? 'Deficiency' : 'Surplus';
+
+    const ucCurInput = editable
+      ? `<input type="number" class="eos-input" data-section="uc" data-idx="0" data-col="current" value="${fmtNum(uc.current)}" step="0.01" />`
+      : fmt(uc.current);
+
+    return `
+      <table class="eos-table">
+        <thead>
+          <tr>
+            <th style="text-align:left;">Line</th>
+            <th>Last Agreed</th>
+            <th>Current${editable ? ' <small style="color:#6366f1;font-size:0.65rem;">(editable)</small>' : ''}</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="section-header"><td colspan="3">Assets Available</td></tr>
+          ${rows_assets}
+          <tr class="total-row highlight"><td>Total Assets Available</td><td>${fmt(ta.last_agreed)}</td><td>${fmt(ta.current)}</td></tr>
+          <tr class="divider-row"><td colspan="3"></td></tr>
+          <tr class="section-header"><td colspan="3">Costs &amp; Disbursements</td></tr>
+          ${rows_costs}
+          <tr class="total-row"><td>Total Costs</td><td>${fmt(tc.last_agreed)}</td><td>${fmt(tc.current)}</td></tr>
+          <tr class="divider-row"><td colspan="3"></td></tr>
+          <tr class="grand-total"><td>Available for Distribution</td><td>${fmt(afd.last_agreed)}</td><td>${fmt(afd.current)}</td></tr>
+          <tr><td>Unsecured Creditors</td><td>${fmt(uc.last_agreed)}</td><td>${ucCurInput}</td></tr>
+          <tr class="${sdClass_la} ${sdClass_cur === sdClass_la ? '' : ''}">
+            <td>Surplus / (Deficiency)</td>
+            <td class="${sdClass_la}">${fmt(sd.last_agreed)}</td>
+            <td class="${sdClass_cur}">${fmt(sd.current)}</td>
+          </tr>
+          <tr class="total-row highlight">
+            <td>Estimated Dividend (p/£)</td>
+            <td>${fmtNum(div.last_agreed)}p</td>
+            <td>${fmtNum(div.current)}p</td>
+          </tr>
+        </tbody>
+      </table>`;
+  }
+
+  function renderResult(result, key) {
+    const wrap = document.getElementById('output-wrap');
+    wrap.className = 'output-wrap visible';
+
+    if (!result) { wrap.innerHTML = '<div class="calculating-card"><p style="color:#888;">No result available.</p></div>'; return; }
+
+    if (result.status === 'STOP') {
+      wrap.innerHTML = `
+        <div class="result-grid">
+          <div class="stop-card">
+            <div class="stop-icon">🛑</div>
+            <div>
+              <h3>Generation Stopped</h3>
+              <p>${escHtml(result.reason || 'Missing required document or data.')}</p>
+            </div>
+          </div>
+        </div>`;
+      return;
+    }
+
+    const entry = store[key];
+    if (entry && !entry.eosState) {
+      entry.eosState = initEosState(result);
+    }
+    const state = (entry && entry.eosState) ? entry.eosState : result.eos;
+
+    const lm = result.locked_model || {};
+    const compliance = result.compliance || {};
+    const summary = result.summary || {};
+    const flags = summary.review_flags || [];
+
+    // Locked model card
+    const modelCard = `
+      <div class="model-card">
+        <h3>🔐 Locked Model</h3>
+        <div class="model-detail">
+          <div class="model-field"><div class="mf-label">Total Cost Cap</div><div class="mf-value">${fmt(lm.total_cost_cap)}</div></div>
+          <div class="model-field"><div class="mf-label">Nom+Disb Sub-cap</div><div class="mf-value">${fmt(lm.nominee_disbursements_subcap)}</div></div>
+          <div class="model-field"><div class="mf-label">Supervisor Cap</div><div class="mf-value">${fmt(lm.supervisor_cap)}</div></div>
+          <div class="model-field"><div class="mf-label">Specific Bond</div><div class="mf-value">${fmt(lm.specific_bond)}</div></div>
+          <div class="model-field"><div class="mf-label">BIS Registration</div><div class="mf-value">${fmt(lm.bis_registration)}</div></div>
+          <div class="model-field"><div class="mf-label">Term</div><div class="mf-value">${lm.term_months != null ? lm.term_months + ' months' : '—'}</div></div>
+        </div>
+      </div>`;
+
+    // EOS editable table
+    const eosCard = `
+      <div class="eos-card" id="eos-card-main">
+        <div class="eos-card-header">
+          <h3>📊 Estimated Outcome Statement</h3>
+          <span class="eos-edit-note">✏ Current column is editable</span>
+        </div>
+        ${renderEosTable(state, true)}
+        <button class="save-eos-btn" id="save-eos-btn">💾 Save Changes</button>
+        <span id="save-eos-status" style="font-size:0.8rem;color:#888;margin-left:0.75rem;"></span>
+      </div>`;
+
+    // Compliance card
+    const capStatus = compliance.total_cost_cap_status || '';
+    const subcapStatus = compliance.nominee_disb_subcap_status || '';
+    const complianceCard = `
+      <div class="compliance-card">
+        <h3>⚖ Cap Compliance</h3>
+        <div class="compliance-grid">
+          <div class="compliance-field">
+            <div class="cf-label">Total Cost Cap</div>
+            <div class="cf-value"><span class="status-chip ${capStatus === 'WITHIN_CAP' ? 'ok' : 'breach'}">${escHtml(capStatus)}</span> headroom ${fmt(compliance.total_cost_cap_headroom)}</div>
+          </div>
+          <div class="compliance-field">
+            <div class="cf-label">Nom+Disb Sub-cap</div>
+            <div class="cf-value"><span class="status-chip ${subcapStatus === 'WITHIN_SUBCAP' ? 'ok' : 'breach'}">${escHtml(subcapStatus)}</span> headroom ${fmt(compliance.nominee_disb_subcap_headroom)}</div>
+          </div>
+          <div class="compliance-field">
+            <div class="cf-label">COA Disbursements Actual</div>
+            <div class="cf-value">${fmt(compliance.coa_disbursements_actual)}</div>
+          </div>
+          <div class="compliance-field">
+            <div class="cf-label">COA Disb Above Model</div>
+            <div class="cf-value">${fmt(compliance.coa_disbursements_above_original_model)}</div>
+          </div>
+          ${compliance.nominee_fee_reduction_required > 0 ? `
+          <div class="compliance-field">
+            <div class="cf-label">Nominee Fee Reduction</div>
+            <div class="cf-value">${fmt(compliance.nominee_fee_reduction_required)}</div>
+          </div>` : ''}
+          ${compliance.supervisor_fee_reduction_required > 0 ? `
+          <div class="compliance-field">
+            <div class="cf-label">Supervisor Fee Reduction</div>
+            <div class="cf-value">${fmt(compliance.supervisor_fee_reduction_required)}</div>
+          </div>` : ''}
+        </div>
+        ${compliance.notes ? `<div class="compliance-notes">${escHtml(compliance.notes)}</div>` : ''}
+      </div>`;
+
+    // Summary card
+    const summaryCard = `
+      <div class="summary-card">
+        <h3>📝 Summary</h3>
+        ${summary.outcome_uplift_pence_per_pound != null ? `
+        <div class="summary-field">
+          <div class="summary-label">Outcome Uplift</div>
+          <div class="summary-value">${fmtNum(summary.outcome_uplift_pence_per_pound)}p/£ (${fmtNum(summary.outcome_uplift_percent)}% improvement)</div>
+        </div>` : ''}
+        ${summary.recommendation_basis ? `
+        <div class="summary-field">
+          <div class="summary-label">Recommendation Basis</div>
+          <div class="summary-value">${escHtml(summary.recommendation_basis)}</div>
+        </div>` : ''}
+        ${flags.length ? `
+        <div class="summary-field">
+          <div class="summary-label">Review Flags</div>
+          <ul class="flags-list">${flags.map(f => `<li>${escHtml(f)}</li>`).join('')}</ul>
+        </div>` : ''}
+      </div>`;
+
+    wrap.innerHTML = `
+      <div class="result-grid">
+        ${modelCard}
+        ${eosCard}
+        ${complianceCard}
+        ${summaryCard}
+      </div>`;
+
+    // Wire up EOS input changes
+    if (entry) {
+      wireEosInputs(entry, key);
+    }
+  }
+
+  function wireEosInputs(entry, key) {
+    document.querySelectorAll('.eos-input').forEach(input => {
+      input.addEventListener('input', () => {
+        const section = input.dataset.section;
+        const idx     = parseInt(input.dataset.idx);
+        const val     = parseFloat(input.value) || 0;
+        const state   = entry.eosState;
+        if (!state) return;
+
+        if (section === 'assets' && state.assets_available && state.assets_available[idx]) {
+          state.assets_available[idx].current = val;
+        } else if (section === 'costs' && state.costs_and_disbursements && state.costs_and_disbursements[idx]) {
+          state.costs_and_disbursements[idx].current = val;
+        } else if (section === 'uc') {
+          if (!state.unsecured_creditors) state.unsecured_creditors = {};
+          state.unsecured_creditors.current = val;
+        }
+        recalcEosState(state);
+        refreshEosTotals(state);
+      });
+    });
+
+    const saveBtn = document.getElementById('save-eos-btn');
+    const saveStatus = document.getElementById('save-eos-status');
+    if (saveBtn) {
+      saveBtn.addEventListener('click', async () => {
+        if (!key || !entry) return;
+        saveBtn.disabled = true;
+        saveStatus.textContent = 'Saving…';
+        try {
+          const res = await fetch(`/api/cases/${key}/cashier`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ instruction: JSON.stringify(entry.eosState) }),
+          });
+          const data = await res.json();
+          if (data.error) { saveStatus.textContent = 'Error: ' + data.error; return; }
+          saveBtn.classList.add('saved');
+          saveBtn.textContent = '✓ Saved';
+          saveStatus.textContent = '';
+          setTimeout(() => { saveBtn.classList.remove('saved'); saveBtn.textContent = '💾 Save Changes'; }, 2000);
+        } catch {
+          saveStatus.textContent = 'Save failed.';
+        } finally {
+          saveBtn.disabled = false;
+        }
+      });
+    }
+  }
+
+  function refreshEosTotals(state) {
+    // Re-render just the total/calculated rows in place
+    const ta = state.total_assets_available || {};
+    const tc = state.total_costs || {};
+    const afd = state.available_for_distribution || {};
+    const uc = state.unsecured_creditors || {};
+    const sd = state.surplus_deficiency || {};
+    const div = state.estimated_dividend_pence_per_pound || {};
+
+    const table = document.querySelector('.eos-table');
+    if (!table) return;
+    const rows = table.querySelectorAll('tr');
+    rows.forEach(row => {
+      const cells = row.querySelectorAll('td');
+      if (!cells.length) return;
+      const label = cells[0].textContent.trim();
+
+      const updateCells = (la, cur) => {
+        if (cells[1]) cells[1].textContent = fmt(la);
+        if (cells[2]) {
+          // Don't overwrite if it has an input
+          const inp = cells[2].querySelector('.eos-input');
+          if (!inp) cells[2].textContent = fmt(cur);
+        }
+      };
+
+      if (label === 'Total Assets Available')    updateCells(ta.last_agreed,  ta.current);
+      else if (label === 'Total Costs')           updateCells(tc.last_agreed,  tc.current);
+      else if (label === 'Available for Distribution') updateCells(afd.last_agreed, afd.current);
+      else if (label === 'Surplus / (Deficiency)') {
+        if (cells[1]) { cells[1].textContent = fmt(sd.last_agreed); cells[1].className = (sd.last_agreed||0) < 0 ? 'deficiency' : 'surplus'; }
+        if (cells[2]) { const inp = cells[2].querySelector('.eos-input'); if (!inp) { cells[2].textContent = fmt(sd.current); cells[2].className = (sd.current||0) < 0 ? 'deficiency' : 'surplus'; } }
+      }
+      else if (label === 'Estimated Dividend (p/£)') {
+        if (cells[1]) cells[1].textContent = fmtNum(div.last_agreed) + 'p';
+        if (cells[2]) { const inp = cells[2].querySelector('.eos-input'); if (!inp) cells[2].textContent = fmtNum(div.current) + 'p'; }
+      }
+    });
+  }
+
+  async function showOutputForKey(key) {
+    const entry = store[key];
+    if (!entry) return;
+
+    document.querySelectorAll('.case-item').forEach(el => el.classList.remove('active'));
+    const sidebarEl = document.getElementById('case-item-' + key);
+    if (sidebarEl) sidebarEl.classList.add('active');
+
+    if (entry.pending) { showCalculating(); return; }
+
+    if (entry.parsedResult) {
+      renderResult(entry.parsedResult, key);
+      return;
+    }
+
+    if (!entry.rawJson) {
+      const wrap = document.getElementById('output-wrap');
+      wrap.className = 'output-wrap visible';
+      wrap.innerHTML = '<div class="calculating-card"><div class="calculating-spinner"></div><p>Loading…</p></div>';
+      try {
+        const res = await fetch('/api/cases/' + key);
+        const data = await res.json();
+        entry.rawJson = data.result || '';
+        entry.reviewStatus = data.review_status;
+        // Restore saved eosState if present
+        if (data.cashier_instruction_override) {
+          try {
+            entry.eosState = JSON.parse(data.cashier_instruction_override);
+          } catch { entry.eosState = null; }
+        }
+        try {
+          entry.parsedResult = JSON.parse(entry.rawJson.trim());
+          if (!entry.eosState && entry.parsedResult) {
+            entry.eosState = initEosState(entry.parsedResult);
+          }
+        } catch { entry.parsedResult = null; }
+      } catch {
+        document.getElementById('output-wrap').innerHTML = '<div class="calculating-card"><p style="color:#ef4444;">Failed to load case.</p></div>';
+        return;
+      }
+    }
+
+    renderResult(entry.parsedResult, key);
+  }
+
+  // ── File management ───────────────────────────────────────────────────────
+  {% if current_user.role in ['uploader', 'admin'] %}
+  const slots = ['agreed_eos', 'modifications', 'chart_of_accounts'];
+  const fileMap = {};
+  slots.forEach(s => fileMap[s] = []);
+
+  function refreshSlot(slot) {
+    const files = fileMap[slot];
+    const area  = document.getElementById('area-' + slot);
+    const list  = document.getElementById('list-' + slot);
+    const dot   = document.getElementById('dot-' + slot);
+    const text  = area.querySelector('.area-text');
+    if (files.length) {
+      area.classList.add('has-files'); dot.classList.add('filled');
+      text.textContent = files.length + ' file(s) selected';
+    } else {
+      area.classList.remove('has-files'); dot.classList.remove('filled');
+      text.textContent = 'Click or drag images here';
+    }
+    list.innerHTML = '';
+    files.forEach((f, i) => {
+      const item = document.createElement('div');
+      item.className = 'file-item';
+      item.innerHTML = `<span class="fname" title="${f.name}">${f.name}</span><button type="button" data-slot="${slot}" data-idx="${i}">×</button>`;
+      list.appendChild(item);
+    });
+  }
+
+  slots.forEach(slot => {
+    const area  = document.getElementById('area-' + slot);
+    const input = document.getElementById('inp-' + slot);
+    area.addEventListener('click', e => { if (e.target !== input) input.click(); });
+    input.addEventListener('change', () => {
+      fileMap[slot] = [...fileMap[slot], ...input.files];
+      input.value = '';
+      refreshSlot(slot);
+    });
+    area.addEventListener('dragover', e => { e.preventDefault(); area.classList.add('drag'); });
+    area.addEventListener('dragleave', () => area.classList.remove('drag'));
+    area.addEventListener('drop', e => {
+      e.preventDefault(); area.classList.remove('drag');
+      fileMap[slot] = [...fileMap[slot], ...e.dataTransfer.files];
+      refreshSlot(slot);
+    });
+  });
+
+  document.addEventListener('click', e => {
+    const btn = e.target.closest('[data-slot][data-idx]');
+    if (!btn) return;
+    const slot = btn.dataset.slot;
+    const idx  = Number(btn.dataset.idx);
+    fileMap[slot].splice(idx, 1);
+    refreshSlot(slot);
+  });
+
+  // Variation fee toggle
+  const feeToggle = document.getElementById('variation-fee-toggle');
+  const feeAmountWrap = document.getElementById('ff-fee-amount-wrap');
+  const feeStatus = document.getElementById('variation-fee-status');
+  feeToggle.addEventListener('change', () => {
+    const on = feeToggle.checked;
+    feeAmountWrap.classList.toggle('visible', on);
+    feeStatus.textContent = on ? 'Yes' : 'No';
+  });
+
+  // ── Form submit ───────────────────────────────────────────────────────────
+  const form      = document.getElementById('analyze-form');
+  const submitBtn = document.getElementById('submit-btn');
+  const btnLabel  = document.getElementById('btn-label');
+
+  form.addEventListener('submit', async e => {
+    e.preventDefault();
+
+    const totalFiles = slots.reduce((n, s) => n + fileMap[s].length, 0);
+    if (!totalFiles) { alert('Please upload at least one document.'); return; }
+
+    const caseNumber = document.getElementById('case-number').value.trim();
+    const variationType = document.getElementById('variation-type').value;
+    const tempKey = 'temp-' + Date.now();
+
+    store[tempKey] = { caseNumber, rawJson: '', parsedResult: null, eosState: null, pending: true, usage: null, reviewStatus: null };
+    sidebarAddPending(tempKey, caseNumber, new Date());
+    showCalculating();
+
+    const fd = new FormData();
+    fd.append('case_number',     caseNumber);
+    fd.append('variation_type',  variationType);
+    fd.append('ff_amount',       document.getElementById('ff-amount').value || '0');
+    fd.append('creditors_claim_amount', document.getElementById('creditors-claim').value || '0');
+    fd.append('variation_fee_enabled',  feeToggle.checked ? 'yes' : 'no');
+    fd.append('variation_fee_amount',   document.getElementById('variation-fee-amount').value || '400');
+    const workItemId = document.getElementById('hidden-work-item-id').value;
+    if (workItemId) fd.append('work_item_id', workItemId);
+    slots.forEach(slot => fileMap[slot].forEach(f => fd.append(slot, f)));
+
+    submitBtn.disabled = true;
+    btnLabel.textContent = 'Generating…';
+    const spinner = document.createElement('div');
+    spinner.className = 'btn-spinner';
+    submitBtn.appendChild(spinner);
+
+    try {
+      const res = await fetch('/analyze-variation', { method: 'POST', body: fd });
+      if (!res.ok) throw new Error('Server error ' + res.status);
+
+      const reader  = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop();
+
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          const data = JSON.parse(line.slice(6));
+
+          if (data.error) {
+            store[tempKey].rawJson = '';
+            store[tempKey].parsedResult = { status: 'STOP', reason: data.error };
+            store[tempKey].pending = false;
+            sidebarMarkDone(tempKey, null);
+            renderResult(store[tempKey].parsedResult, tempKey);
+
+          } else if (data.text) {
+            store[tempKey].rawJson = (store[tempKey].rawJson || '') + data.text;
+
+          } else if (data.done) {
+            store[tempKey].pending = false;
+            store[tempKey].usage   = data.usage;
+            const finalKey = data.case_id ? String(data.case_id) : tempKey;
+            if (data.case_id) {
+              store[finalKey] = store[tempKey];
+              delete store[tempKey];
+            }
+            try {
+              store[finalKey].parsedResult = JSON.parse(store[finalKey].rawJson.trim());
+              store[finalKey].eosState = initEosState(store[finalKey].parsedResult);
+            } catch {
+              store[finalKey].parsedResult = { status: 'STOP', reason: 'Could not parse EOS result.' };
+            }
+            store[finalKey].reviewStatus = 'pending';
+            sidebarMarkDone(tempKey, finalKey);
+            renderResult(store[finalKey].parsedResult, finalKey);
+          }
+        }
+      }
+    } catch (err) {
+      store[tempKey].parsedResult = { status: 'STOP', reason: err.message };
+      store[tempKey].pending = false;
+      sidebarMarkDone(tempKey, null);
+      renderResult(store[tempKey].parsedResult, tempKey);
+    } finally {
+      submitBtn.disabled = false;
+      btnLabel.textContent = 'Generate EOS';
+      const sp = submitBtn.querySelector('.btn-spinner');
+      if (sp) sp.remove();
+    }
+  });
+
+  // pre-fill from URL params
+  (function() {
+    const params = new URLSearchParams(window.location.search);
+    const workItemId = params.get('work_item');
+    const preFillCN  = params.get('case_number');
+    if (preFillCN)  document.getElementById('case-number').value = preFillCN;
+    if (workItemId) document.getElementById('hidden-work-item-id').value = workItemId;
+  })();
+  {% endif %}
+
+  // ── Review Modal ──────────────────────────────────────────────────────────
+  {% if current_user.role in ['reviewer', 'admin'] %}
+  function openReviewModal(key) {
+    reviewCaseId = key;
+    reviewRejectMode = false;
+    const entry = store[key] || {};
+
+    document.getElementById('review-case-number').textContent = entry.caseNumber || key;
+    document.getElementById('review-case-meta').textContent = 'Full & Final Variation EOS';
+    document.getElementById('review-rejection-note').value = '';
+    document.getElementById('review-error').textContent = '';
+
+    setReviewRejectMode(false);
+
+    // Reset tabs
+    document.querySelectorAll('.review-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.review-tab-panel').forEach(p => p.classList.remove('active'));
+    document.querySelector('.review-tab[data-tab="eos"]').classList.add('active');
+    document.getElementById('review-tab-eos').classList.add('active');
+
+    // Populate EOS tab
+    const eosEl = document.getElementById('review-eos-content');
+    if (entry.eosState || (entry.parsedResult && entry.parsedResult.eos)) {
+      const state = entry.eosState || entry.parsedResult.eos;
+      eosEl.innerHTML = renderEosTable(state, false);
+    } else {
+      eosEl.innerHTML = '<p style="color:#bbb;padding:1rem;">No EOS data available.</p>';
+    }
+
+    // Populate compliance tab lazily
+    document.getElementById('review-compliance-content').innerHTML = '<div style="text-align:center;color:#bbb;padding:2rem;">Click tab to load…</div>';
+    document.getElementById('review-fulllog-content').innerHTML = '<div style="text-align:center;color:#bbb;padding:2rem;">Click tab to load…</div>';
+
+    document.getElementById('review-overlay').classList.add('open');
+  }
+
+  function setReviewRejectMode(on) {
+    reviewRejectMode = on;
+    document.getElementById('review-reject-section').classList.toggle('visible', on);
+    document.getElementById('review-initial-actions').style.display = on ? 'none' : '';
+    document.getElementById('review-reject-actions').style.display  = on ? '' : 'none';
+    document.getElementById('review-error').textContent = '';
+  }
+
+  function closeReviewModal() {
+    document.getElementById('review-overlay').classList.remove('open');
+    reviewCaseId = null;
+    reviewRejectMode = false;
+  }
+
+  document.getElementById('review-close').addEventListener('click', closeReviewModal);
+  document.getElementById('review-overlay').addEventListener('click', e => {
+    if (e.target === document.getElementById('review-overlay')) closeReviewModal();
+  });
+
+  document.querySelectorAll('.review-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.review-tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.review-tab-panel').forEach(p => p.classList.remove('active'));
+      tab.classList.add('active');
+      document.getElementById('review-tab-' + tab.dataset.tab).classList.add('active');
+
+      if (tab.dataset.tab === 'compliance' && reviewCaseId) {
+        const entry = store[reviewCaseId];
+        const el = document.getElementById('review-compliance-content');
+        if (!entry || !entry.parsedResult) { el.innerHTML = '<p style="color:#bbb;padding:1rem;">No data.</p>'; return; }
+        const c = entry.parsedResult.compliance || {};
+        const s = entry.parsedResult.summary || {};
+        el.innerHTML = `
+          <div class="review-json-section">
+            <h4>Compliance</h4>
+            <pre class="review-json-pre">${escHtml(JSON.stringify(c, null, 2))}</pre>
+          </div>
+          <div class="review-json-section">
+            <h4>Summary</h4>
+            <pre class="review-json-pre">${escHtml(JSON.stringify(s, null, 2))}</pre>
+          </div>`;
+      }
+
+      if (tab.dataset.tab === 'fulllog' && reviewCaseId) {
+        const entry = store[reviewCaseId];
+        const el = document.getElementById('review-fulllog-content');
+        const render = () => {
+          if (!entry || !entry.parsedResult) { el.innerHTML = '<p style="color:#bbb;padding:1rem;">No data.</p>'; return; }
+          el.innerHTML = `<pre class="review-json-pre">${escHtml(JSON.stringify(entry.parsedResult, null, 2))}</pre>`;
+        };
+        if (!entry.rawJson) {
+          el.innerHTML = '<div style="text-align:center;color:#bbb;padding:2rem;">Loading…</div>';
+          fetch('/api/cases/' + reviewCaseId).then(r => r.json()).then(data => {
+            entry.rawJson = data.result || '';
+            try { entry.parsedResult = JSON.parse(entry.rawJson.trim()); } catch {}
+            render();
+          }).catch(() => { el.innerHTML = '<p style="color:#ef4444;padding:1rem;">Failed to load.</p>'; });
+        } else {
+          render();
+        }
+      }
+    });
+  });
+
+  document.getElementById('btn-review-reject').addEventListener('click', () => setReviewRejectMode(true));
+  document.getElementById('btn-cancel-reject').addEventListener('click', () => setReviewRejectMode(false));
+
+  document.getElementById('btn-review-approve').addEventListener('click', async () => {
+    if (!reviewCaseId) return;
+    const errEl = document.getElementById('review-error');
+    errEl.textContent = '';
+    const entry = store[reviewCaseId];
+    // Save current eosState as the instruction override
+    const instruction = entry && entry.eosState ? JSON.stringify(entry.eosState) : null;
+    try {
+      const res = await fetch(`/api/cases/${reviewCaseId}/review`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'approve', instruction }),
+      });
+      const data = await res.json();
+      if (data.error) { errEl.textContent = data.error; return; }
+      updateSidebarStatus(reviewCaseId, 'approved');
+      closeReviewModal();
+    } catch { errEl.textContent = 'Request failed.'; }
+  });
+
+  document.getElementById('btn-submit-reject').addEventListener('click', async () => {
+    if (!reviewCaseId) return;
+    const errEl = document.getElementById('review-error');
+    errEl.textContent = '';
+    const note = document.getElementById('review-rejection-note').value.trim();
+    if (!note) { errEl.textContent = 'Rejection note is required.'; return; }
+    try {
+      const res = await fetch(`/api/cases/${reviewCaseId}/review`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'reject', note, instruction: null }),
+      });
+      const data = await res.json();
+      if (data.error) { errEl.textContent = data.error; return; }
+      updateSidebarStatus(reviewCaseId, 'rejected');
+      closeReviewModal();
+    } catch { errEl.textContent = 'Request failed.'; }
+  });
+  {% endif %}
+
+  // ── Load existing cases ───────────────────────────────────────────────────
+  async function loadCaseList() {
+    if (!("{{ current_user.role }}" === 'uploader' || "{{ current_user.role }}" === 'reviewer' || "{{ current_user.role }}" === 'admin')) return;
+    try {
+      const res = await fetch('/api/cases?task_type=variation');
+      const cases = await res.json();
+      if (Array.isArray(cases)) {
+        cases.reverse().forEach(c => sidebarAddStored(c.id, c.case_number, c.created_at, c.review_status));
+      }
+    } catch {}
+  }
+
+  loadCaseList();
+
+  (function() {
+    const urlCase = new URLSearchParams(window.location.search).get('case');
+    if (urlCase) {
+      window.addEventListener('load', async () => {
+        await new Promise(r => setTimeout(r, 300));
+        const el = document.getElementById('case-item-' + urlCase);
+        if (el) { el.classList.add('active'); showOutputForKey(urlCase); }
+      });
+    }
+  })();
+
+  {% if current_user.role in ['reviewer', 'admin'] %}
+  const notifBtn = document.getElementById('notif-btn');
+  const notifBadge = document.getElementById('notif-badge');
+  const notifDropdown = document.getElementById('notif-dropdown');
+  const notifList = document.getElementById('notif-list');
+  let notifications = [];
+
+  async function loadNotifications() {
+    try {
+      const res = await fetch('/api/notifications');
+      notifications = await res.json();
+      renderNotifications();
+    } catch {}
+  }
+
+  function renderNotifications() {
+    const unread = notifications.filter(n => !n.read).length;
+    if (unread > 0) { notifBadge.textContent = unread > 99 ? '99+' : unread; notifBadge.style.display = 'flex'; }
+    else { notifBadge.style.display = 'none'; }
+    notifList.innerHTML = '';
+    if (!notifications.length) { notifList.innerHTML = '<div class="notif-empty">No notifications</div>'; return; }
+    notifications.forEach(n => {
+      const div = document.createElement('div');
+      div.className = 'notif-item ' + (n.read ? 'read' : 'unread');
+      const dt = new Date(n.created_at).toLocaleString('en-GB', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' });
+      div.innerHTML = `<div class="notif-dot"></div><div><div class="notif-item-text">${escHtml(n.message)}</div><div class="notif-item-time">${dt}</div></div>`;
+      div.addEventListener('click', async () => {
+        if (!n.read) { await fetch(`/api/notifications/${n.id}/read`, { method: 'POST' }); n.read = true; renderNotifications(); }
+        window.location.href = '/variations?case=' + n.case_id;
+      });
+      notifList.appendChild(div);
+    });
+  }
+
+  notifBtn.addEventListener('click', e => { e.stopPropagation(); notifDropdown.classList.toggle('open'); });
+  document.addEventListener('click', e => { if (!notifDropdown.contains(e.target) && e.target !== notifBtn) notifDropdown.classList.remove('open'); });
+  document.getElementById('notif-mark-all').addEventListener('click', async e => {
+    e.stopPropagation();
+    await fetch('/api/notifications/read-all', { method: 'POST' });
+    notifications.forEach(n => n.read = true);
+    renderNotifications();
+  });
+  loadNotifications();
+  setInterval(loadNotifications, 30000);
+  {% endif %}
+
+  {% if current_user.role == 'admin' %}
+  const adminBtn = document.getElementById('admin-menu-btn');
+  const adminDropdown = document.getElementById('admin-dropdown');
+  adminBtn.addEventListener('click', e => {
+    e.stopPropagation();
+    const open = adminDropdown.classList.toggle('open');
+    adminBtn.classList.toggle('open', open);
+  });
+  document.addEventListener('click', () => { adminDropdown.classList.remove('open'); adminBtn.classList.remove('open'); });
+  {% endif %}
+</script>
+</body>
+</html>

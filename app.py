@@ -654,6 +654,172 @@ TERMINATION_DOCUMENT_SLOTS = [
     ("eos", "Estimated Outcome Statement (EOS)"),
 ]
 
+VARIATION_EOS_SYSTEM_PROMPT = """\
+You are an Insolvency Practitioner's assistant generating an Estimated Outcome Statement (EOS) for an IVA case. You will receive:
+
+1. A screenshot of the Agreed EOS (the position locked at arrangement approval)
+2. A screenshot of the Schedule of Modifications (the agreed fee/cost rules)
+3. A screenshot of the Chart of Accounts (current COA balances)
+4. Structured field inputs supplied by the user
+
+Your job:
+- Scrape the three screenshots for the figures and rules they contain
+- Build a side-by-side EOS comparing "Last Agreed" (locked at approval) vs "Current Estimate" (live position)
+- Apply the locked modification model to the Current column — fees drawn are the MAXIMUM permitted under the agreed modifications, not whatever happens to be on the COA
+- Return a single JSON object the front-end can render
+
+## CORE RULES
+
+### Locked Model Principle
+The Schedule of Modifications is binding. Whatever caps, sub-caps, and rules it sets at approval are the ceiling for fees drawn. The COA shows what has been raised/charged operationally, but the EOS must reflect what is RECOVERABLE FROM THE ARRANGEMENT under the locked modifications. Where COA balances exceed the locked caps, cap the figure to the locked model. Where COA balances are below the cap, draw the maximum permitted (assume the case will run to its full fee entitlement).
+
+### Fee Drawing Hierarchy (in order)
+Apply these in sequence to build the Current column costs:
+
+1. Statutory / pass-through items drawn at locked figures:
+   - Specific Bond (locked at agreed amount)
+   - BIS Registration Fees (locked at agreed amount)
+   - AML Check (usually rolled into Disbursements on the agreed EOS — set to 0 unless agreed EOS has it as a separate non-zero line)
+
+2. Disbursements drawn IN FULL from the COA balance (sum all CO-type disbursement codes: Bank Charges, Case Management Fee, Case Management Monthly Fee, Creditor Portal, Client Portal, Professional Fees, Credit Search, Claim Review, Land Registry Search Fees, and any other CO disbursement codes excluding Nominee/Supervisor remuneration lines).
+
+3. Nominee Fee — flex DOWN if needed so that Nominee + Disbursements <= the Nominee+Disbursements sub-cap stated in the modifications (commonly 1900 under fixed-fee modifications). Never exceed the originally agreed Nominee Fee.
+   Formula: Nominee Drawn = MIN(Agreed Nominee Fee, Sub-cap - Disbursements Drawn)
+   If sub-cap not specified in modifications, use the agreed Nominee Fee as the cap.
+
+4. Supervisor Remuneration — drawn to absorb remaining headroom up to the total cost cap, capped at the agreed Supervisor figure.
+   Formula: Supervisor Drawn = MIN(Agreed Supervisor Fee, Total Cap - Bond - BIS - AML - Disbursements Drawn - Nominee Drawn)
+
+5. Variation Meeting Fee (if supplied) — added ON TOP of the total cost cap, NOT within it. Mod 238 (or equivalent) treats variation fees as separately agreed at the variation meeting itself, so this is additive to the total cap. Add as its own line item under Costs.
+
+### Asset Lines
+Always include these as separate lines under Assets Available, even if zero:
+- Voluntary Contributions (from COA balance for Current; monthly x term for Last Agreed)
+- Full & Final Offer (from user input for Current; 0 for Last Agreed unless the agreed EOS shows otherwise)
+- Variation Meeting Fee does NOT go here — it's a cost.
+
+### Calculations
+- Total Assets Available = sum of asset lines
+- Total Costs & Disbursements = sum of cost lines (including Variation Meeting Fee if present)
+- Available for Distribution = Total Assets - Total Costs
+- Surplus/(Deficiency) = Available for Distribution - Unsecured Creditors
+- Estimated Dividend (p/pound) = (Available for Distribution / Unsecured Creditors) * 100
+  - If Available for Distribution >= Unsecured Creditors, dividend = 100 p/pound (cap at 100)
+  - If Available for Distribution <= 0, dividend = 0 p/pound
+
+### Sub-cap Compliance Check
+After building the Current column, verify and report:
+- Total Costs (excl. Variation Meeting Fee) <= Total Cost Cap -> flag "WITHIN_CAP" or "BREACH"
+- Nominee + Disbursements Drawn <= Nominee+Disb Sub-cap -> flag "WITHIN_SUBCAP" or "BREACH"
+
+## INPUT SCHEMA
+
+You will receive a user message containing:
+- Three image attachments (Agreed EOS, Modifications, Chart of Accounts)
+- A JSON block with dynamic fields:
+  full_and_final_offer: (number) GBP, 0 if no F&F
+  variation_meeting_fee: (number) GBP, 0 if no variation meeting
+  creditors_claim_amount: (number) GBP, current agreed creditor claim total
+  case_reference: (string) optional, for the response
+
+## SCREENSHOT SCRAPING
+
+From the Agreed EOS screenshot, extract for the "Last Agreed" column:
+- Voluntary Contributions amount
+- Nominee Remuneration
+- Supervisor Remuneration
+- Disbursements
+- Specific Bond
+- BIS Registration Fees
+- AML Check (if shown separately; usually 0)
+- Unsecured Creditors total
+
+From the Schedule of Modifications screenshot, extract:
+- Total cost cap
+- Nominee + Disbursements sub-cap
+- Supervisor cap and term basis
+- Variation fee rule
+
+From the Chart of Accounts screenshot, extract for the "Current Estimate" column:
+- VC balance (Voluntary Contributions)
+- All CO-type disbursement balances (sum these for Disbursements line)
+- NR (Nominee Remuneration) balance — for reference
+- SR (Supervisor Remuneration) balance — for reference
+- SB (Specific Bond) balance
+- CR (BIS Registration Fees) balance
+Use the "Balance" column on the right of the COA.
+
+## OUTPUT SCHEMA
+
+Return a single valid JSON object with this exact structure. Do not include any prose outside the JSON.
+
+{
+  "case_reference": "...",
+  "locked_model": {
+    "total_cost_cap": 3650.00,
+    "nominee_disbursements_subcap": 1900.00,
+    "supervisor_cap": 1750.00,
+    "specific_bond": 60.00,
+    "bis_registration": 15.00,
+    "agreed_nominee_fee": 1604.50,
+    "agreed_disbursements": 220.50,
+    "term_months": 60,
+    "additional_asset_fee_percent": 15
+  },
+  "eos": {
+    "assets_available": [
+      {"label": "Voluntary Contributions", "last_agreed": 6540.00, "current": 4493.00},
+      {"label": "Full & Final Offer", "last_agreed": 0.00, "current": 2992.00}
+    ],
+    "total_assets_available": {"last_agreed": 6540.00, "current": 7485.00},
+    "costs_and_disbursements": [
+      {"label": "AML Check", "last_agreed": 0.00, "current": 0.00},
+      {"label": "BIS Registration Fees", "last_agreed": 15.00, "current": 15.00},
+      {"label": "Disbursements", "last_agreed": 220.50, "current": 579.73},
+      {"label": "Nominees Fee", "last_agreed": 1604.50, "current": 1320.27},
+      {"label": "Specific Bond", "last_agreed": 60.00, "current": 60.00},
+      {"label": "Supervisor Remuneration", "last_agreed": 1750.00, "current": 1675.00}
+    ],
+    "total_costs": {"last_agreed": 3650.00, "current": 3650.00},
+    "available_for_distribution": {"last_agreed": 2890.00, "current": 3835.00},
+    "unsecured_creditors": {"last_agreed": 10322.00, "current": 10211.94},
+    "surplus_deficiency": {"last_agreed": -7432.00, "current": -6376.94},
+    "estimated_dividend_pence_per_pound": {"last_agreed": 28.00, "current": 37.55}
+  },
+  "compliance": {
+    "total_cost_cap_status": "WITHIN_CAP",
+    "total_cost_cap_headroom": 0.00,
+    "nominee_disb_subcap_status": "WITHIN_SUBCAP",
+    "nominee_disb_subcap_headroom": 0.00,
+    "coa_disbursements_actual": 579.73,
+    "coa_disbursements_above_original_model": 359.23,
+    "nominee_fee_reduction_required": 284.23,
+    "supervisor_fee_reduction_required": 75.00,
+    "notes": "Brief plain-English summary of any breaches, reductions, or items the IP should review."
+  },
+  "summary": {
+    "outcome_uplift_pence_per_pound": 9.55,
+    "outcome_uplift_percent": 34.1,
+    "recommendation_basis": "Plain-English summary of whether the F&F is recommended and key fee compliance points.",
+    "review_flags": ["Flag 1", "Flag 2"]
+  }
+}
+
+OUTPUT RULES:
+- Return ONLY the JSON object. No markdown fences, no preamble, no commentary outside the JSON.
+- Use null for any field you cannot determine from the inputs.
+- Round all monetary values to 2 decimal places.
+- Round dividend p/pound to 2 decimal places.
+- Include Variation Meeting Fee line ONLY if variation_meeting_fee > 0.
+- If a screenshot is unreadable or missing required data, populate the JSON as best you can and put a clear flag in compliance.notes.\
+"""
+
+VARIATION_DOCUMENT_SLOTS = [
+    ("agreed_eos", "Agreed EOS"),
+    ("modifications", "Schedule of Modifications"),
+    ("chart_of_accounts", "Chart of Accounts"),
+]
+
 
 # ---------------------------------------------------------------------------
 # Database
@@ -1052,6 +1218,12 @@ def terminations():
     return render_template("terminations.html")
 
 
+@app.route("/variations")
+@login_required
+def variations():
+    return render_template("variations.html")
+
+
 # ---------------------------------------------------------------------------
 # Termination Analyze
 # ---------------------------------------------------------------------------
@@ -1140,6 +1312,129 @@ def analyze_termination():
                         conn.close()
                     except Exception as e:
                         print(f"Failed to save termination case: {e}")
+
+                yield f"data: {json.dumps({'done': True, 'case_id': case_id, 'usage': {'input_tokens': usage.input_tokens, 'output_tokens': usage.output_tokens, 'cache_creation_tokens': getattr(usage, 'cache_creation_input_tokens', 0), 'cache_read_tokens': getattr(usage, 'cache_read_input_tokens', 0)}})}\n\n"
+
+        except anthropic.APIError as e:
+            yield f"data: {json.dumps({'error': str(e)})}\n\n"
+
+    return Response(stream_with_context(generate()), mimetype="text/event-stream")
+
+
+# ---------------------------------------------------------------------------
+# Variation Analyze
+# ---------------------------------------------------------------------------
+@app.route("/analyze-variation", methods=["POST"])
+@login_required
+def analyze_variation():
+    if current_user.role not in ("uploader", "admin"):
+        return jsonify({"error": "Forbidden"}), 403
+
+    case_number = request.form.get("case_number", "").strip()
+    variation_type = request.form.get("variation_type", "full_and_final").strip()
+    project_id_raw = request.form.get("project_id", "").strip()
+    project_id = int(project_id_raw) if project_id_raw.isdigit() else None
+    work_item_id_raw = request.form.get("work_item_id", "").strip()
+    work_item_id = int(work_item_id_raw) if work_item_id_raw.isdigit() else None
+    submitted_by = int(current_user.id)
+
+    # Dynamic inputs
+    try:
+        ff_amount = float(request.form.get("ff_amount", "0") or "0")
+    except ValueError:
+        ff_amount = 0.0
+    try:
+        creditors_claim = float(request.form.get("creditors_claim_amount", "0") or "0")
+    except ValueError:
+        creditors_claim = 0.0
+    variation_fee_enabled = request.form.get("variation_fee_enabled", "no").lower() == "yes"
+    try:
+        variation_fee_amount = float(request.form.get("variation_fee_amount", "400") or "400")
+    except ValueError:
+        variation_fee_amount = 400.0
+
+    inputs = {
+        "full_and_final_offer": ff_amount,
+        "variation_meeting_fee": variation_fee_amount if variation_fee_enabled else 0.0,
+        "creditors_claim_amount": creditors_claim,
+        "case_reference": case_number,
+    }
+
+    content = []
+    any_document = False
+
+    for field_name, label in VARIATION_DOCUMENT_SLOTS:
+        files = request.files.getlist(field_name)
+        pages = [f for f in files if f and f.filename]
+        if not pages:
+            continue
+        any_document = True
+        content.append({"type": "text", "text": f"--- {label} ({len(pages)} page(s)) ---"})
+        for page in pages:
+            try:
+                image_data, media_type = encode_file(page)
+            except ValueError as e:
+                return jsonify({"error": str(e)}), 400
+            content.append({"type": "image", "source": {"type": "base64", "media_type": media_type, "data": image_data}})
+
+    if not any_document:
+        return jsonify({"error": "Please upload at least one document."}), 400
+
+    content.append({
+        "type": "text",
+        "text": f"Agreed EOS, Schedule of Modifications, and Chart of Accounts attached.\n\nDynamic inputs:\n```json\n{json.dumps(inputs, indent=2)}\n```\n\nGenerate the EOS."
+    })
+
+    def generate():
+        full_text = []
+        try:
+            with client.messages.stream(
+                model="claude-opus-4-7",
+                max_tokens=2000,
+                system=[{"type": "text", "text": VARIATION_EOS_SYSTEM_PROMPT, "cache_control": {"type": "ephemeral"}}],
+                messages=[{"role": "user", "content": content}],
+            ) as stream:
+                for text in stream.text_stream:
+                    full_text.append(text)
+                    yield f"data: {json.dumps({'text': text})}\n\n"
+
+                msg = stream.get_final_message()
+                usage = msg.usage
+                case_id = None
+
+                if case_number and os.environ.get("DATABASE_URL"):
+                    try:
+                        conn = get_db_conn()
+                        with conn.cursor() as cur:
+                            cur.execute(
+                                """INSERT INTO cases
+                                   (case_number, result, input_tokens, output_tokens,
+                                    cache_creation_tokens, cache_read_tokens, submitted_by,
+                                    project_id, task_type)
+                                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'variation') RETURNING id""",
+                                (case_number, "".join(full_text), usage.input_tokens, usage.output_tokens,
+                                 getattr(usage, "cache_creation_input_tokens", 0),
+                                 getattr(usage, "cache_read_input_tokens", 0), submitted_by, project_id),
+                            )
+                            case_id = cur.fetchone()[0]
+                            if work_item_id:
+                                cur.execute(
+                                    "UPDATE work_items SET status='in_progress', assigned_to=%s WHERE id=%s",
+                                    (submitted_by, work_item_id),
+                                )
+                            cur.execute(
+                                "SELECT id FROM users WHERE role IN ('reviewer', 'admin') AND active = TRUE AND id != %s",
+                                (submitted_by,),
+                            )
+                            for (uid,) in cur.fetchall():
+                                cur.execute(
+                                    "INSERT INTO notifications (user_id, case_id, message) VALUES (%s, %s, %s)",
+                                    (uid, case_id, f"New variation for review: {case_number}"),
+                                )
+                        conn.commit()
+                        conn.close()
+                    except Exception as e:
+                        print(f"Failed to save variation case: {e}")
 
                 yield f"data: {json.dumps({'done': True, 'case_id': case_id, 'usage': {'input_tokens': usage.input_tokens, 'output_tokens': usage.output_tokens, 'cache_creation_tokens': getattr(usage, 'cache_creation_input_tokens', 0), 'cache_read_tokens': getattr(usage, 'cache_read_input_tokens', 0)}})}\n\n"
 
