@@ -167,20 +167,28 @@
     .eos-card h3 { font-size: 0.95rem; font-weight: 700; }
     .eos-edit-note { font-size: 0.75rem; color: #6366f1; background: #eef2ff; border-radius: 6px; padding: 0.25rem 0.65rem; }
 
-    .eos-table { width: 100%; border-collapse: collapse; }
-    .eos-table th { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; color: #999; padding: 0.5rem 0.5rem; text-align: right; border-bottom: 2px solid #e5e7eb; }
-    .eos-table th:first-child { text-align: left; }
-    .eos-table td { padding: 0.45rem 0.5rem; font-size: 0.88rem; border-bottom: 1px solid #f5f5f5; }
-    .eos-table td:not(:first-child) { text-align: right; font-family: ui-monospace, monospace; }
-    .eos-table tr.section-header td { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; color: #999; background: #f9fafb; padding: 0.35rem 0.5rem; border-bottom: none; }
-    .eos-table tr.total-row td { font-weight: 700; border-top: 2px solid #e5e7eb; border-bottom: none; background: #f9fafb; }
-    .eos-table tr.total-row.highlight td { color: #6366f1; }
-    .eos-table tr.grand-total td { font-weight: 700; font-size: 0.92rem; border-top: 2px solid #6366f1; border-bottom: 2px solid #6366f1; }
-    .eos-table tr.surplus td { color: #16a34a; font-weight: 700; }
-    .eos-table tr.deficiency td { color: #dc2626; font-weight: 700; }
-    .eos-table tr.divider-row td { padding: 0.2rem; border-bottom: 2px solid #e5e7eb; }
+    /* Financial statement table (EOS + I&E) */
+    .fin-table { width: 100%; border-collapse: collapse; font-size: 0.88rem; border: 2px solid #2d2d2d; }
+    .fin-table th { padding: 0.55rem 0.9rem; font-size: 0.82rem; font-weight: 700; border: 1px solid #999; background: #f0f0f0; text-align: right; white-space: nowrap; }
+    .fin-table th:first-child { text-align: left; width: 50%; }
+    .fin-table td { padding: 0.42rem 0.9rem; border: 1px solid #d8d8d8; vertical-align: middle; }
+    .fin-table td:not(:first-child) { text-align: right; font-family: ui-monospace, 'Courier New', monospace; white-space: nowrap; }
+    .fin-table tr.fin-section td { font-weight: 700; font-size: 0.9rem; background: #f7f7f7; border-top: 2px solid #aaa; }
+    .fin-table tr.fin-total td { font-weight: 700; border-top: 2px solid #555; border-bottom: 2px solid #555; background: #f7f7f7; }
+    .fin-table tr.fin-grand td { font-weight: 700; border-top: 2.5px solid #2d2d2d; border-bottom: 2.5px solid #2d2d2d; font-size: 0.92rem; }
+    .fin-table tr.fin-negative td:not(:first-child) { color: #c00; }
+    .fin-table tr.fin-dividend td { font-weight: 700; font-size: 0.92rem; }
+    .fin-table tr:hover td { background: #fafafa; }
+    .fin-table tr.fin-section:hover td, .fin-table tr.fin-total:hover td, .fin-table tr.fin-grand:hover td { background: #f0f0f0; }
 
-    .eos-input { width: 100px; border: 1.5px solid #e5e7eb; border-radius: 6px; padding: 0.3rem 0.5rem; font-size: 0.85rem; font-family: ui-monospace, monospace; text-align: right; transition: border-color 0.2s; }
+    /* Copy buttons */
+    .copy-btn { background: none; border: none; cursor: pointer; color: #bbb; font-size: 0.78rem; padding: 0 0 0 0.35rem; vertical-align: middle; line-height: 1; transition: color 0.15s; }
+    .copy-btn:hover { color: #6366f1; }
+    .copy-btn.copied { color: #16a34a !important; }
+    .copy-section-btn { float: right; font-size: 0.7rem; font-weight: 600; padding: 0.15rem 0.5rem; background: #eef2ff; border: 1px solid #c7d2fe; border-radius: 5px; color: #4f46e5; cursor: pointer; transition: background 0.15s; margin-left: 0.5rem; }
+    .copy-section-btn:hover { background: #e0e7ff; }
+
+    .eos-input { width: 110px; border: 1.5px solid #c7d2fe; border-radius: 5px; padding: 0.28rem 0.45rem; font-size: 0.85rem; font-family: ui-monospace, 'Courier New', monospace; text-align: right; transition: border-color 0.2s; background: #fefeff; }
     .eos-input:focus { outline: none; border-color: #6366f1; background: #f5f5ff; }
     .eos-input:disabled { background: #f9fafb; color: #aaa; border-color: transparent; }
 
@@ -271,15 +279,9 @@
     .trigger-badge { font-size: 0.7rem; font-weight: 700; padding: 0.18rem 0.55rem; border-radius: 8px; }
     .trigger-badge.ok   { background: #dcfce7; color: #15803d; }
     .trigger-badge.over { background: #fee2e2; color: #b91c1c; }
-    .ie-table { width: 100%; border-collapse: collapse; }
-    .ie-table td { padding: 0.38rem 0.25rem; font-size: 0.85rem; border-bottom: 1px solid #f5f5f5; }
-    .ie-table td:first-child { color: #555; }
-    .ie-table td:last-child { text-align: right; }
-    .ie-table tr.ie-total td { font-weight: 700; border-top: 2px solid #e5e7eb; border-bottom: none; background: #f9fafb; }
-    .ie-table tr.ie-total td:last-child { color: #6366f1; font-family: ui-monospace, monospace; }
-    .ie-input { width: 100px; border: 1.5px solid #e5e7eb; border-radius: 6px; padding: 0.28rem 0.45rem; font-size: 0.84rem; font-family: ui-monospace, monospace; text-align: right; transition: border-color 0.2s; }
+    .ie-input { width: 110px; border: 1.5px solid #c7d2fe; border-radius: 5px; padding: 0.28rem 0.45rem; font-size: 0.84rem; font-family: ui-monospace, 'Courier New', monospace; text-align: right; transition: border-color 0.2s; background: #fefeff; }
     .ie-input:focus { outline: none; border-color: #10b981; background: #f0fdf9; }
-    .null-input { background: #fafafa; color: #aaa; }
+    .null-input { background: #fafafa; color: #aaa; border-color: #e5e7eb; }
 
     .ie-missing-card { background: #fff7ed; border: 1px solid #fed7aa; border-radius: 10px; padding: 0.9rem 1.1rem; margin-bottom: 0.75rem; }
     .ie-missing-card h4 { font-size: 0.82rem; font-weight: 700; color: #92400e; margin-bottom: 0.5rem; }
@@ -666,6 +668,34 @@
     return Number(n).toFixed(2);
   }
 
+  // Financial-statement format: negatives as (£x,xxx.xx)
+  function fmtFS(n) {
+    if (n === undefined || n === null) return '—';
+    const num = Number(n);
+    const abs = Math.abs(num).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    return num < 0 ? `(£${abs})` : `£${abs}`;
+  }
+
+  function fmtFSnum(n) {
+    if (n === undefined || n === null) return '';
+    const num = Number(n);
+    return num < 0 ? `(${Math.abs(num).toFixed(2)})` : num.toFixed(2);
+  }
+
+  function copyToClip(btn, text) {
+    navigator.clipboard.writeText(text).then(() => {
+      btn.classList.add('copied');
+      const orig = btn.textContent;
+      btn.textContent = '✓';
+      setTimeout(() => { btn.textContent = orig; btn.classList.remove('copied'); }, 1400);
+    }).catch(() => {});
+  }
+
+  function copyBtn(rawValue, label) {
+    const safe = String(rawValue === null || rawValue === undefined ? '' : rawValue).replace(/'/g, "\\'");
+    return `<button class="copy-btn" title="Copy ${escHtml(label || '')}" onclick="copyToClip(this,'${safe}')">⧉</button>`;
+  }
+
   // ── EOS state management ──────────────────────────────────────────────────
 
   // Deep-copy the initial EOS from AI into a mutable state object
@@ -801,17 +831,17 @@
 
     const rows_assets = (state.assets_available || []).map((r, i) => {
       const cur = editable
-        ? `<input type="number" class="eos-input" data-section="assets" data-idx="${i}" data-col="current" value="${fmtNum(r.current)}" step="0.01" />`
-        : fmt(r.current);
-      return `<tr><td>${escHtml(r.label)}</td><td>${fmt(r.last_agreed)}</td><td>${cur}</td></tr>`;
+        ? `<input type="number" class="eos-input" data-section="assets" data-idx="${i}" data-col="current" value="${fmtNum(r.current)}" step="0.01" />${copyBtn(r.current, r.label + ' current')}`
+        : `${fmtFS(r.current)}${copyBtn(fmtFSnum(r.current), r.label)}`;
+      return `<tr><td>${escHtml(r.label)}</td><td>${fmtFS(r.last_agreed)}${copyBtn(fmtFSnum(r.last_agreed), r.label + ' last agreed')}</td><td>${cur}</td></tr>`;
     }).join('');
 
     const ta = state.total_assets_available || {};
     const rows_costs = (state.costs_and_disbursements || []).map((r, i) => {
       const cur = editable
-        ? `<input type="number" class="eos-input" data-section="costs" data-idx="${i}" data-col="current" value="${fmtNum(r.current)}" step="0.01" />`
-        : fmt(r.current);
-      return `<tr><td>${escHtml(r.label)}</td><td>${fmt(r.last_agreed)}</td><td>${cur}</td></tr>`;
+        ? `<input type="number" class="eos-input" data-section="costs" data-idx="${i}" data-col="current" value="${fmtNum(r.current)}" step="0.01" />${copyBtn(r.current, r.label + ' current')}`
+        : `${fmtFS(r.current)}${copyBtn(fmtFSnum(r.current), r.label)}`;
+      return `<tr><td>${escHtml(r.label)}</td><td>${fmtFS(r.last_agreed)}${copyBtn(fmtFSnum(r.last_agreed), r.label + ' last agreed')}</td><td>${cur}</td></tr>`;
     }).join('');
 
     const tc = state.total_costs || {};
@@ -820,44 +850,59 @@
     const sd = state.surplus_deficiency || {};
     const div = state.estimated_dividend_pence_per_pound || {};
 
-    const sdClass_la  = (sd.last_agreed  || 0) < 0 ? 'deficiency' : 'surplus';
-    const sdClass_cur = (sd.current      || 0) < 0 ? 'deficiency' : 'surplus';
-    const sdLabel_la  = (sd.last_agreed  || 0) < 0 ? 'Deficiency' : 'Surplus';
-    const sdLabel_cur = (sd.current      || 0) < 0 ? 'Deficiency' : 'Surplus';
+    const isNegSD_la  = (sd.last_agreed  || 0) < 0;
+    const isNegSD_cur = (sd.current      || 0) < 0;
 
     const ucCurInput = editable
-      ? `<input type="number" class="eos-input" data-section="uc" data-idx="0" data-col="current" value="${fmtNum(uc.current)}" step="0.01" />`
-      : fmt(uc.current);
+      ? `<input type="number" class="eos-input" data-section="uc" data-idx="0" data-col="current" value="${fmtNum(uc.current)}" step="0.01" />${copyBtn(uc.current, 'Unsecured Creditors current')}`
+      : `${fmtFS(uc.current)}${copyBtn(fmtFSnum(uc.current), 'Unsecured Creditors')}`;
+
+    // Build copy-all text for the whole table
+    const allRows = [
+      ['Assets Available', '', ''],
+      ...(state.assets_available || []).map(r => [r.label, fmtFSnum(r.last_agreed), fmtFSnum(r.current)]),
+      ['Total Assets Available', fmtFSnum(ta.last_agreed), fmtFSnum(ta.current)],
+      ['Estimated Costs & Disbursements', '', ''],
+      ...(state.costs_and_disbursements || []).map(r => [r.label, fmtFSnum(r.last_agreed), fmtFSnum(r.current)]),
+      ['Total Costs & Disbursements', fmtFSnum(tc.last_agreed), fmtFSnum(tc.current)],
+      ['Available for Distribution', fmtFSnum(afd.last_agreed), fmtFSnum(afd.current)],
+      ['Unsecured Creditors', fmtFSnum(uc.last_agreed), fmtFSnum(uc.current)],
+      ['Surplus / (Deficiency)', fmtFSnum(sd.last_agreed), fmtFSnum(sd.current)],
+      ['Estimated Dividend (p/£)', fmtNum(div.last_agreed) + 'p', fmtNum(div.current) + 'p'],
+    ];
+    const copyAllText = allRows.map(r => r.join('\t')).join('\n');
+    const safeAllText = copyAllText.replace(/'/g, "\\'");
 
     return `
-      <table class="eos-table">
+      <div style="display:flex;justify-content:flex-end;margin-bottom:0.5rem;">
+        <button class="copy-section-btn" onclick="copyToClip(this,'${safeAllText}')">⧉ Copy All</button>
+      </div>
+      <table class="fin-table">
         <thead>
           <tr>
-            <th style="text-align:left;">Line</th>
-            <th>Last Agreed</th>
-            <th>Current${editable ? ' <small style="color:#6366f1;font-size:0.65rem;">(editable)</small>' : ''}</th>
+            <th style="text-align:left;">Line Item</th>
+            <th>Last Agreed £</th>
+            <th>Current Estimate £${editable ? ' <small style="color:#6366f1;font-size:0.65rem;">✏ editable</small>' : ''}</th>
           </tr>
         </thead>
         <tbody>
-          <tr class="section-header"><td colspan="3">Assets Available</td></tr>
+          <tr class="fin-section"><td colspan="3">Assets Available</td></tr>
           ${rows_assets}
-          <tr class="total-row highlight"><td>Total Assets Available</td><td>${fmt(ta.last_agreed)}</td><td>${fmt(ta.current)}</td></tr>
-          <tr class="divider-row"><td colspan="3"></td></tr>
-          <tr class="section-header"><td colspan="3">Costs &amp; Disbursements</td></tr>
+          <tr class="fin-total"><td>Total Assets Available</td><td>${fmtFS(ta.last_agreed)}${copyBtn(fmtFSnum(ta.last_agreed),'Total Assets LA')}</td><td>${fmtFS(ta.current)}${copyBtn(fmtFSnum(ta.current),'Total Assets Current')}</td></tr>
+          <tr class="fin-section"><td colspan="3">Estimated Costs &amp; Disbursements</td></tr>
           ${rows_costs}
-          <tr class="total-row"><td>Total Costs</td><td>${fmt(tc.last_agreed)}</td><td>${fmt(tc.current)}</td></tr>
-          <tr class="divider-row"><td colspan="3"></td></tr>
-          <tr class="grand-total"><td>Available for Distribution</td><td>${fmt(afd.last_agreed)}</td><td>${fmt(afd.current)}</td></tr>
-          <tr><td>Unsecured Creditors</td><td>${fmt(uc.last_agreed)}</td><td>${ucCurInput}</td></tr>
-          <tr class="${sdClass_la} ${sdClass_cur === sdClass_la ? '' : ''}">
-            <td>Surplus / (Deficiency)</td>
-            <td class="${sdClass_la}">${fmt(sd.last_agreed)}</td>
-            <td class="${sdClass_cur}">${fmt(sd.current)}</td>
+          <tr class="fin-total"><td>Total Estimated Costs &amp; Disbursements</td><td>${fmtFS(tc.last_agreed)}${copyBtn(fmtFSnum(tc.last_agreed),'Total Costs LA')}</td><td>${fmtFS(tc.current)}${copyBtn(fmtFSnum(tc.current),'Total Costs Current')}</td></tr>
+          <tr class="fin-grand"><td>Estimated Available For Distribution</td><td>${fmtFS(afd.last_agreed)}${copyBtn(fmtFSnum(afd.last_agreed),'AFD LA')}</td><td>${fmtFS(afd.current)}${copyBtn(fmtFSnum(afd.current),'AFD Current')}</td></tr>
+          <tr><td>Unsecured Creditors</td><td>${fmtFS(uc.last_agreed)}${copyBtn(fmtFSnum(uc.last_agreed),'UC LA')}</td><td>${ucCurInput}</td></tr>
+          <tr class="${isNegSD_la || isNegSD_cur ? 'fin-negative' : ''}">
+            <td>Surplus/(Deficiency) Available</td>
+            <td>${fmtFS(sd.last_agreed)}${copyBtn(fmtFSnum(sd.last_agreed),'S/D LA')}</td>
+            <td>${fmtFS(sd.current)}${copyBtn(fmtFSnum(sd.current),'S/D Current')}</td>
           </tr>
-          <tr class="total-row highlight">
+          <tr class="fin-dividend">
             <td>Estimated Dividend (p/£)</td>
-            <td>${fmtNum(div.last_agreed)}p</td>
-            <td>${fmtNum(div.current)}p</td>
+            <td>${fmtNum(div.last_agreed)}p${copyBtn(fmtNum(div.last_agreed),'Dividend LA')}</td>
+            <td>${fmtNum(div.current)}p${copyBtn(fmtNum(div.current),'Dividend Current')}</td>
           </tr>
         </tbody>
       </table>`;
@@ -1527,7 +1572,15 @@
     const wrap = document.getElementById('ie-output-wrap');
     wrap.className = 'ie-output-wrap visible';
 
-    // Summary bar
+    const c = state.client || {};
+    const adultsDisplay = c.household_size_adults != null
+      ? c.household_size_adults + (c.household_assumed ? ' (assumed)' : '')
+      : (c.assumed_single_adult ? '1 (assumed)' : '—');
+    const childrenU16 = c.household_size_children_under_16 != null ? c.household_size_children_under_16 : '—';
+    const children1618 = c.household_size_children_16_to_18 != null ? c.household_size_children_16_to_18 : '—';
+    const taHousehold = (state.trigger_analysis && state.trigger_analysis.household_used_for_calculation) ? state.trigger_analysis.household_used_for_calculation : '';
+
+    // Summary tiles
     const surplusClass = state.summary.surplus_or_deficit >= 0 ? 'surplus' : 'deficit';
     const surplusLabel = state.summary.surplus_or_deficit >= 0 ? 'Disposable Income' : 'Deficit';
     let html = `
@@ -1541,74 +1594,84 @@
           <div class="tile-value" id="ie-tile-expenditure">${fmtIE(state.expenditure.total_expenditure)}</div>
         </div>
         <div class="ie-summary-tile ${surplusClass}">
-          <div class="tile-label">${surplusLabel}</div>
+          <div class="tile-label" id="ie-tile-disp-label">${surplusLabel}</div>
           <div class="tile-value" id="ie-tile-disposable">${fmtIE(state.summary.surplus_or_deficit)}</div>
         </div>
       </div>`;
 
-    // Client info
-    const c = state.client || {};
-    const adultsDisplay = c.household_size_adults != null
-      ? c.household_size_adults + (c.household_assumed ? ' (assumed)' : '')
-      : (c.assumed_single_adult ? '1 (assumed)' : '—');
-    const childrenU16 = c.household_size_children_under_16 != null ? c.household_size_children_under_16 : '—';
-    const children1618 = c.household_size_children_16_to_18 != null ? c.household_size_children_16_to_18 : '—';
-    const taHousehold = (state.trigger_analysis && state.trigger_analysis.household_used_for_calculation) ? state.trigger_analysis.household_used_for_calculation : '';
-    html += `<div class="ie-section-card" style="background:#f0fdf9;border:1px solid #6ee7b7;">
-      <div class="ie-section-header">
-        <span class="ie-section-title">👤 Client / Household</span>
-        ${taHousehold ? `<span style="font-size:0.75rem;color:#555;">${escHtml(taHousehold)}</span>` : ''}
-      </div>
-      <table class="ie-table">
-        ${c.name ? `<tr><td>Name</td><td style="text-align:right;font-weight:600;">${escHtml(c.name)}</td></tr>` : ''}
-        <tr><td>Adults</td><td style="text-align:right;">${adultsDisplay}</td></tr>
-        <tr><td>Children under 16</td><td style="text-align:right;">${childrenU16}</td></tr>
-        <tr><td>Children 16–18</td><td style="text-align:right;">${children1618}</td></tr>
-      </table>
+    // Household info bar
+    html += `<div style="background:#f0fdf9;border:1px solid #6ee7b7;border-radius:8px;padding:0.6rem 1rem;margin-bottom:0.85rem;font-size:0.83rem;display:flex;gap:1.5rem;flex-wrap:wrap;align-items:center;">
+      <strong style="color:#059669;">👤 Household</strong>
+      ${c.name ? `<span><strong>Name:</strong> ${escHtml(c.name)}</span>` : ''}
+      <span><strong>Adults:</strong> ${adultsDisplay}</span>
+      <span><strong>Children &lt;16:</strong> ${childrenU16}</span>
+      <span><strong>Children 16–18:</strong> ${children1618}</span>
+      ${taHousehold ? `<span style="color:#555;font-style:italic;">${escHtml(taHousehold)}</span>` : ''}
     </div>`;
 
-    // Income section
-    html += `<div class="ie-section-card">
-      <div class="ie-section-header"><span class="ie-section-title">💼 Income</span></div>
-      <table class="ie-table">
+    // Build the main financial table
+    html += `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem;">
+      <span style="font-size:0.75rem;color:#6366f1;font-weight:600;">✏ Values are editable — type to adjust</span>
+      <button class="copy-section-btn" id="ie-copy-all-btn">⧉ Copy All I&E</button>
+    </div>
+    <table class="fin-table" id="ie-fin-table">
+      <thead>
+        <tr>
+          <th style="text-align:left;width:60%;">Item</th>
+          <th>Monthly £</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr class="fin-section"><td colspan="2">Income</td></tr>
         ${IE_INCOME_FIELDS.map(f => `<tr>
           <td>${escHtml(f.label)}</td>
-          <td>${ieInputHtml('income', f.key, state.income[f.key])}</td>
+          <td>${ieInputHtml('income', f.key, state.income[f.key])}${copyBtn(state.income[f.key] != null ? Number(state.income[f.key]).toFixed(2) : '', f.label)}</td>
         </tr>`).join('')}
-        <tr class="ie-total"><td>Total Income</td><td id="ie-income-total">${fmtIE(state.income.total_income)}</td></tr>
-      </table>
-    </div>`;
+        <tr class="fin-total">
+          <td>Total Income</td>
+          <td id="ie-income-total">${fmtIE(state.income.total_income)}${copyBtn(state.income.total_income != null ? Number(state.income.total_income).toFixed(2) : '', 'Total Income')}</td>
+        </tr>`;
 
-    // Expenditure categories
     IE_EXP_CATS.forEach(cat => {
       const catObj = (state.expenditure && state.expenditure[cat.key]) || {};
       const isOver = cat.flexible && catObj.over_trigger;
-      let triggerBadge = '';
+      let sectionLabel = escHtml(cat.label);
       if (cat.flexible) {
         const tf = catObj.trigger_figure != null ? catObj.trigger_figure : '?';
         const vari = catObj.variance_from_trigger != null ? catObj.variance_from_trigger : null;
-        const variStr = vari != null ? (vari >= 0 ? ` (+£${Math.abs(vari).toFixed(2)})` : ` (-£${Math.abs(vari).toFixed(2)})`) : '';
-        triggerBadge = `<span class="trigger-badge ${isOver ? 'over' : 'ok'}" id="ie-trigger-${cat.key}">${isOver ? '⚠' : '✓'} Trigger £${typeof tf === 'number' ? tf.toFixed(2) : tf}${variStr}</span>`;
+        const variStr = vari != null ? (vari >= 0 ? ` +£${Math.abs(vari).toFixed(2)}` : ` -£${Math.abs(vari).toFixed(2)}`) : '';
+        const badge = `<span class="trigger-badge ${isOver ? 'over' : 'ok'}" id="ie-trigger-${cat.key}" style="margin-left:0.6rem;">${isOver ? '⚠' : '✓'} Trigger £${typeof tf === 'number' ? tf.toFixed(2) : tf}${variStr}</span>`;
+        sectionLabel = escHtml(cat.label) + badge;
       }
-      html += `<div class="ie-section-card">
-        <div class="ie-section-header">
-          <span class="ie-section-title">${escHtml(cat.label)}</span>
-          ${triggerBadge}
-        </div>
-        <table class="ie-table">
-          ${cat.fields.map(f => `<tr>
-            <td>${escHtml(f.label)}</td>
-            <td>${ieInputHtml(cat.key, f.key, catObj[f.key] !== undefined ? catObj[f.key] : null)}</td>
-          </tr>`).join('')}
-          <tr class="ie-total"><td>Subtotal</td><td id="ie-sub-${cat.key}">${fmtIE(catObj.subtotal)}</td></tr>
-        </table>
-      </div>`;
+      html += `<tr class="fin-section"><td colspan="2">${sectionLabel}</td></tr>`;
+      cat.fields.forEach(f => {
+        const val = catObj[f.key] !== undefined ? catObj[f.key] : null;
+        html += `<tr>
+          <td>${escHtml(f.label)}</td>
+          <td>${ieInputHtml(cat.key, f.key, val)}${copyBtn(val != null ? Number(val).toFixed(2) : '', f.label)}</td>
+        </tr>`;
+      });
+      html += `<tr class="fin-total">
+        <td>${escHtml(cat.label)} Subtotal</td>
+        <td id="ie-sub-${cat.key}">${fmtIE(catObj.subtotal)}${copyBtn(catObj.subtotal != null ? Number(catObj.subtotal).toFixed(2) : '', cat.label + ' subtotal')}</td>
+      </tr>`;
     });
+
+    html += `<tr class="fin-grand">
+        <td>Total Expenditure</td>
+        <td id="ie-tile-exp-row">${fmtIE(state.expenditure.total_expenditure)}${copyBtn(state.expenditure.total_expenditure != null ? Number(state.expenditure.total_expenditure).toFixed(2) : '', 'Total Expenditure')}</td>
+      </tr>
+      <tr class="${state.summary.surplus_or_deficit < 0 ? 'fin-negative' : ''} fin-dividend">
+        <td id="ie-surplus-label-row">${surplusLabel}</td>
+        <td id="ie-tile-surplus-row">${fmtIE(state.summary.surplus_or_deficit)}${copyBtn(state.summary.surplus_or_deficit != null ? Number(state.summary.surplus_or_deficit).toFixed(2) : '', 'Disposable Income')}</td>
+      </tr>
+      </tbody>
+    </table>`;
 
     // Missing information
     const missing = state.missing_information || [];
     if (missing.length) {
-      html += `<div class="ie-missing-card">
+      html += `<div class="ie-missing-card" style="margin-top:0.75rem;">
         <h4>⚠ Missing Information</h4>
         <ul class="ie-missing-list">${missing.map(m => `<li>${escHtml(m)}</li>`).join('')}</ul>
       </div>`;
@@ -1617,7 +1680,7 @@
     // Mapping notes
     const notes = state.mapping_notes || [];
     if (notes.length) {
-      html += `<div class="ie-mapping-card">
+      html += `<div class="ie-mapping-card" style="margin-top:0.75rem;">
         <h4>Mapping Notes</h4>
         ${notes.map(n => `<div class="ie-mapping-row">
           <span class="ie-mapping-src">${escHtml(n.source_item)}</span>
@@ -1634,6 +1697,33 @@
 
     wrap.innerHTML = html;
     wireIEInputs(state);
+
+    // Wire copy-all button
+    const copyAllBtn = document.getElementById('ie-copy-all-btn');
+    if (copyAllBtn) {
+      copyAllBtn.addEventListener('click', function() {
+        const rows = [['Item', 'Monthly £'], ['', ''], ['Income', '']];
+        IE_INCOME_FIELDS.forEach(f => {
+          const v = state.income[f.key];
+          rows.push([f.label, v != null ? Number(v).toFixed(2) : '']);
+        });
+        rows.push(['Total Income', state.income.total_income != null ? Number(state.income.total_income).toFixed(2) : '']);
+        IE_EXP_CATS.forEach(cat => {
+          const catObj = (state.expenditure && state.expenditure[cat.key]) || {};
+          rows.push(['', '']);
+          rows.push([cat.label, '']);
+          cat.fields.forEach(f => {
+            const v = catObj[f.key];
+            rows.push([f.label, v != null ? Number(v).toFixed(2) : '']);
+          });
+          rows.push([cat.label + ' Subtotal', catObj.subtotal != null ? Number(catObj.subtotal).toFixed(2) : '']);
+        });
+        rows.push(['', '']);
+        rows.push(['Total Expenditure', state.expenditure.total_expenditure != null ? Number(state.expenditure.total_expenditure).toFixed(2) : '']);
+        rows.push([surplusLabel, state.summary.surplus_or_deficit != null ? Number(state.summary.surplus_or_deficit).toFixed(2) : '']);
+        copyToClip(this, rows.map(r => r.join('\t')).join('\n'));
+      });
+    }
   }
 
   function wireIEInputs(state) {
@@ -1681,32 +1771,61 @@
   }
 
   function refreshIETotals(state) {
-    // Update summary tiles
+    // Summary tiles
     const incomeTile = document.getElementById('ie-tile-income');
     const expTile    = document.getElementById('ie-tile-expenditure');
     const dispTile   = document.getElementById('ie-tile-disposable');
+    const dispLabel  = document.getElementById('ie-tile-disp-label');
     const incomeTotal = document.getElementById('ie-income-total');
-    if (incomeTile) incomeTile.textContent = fmtIE(state.income.total_income);
-    if (expTile)    expTile.textContent    = fmtIE(state.expenditure.total_expenditure);
+    const surplus = state.summary.surplus_or_deficit;
+    const surplusLabel = surplus >= 0 ? 'Disposable Income' : 'Deficit';
+    if (incomeTile)  incomeTile.textContent  = fmtIE(state.income.total_income);
+    if (expTile)     expTile.textContent     = fmtIE(state.expenditure.total_expenditure);
     if (dispTile) {
-      dispTile.textContent = fmtIE(state.summary.surplus_or_deficit);
+      dispTile.textContent = fmtIE(surplus);
       const tile = dispTile.closest('.ie-summary-tile');
-      if (tile) { tile.classList.remove('surplus','deficit'); tile.classList.add(state.summary.surplus_or_deficit >= 0 ? 'surplus' : 'deficit'); }
-      dispTile.closest('.ie-summary-tile').querySelector('.tile-label').textContent =
-        state.summary.surplus_or_deficit >= 0 ? 'Disposable Income' : 'Deficit';
+      if (tile) { tile.classList.remove('surplus','deficit'); tile.classList.add(surplus >= 0 ? 'surplus' : 'deficit'); }
+      if (dispLabel) dispLabel.textContent = surplusLabel;
     }
-    if (incomeTotal) incomeTotal.textContent = fmtIE(state.income.total_income);
+    if (incomeTotal) {
+      const copyB = incomeTotal.querySelector('.copy-btn');
+      incomeTotal.textContent = fmtIE(state.income.total_income);
+      if (copyB) incomeTotal.appendChild(copyB);
+    }
+
+    // Table row totals (single fin-table layout)
+    const expRow = document.getElementById('ie-tile-exp-row');
+    if (expRow) {
+      const copyB = expRow.querySelector('.copy-btn');
+      expRow.textContent = fmtIE(state.expenditure.total_expenditure);
+      if (copyB) expRow.appendChild(copyB);
+    }
+    const surpRow = document.getElementById('ie-tile-surplus-row');
+    const surpLabelRow = document.getElementById('ie-surplus-label-row');
+    if (surpRow) {
+      const copyB = surpRow.querySelector('.copy-btn');
+      surpRow.textContent = fmtIE(surplus);
+      if (copyB) surpRow.appendChild(copyB);
+      const tr = surpRow.closest('tr');
+      if (tr) { tr.classList.toggle('fin-negative', surplus < 0); }
+    }
+    if (surpLabelRow) surpLabelRow.textContent = surplusLabel;
+
     // Category subtotals + trigger badges
     IE_EXP_CATS.forEach(cat => {
       const sub = document.getElementById('ie-sub-' + cat.key);
       const badge = document.getElementById('ie-trigger-' + cat.key);
       const catObj = (state.expenditure && state.expenditure[cat.key]) || {};
-      if (sub) sub.textContent = fmtIE(catObj.subtotal);
+      if (sub) {
+        const copyB = sub.querySelector('.copy-btn');
+        sub.textContent = fmtIE(catObj.subtotal);
+        if (copyB) sub.appendChild(copyB);
+      }
       if (badge && cat.flexible) {
         const over = catObj.over_trigger;
         const tf = catObj.trigger_figure != null ? catObj.trigger_figure : '?';
         const vari = catObj.variance_from_trigger != null ? catObj.variance_from_trigger : null;
-        const variStr = vari != null ? (vari >= 0 ? ` (+£${Math.abs(vari).toFixed(2)})` : ` (-£${Math.abs(vari).toFixed(2)})`) : '';
+        const variStr = vari != null ? (vari >= 0 ? ` +£${Math.abs(vari).toFixed(2)}` : ` -£${Math.abs(vari).toFixed(2)}`) : '';
         badge.className = 'trigger-badge ' + (over ? 'over' : 'ok');
         badge.textContent = `${over ? '⚠' : '✓'} Trigger £${typeof tf === 'number' ? tf.toFixed(2) : tf}${variStr}`;
       }
