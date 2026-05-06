@@ -219,6 +219,27 @@
     .model-field .mf-label { font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; color: #999; margin-bottom: 0.2rem; }
     .model-field .mf-value { font-size: 0.88rem; color: #333; font-family: ui-monospace, monospace; }
 
+    /* ── Variation Reason ── */
+    .reason-card { background: #fff; border-radius: 12px; box-shadow: 0 1px 6px rgba(0,0,0,0.07); padding: 1rem 1.25rem; margin-bottom: 1.25rem; }
+    .reason-title { font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #999; margin-bottom: 0.75rem; }
+    .var-buttons { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 0.65rem; }
+    .var-btn { font-size: 0.75rem; font-weight: 600; padding: 0.28rem 0.65rem; border: 1.5px solid #e0e7ff; border-radius: 7px; background: #f5f5ff; color: #4f46e5; cursor: pointer; transition: background 0.15s, border-color 0.15s; white-space: nowrap; }
+    .var-btn:hover { background: #e0e7ff; border-color: #6366f1; }
+    .var-btn:disabled { opacity: 0.35; cursor: default; }
+    .reason-textarea { width: 100%; border: 1.5px solid #d0d5dd; border-radius: 8px; padding: 0.7rem 0.9rem; font-size: 0.9rem; font-family: inherit; resize: vertical; min-height: 110px; line-height: 1.6; transition: border-color 0.2s; }
+    .reason-textarea:focus { outline: none; border-color: #6366f1; }
+    .reason-actions { display: flex; align-items: center; gap: 0.75rem; margin-top: 0.65rem; }
+    .btn-tidy { display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.5rem 1.2rem; background: #6366f1; color: #fff; border: none; border-radius: 8px; font-size: 0.88rem; font-weight: 700; cursor: pointer; transition: background 0.2s; }
+    .btn-tidy:hover:not(:disabled) { background: #4f46e5; }
+    .btn-tidy:disabled { opacity: 0.6; cursor: not-allowed; }
+    .tidy-spinner { width: 13px; height: 13px; border: 2px solid rgba(255,255,255,0.4); border-top-color: #fff; border-radius: 50%; animation: spin 0.7s linear infinite; }
+    .reason-output-wrap { display: none; margin-top: 0.85rem; }
+    .reason-output-wrap.visible { display: block; }
+    .reason-output-label { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; color: #999; margin-bottom: 0.4rem; display: flex; align-items: center; justify-content: space-between; }
+    .reason-output-box { background: #f0f4ff; border: 1px solid #c7d2fe; border-radius: 8px; padding: 0.9rem 1.1rem; font-size: 0.9rem; line-height: 1.7; color: #1e1b4b; white-space: pre-wrap; word-break: break-word; min-height: 60px; }
+    .btn-use-tidied { font-size: 0.75rem; font-weight: 600; padding: 0.22rem 0.65rem; border: 1.5px solid #c7d2fe; border-radius: 6px; background: #eef2ff; color: #4f46e5; cursor: pointer; transition: background 0.15s; }
+    .btn-use-tidied:hover { background: #e0e7ff; }
+
     /* ── Review Modal ── */
     .review-overlay { position: fixed; inset: 0; background: rgba(15,15,30,0.7); z-index: 500; display: none; }
     .review-overlay.open { display: flex; }
@@ -392,6 +413,35 @@
           </button>
         </div>
       </form>
+
+      <!-- Variation Reason -->
+      <div class="reason-card" id="reason-card">
+        <div class="reason-title">Variation Reason</div>
+        <div class="var-buttons">
+          <button type="button" class="var-btn" data-var="case_number">📎 Case Ref</button>
+          <button type="button" class="var-btn" data-var="ff_amount">💷 F&amp;F Amount</button>
+          <button type="button" class="var-btn" data-var="creditors_claim">💳 Creditors Claim</button>
+          <button type="button" class="var-btn" data-var="variation_fee">📋 Variation Fee</button>
+          <button type="button" class="var-btn" data-var="current_dividend" id="varbtn-current_dividend">📈 Current Dividend</button>
+          <button type="button" class="var-btn" data-var="agreed_dividend"  id="varbtn-agreed_dividend">📊 Agreed Dividend</button>
+          <button type="button" class="var-btn" data-var="afd_current"      id="varbtn-afd_current">💰 Avail. for Dist.</button>
+          <button type="button" class="var-btn" data-var="outcome_uplift"   id="varbtn-outcome_uplift">📉 Outcome Uplift</button>
+        </div>
+        <textarea class="reason-textarea" id="reason-textarea" placeholder="Draft the reason for this variation here. Use the buttons above to insert values at the cursor position…"></textarea>
+        <div class="reason-actions">
+          <button type="button" class="btn-tidy" id="btn-tidy">
+            <span id="tidy-label">✨ Tidy with AI</span>
+          </button>
+          <span id="tidy-status" style="font-size:0.8rem;color:#888;"></span>
+        </div>
+        <div class="reason-output-wrap" id="reason-output-wrap">
+          <div class="reason-output-label">
+            <span>Structured Result</span>
+            <button type="button" class="btn-use-tidied" id="btn-use-tidied">↑ Replace draft</button>
+          </div>
+          <div class="reason-output-box" id="reason-output-box"></div>
+        </div>
+      </div>
 
       {% endif %}
 
@@ -1112,6 +1162,153 @@
     if (preFillCN)  document.getElementById('case-number').value = preFillCN;
     if (workItemId) document.getElementById('hidden-work-item-id').value = workItemId;
   })();
+
+  // ── Variation Reason ─────────────────────────────────────────────────────
+
+  function getVariableValue(varName) {
+    // Pull live values from form inputs and EOS state
+    const activeKey = Object.keys(store).find(k => {
+      const el = document.getElementById('case-item-' + k);
+      return el && el.classList.contains('active');
+    });
+    const activeEntry = activeKey ? store[activeKey] : null;
+    const eos = activeEntry && activeEntry.eosState ? activeEntry.eosState : null;
+
+    switch (varName) {
+      case 'case_number': {
+        const v = document.getElementById('case-number').value.trim();
+        return v || '[Case Ref]';
+      }
+      case 'ff_amount': {
+        const v = parseFloat(document.getElementById('ff-amount').value) || 0;
+        return '£' + v.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      }
+      case 'creditors_claim': {
+        const v = parseFloat(document.getElementById('creditors-claim').value) || 0;
+        return '£' + v.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      }
+      case 'variation_fee': {
+        if (!document.getElementById('variation-fee-toggle').checked) return '£0.00';
+        const v = parseFloat(document.getElementById('variation-fee-amount').value) || 400;
+        return '£' + v.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      }
+      case 'current_dividend': {
+        const d = eos && eos.estimated_dividend_pence_per_pound;
+        return d != null ? (Number(d.current).toFixed(2) + 'p/£') : '[Current Dividend]';
+      }
+      case 'agreed_dividend': {
+        const d = eos && eos.estimated_dividend_pence_per_pound;
+        return d != null ? (Number(d.last_agreed).toFixed(2) + 'p/£') : '[Agreed Dividend]';
+      }
+      case 'afd_current': {
+        const a = eos && eos.available_for_distribution;
+        if (a != null) return '£' + Number(a.current).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        return '[AFD]';
+      }
+      case 'outcome_uplift': {
+        const res = activeEntry && activeEntry.parsedResult;
+        const u = res && res.summary && res.summary.outcome_uplift_pence_per_pound;
+        return u != null ? (Number(u).toFixed(2) + 'p/£') : '[Uplift]';
+      }
+      default: return '[' + varName + ']';
+    }
+  }
+
+  function insertAtCursor(textarea, text) {
+    const start = textarea.selectionStart;
+    const end   = textarea.selectionEnd;
+    textarea.value = textarea.value.slice(0, start) + text + textarea.value.slice(end);
+    textarea.selectionStart = textarea.selectionEnd = start + text.length;
+    textarea.focus();
+  }
+
+  document.querySelectorAll('.var-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const val = getVariableValue(btn.dataset.var);
+      insertAtCursor(document.getElementById('reason-textarea'), val);
+    });
+  });
+
+  document.getElementById('btn-use-tidied').addEventListener('click', () => {
+    const box = document.getElementById('reason-output-box');
+    document.getElementById('reason-textarea').value = box.textContent;
+    document.getElementById('reason-output-wrap').classList.remove('visible');
+  });
+
+  document.getElementById('btn-tidy').addEventListener('click', async () => {
+    const text = document.getElementById('reason-textarea').value.trim();
+    if (!text) { document.getElementById('tidy-status').textContent = 'Please draft some text first.'; return; }
+
+    const tidyBtn   = document.getElementById('btn-tidy');
+    const tidyLabel = document.getElementById('tidy-label');
+    const tidyStatus = document.getElementById('tidy-status');
+    const outputWrap = document.getElementById('reason-output-wrap');
+    const outputBox  = document.getElementById('reason-output-box');
+
+    tidyBtn.disabled = true;
+    tidyLabel.innerHTML = '<div class="tidy-spinner"></div> Tidying…';
+    tidyStatus.textContent = '';
+    outputWrap.classList.remove('visible');
+    outputBox.textContent = '';
+
+    // Gather context for the system prompt
+    const activeKey = Object.keys(store).find(k => {
+      const el = document.getElementById('case-item-' + k);
+      return el && el.classList.contains('active');
+    });
+    const activeEntry = activeKey ? store[activeKey] : null;
+    const eos = activeEntry && activeEntry.eosState ? activeEntry.eosState : null;
+    const summary = activeEntry && activeEntry.parsedResult && activeEntry.parsedResult.summary;
+
+    const context = {
+      case_number:       document.getElementById('case-number').value.trim(),
+      ff_amount:         document.getElementById('ff-amount').value || '0',
+      creditors_claim:   document.getElementById('creditors-claim').value || '0',
+      variation_fee_enabled: document.getElementById('variation-fee-toggle').checked,
+      variation_fee_amount:  document.getElementById('variation-fee-amount').value || '400',
+      current_dividend:  eos && eos.estimated_dividend_pence_per_pound ? eos.estimated_dividend_pence_per_pound.current : null,
+      agreed_dividend:   eos && eos.estimated_dividend_pence_per_pound ? eos.estimated_dividend_pence_per_pound.last_agreed : null,
+      afd_current:       eos && eos.available_for_distribution ? eos.available_for_distribution.current : null,
+      outcome_uplift:    summary ? summary.outcome_uplift_pence_per_pound : null,
+      recommendation:    summary ? summary.recommendation_basis : null,
+    };
+
+    try {
+      const res = await fetch('/tidy-variation-reason', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, context }),
+      });
+      if (!res.ok) throw new Error('Server error ' + res.status);
+
+      const reader  = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let tidied = '';
+
+      outputWrap.classList.add('visible');
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop();
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          const data = JSON.parse(line.slice(6));
+          if (data.text) { tidied += data.text; outputBox.textContent = tidied; }
+          if (data.error) { tidyStatus.textContent = 'Error: ' + data.error; outputWrap.classList.remove('visible'); }
+        }
+      }
+    } catch (err) {
+      tidyStatus.textContent = 'Failed: ' + err.message;
+    } finally {
+      tidyBtn.disabled = false;
+      tidyLabel.textContent = '✨ Tidy with AI';
+    }
+  });
+
   {% endif %}
 
   // ── Review Modal ──────────────────────────────────────────────────────────

@@ -1445,6 +1445,73 @@ def analyze_variation():
 
 
 # ---------------------------------------------------------------------------
+# Variation Reason Tidy
+# ---------------------------------------------------------------------------
+VARIATION_REASON_SYSTEM_PROMPT = """\
+You are a professional insolvency practitioner's assistant. Your task is to tidy and professionally structure a reason statement for a Full & Final Offer IVA variation.
+
+Rules:
+- Keep every fact and figure exactly as stated — do not change any numbers
+- Make the language concise, professional, and suitable for official IVA documentation
+- Use clear paragraph breaks where appropriate
+- Do not add any preamble, commentary, or closing remarks — return only the structured statement text
+- If the draft mentions a dividend improvement, lead with that outcome
+- Write in third person (referring to the debtor's position, not "I" or "we")\
+"""
+
+
+@app.route("/tidy-variation-reason", methods=["POST"])
+@login_required
+def tidy_variation_reason():
+    data = request.get_json() or {}
+    text = (data.get("text") or "").strip()
+    context = data.get("context") or {}
+
+    if not text:
+        return jsonify({"error": "No text provided"}), 400
+
+    # Build context block
+    ctx_lines = []
+    if context.get("case_number"):
+        ctx_lines.append(f"Case Reference: {context['case_number']}")
+    if context.get("ff_amount"):
+        ctx_lines.append(f"Full & Final Offer Amount: £{context['ff_amount']}")
+    if context.get("creditors_claim"):
+        ctx_lines.append(f"Creditors Claim: £{context['creditors_claim']}")
+    if context.get("variation_fee_enabled") and context.get("variation_fee_amount"):
+        ctx_lines.append(f"Variation Meeting Fee: £{context['variation_fee_amount']}")
+    if context.get("current_dividend") is not None:
+        ctx_lines.append(f"Current Estimated Dividend: {context['current_dividend']}p/£")
+    if context.get("agreed_dividend") is not None:
+        ctx_lines.append(f"Originally Agreed Dividend: {context['agreed_dividend']}p/£")
+    if context.get("afd_current") is not None:
+        ctx_lines.append(f"Available for Distribution (Current): £{context['afd_current']}")
+    if context.get("outcome_uplift") is not None:
+        ctx_lines.append(f"Dividend Uplift: {context['outcome_uplift']}p/£")
+    if context.get("recommendation"):
+        ctx_lines.append(f"EOS Recommendation: {context['recommendation']}")
+
+    ctx_block = "\n".join(ctx_lines)
+    user_message = f"Case context:\n{ctx_block}\n\nDraft reason:\n{text}"
+
+    def generate():
+        try:
+            with client.messages.stream(
+                model="claude-opus-4-7",
+                max_tokens=800,
+                system=[{"type": "text", "text": VARIATION_REASON_SYSTEM_PROMPT, "cache_control": {"type": "ephemeral"}}],
+                messages=[{"role": "user", "content": user_message}],
+            ) as stream:
+                for chunk in stream.text_stream:
+                    yield f"data: {json.dumps({'text': chunk})}\n\n"
+                yield f"data: {json.dumps({'done': True})}\n\n"
+        except anthropic.APIError as e:
+            yield f"data: {json.dumps({'error': str(e)})}\n\n"
+
+    return Response(stream_with_context(generate()), mimetype="text/event-stream")
+
+
+# ---------------------------------------------------------------------------
 # User management API (admin only)
 # ---------------------------------------------------------------------------
 @app.route("/api/users")
