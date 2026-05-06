@@ -108,6 +108,8 @@
     .btn-work:hover { background: #4f46e5; }
     .btn-work.secondary { background: #fff; color: #6366f1; border: 1.5px solid #e0e7ff; }
     .btn-work.secondary:hover { background: #f5f5ff; }
+    .btn-del-item { padding: 0.25rem 0.5rem; background: #fff0f0; color: #dc2626; border: 1.5px solid #fecaca; border-radius: 6px; font-size: 0.78rem; font-weight: 700; cursor: pointer; transition: all 0.15s; line-height: 1; }
+    .btn-del-item:hover { background: #dc2626; color: #fff; border-color: #dc2626; }
 
     .empty-queue { text-align: center; padding: 3rem 2rem; color: #bbb; font-size: 0.88rem; }
     .empty-queue strong { display: block; color: #999; font-size: 1rem; margin-bottom: 0.4rem; }
@@ -252,6 +254,7 @@
   const TASK_LABELS = { completion: 'Completion', arrears: 'Arrears', annual: 'Annual', variation: 'Variation', termination: 'Termination' };
   const TASK_CLASS  = { completion: 'completion', arrears: 'arrears', annual: 'annual', variation: 'variation', termination: 'termination' };
   const TOOL_URLS   = { completion: '/completions', arrears: '/arrears', annual: '/annuals', variation: '/variations', termination: '/terminations' };
+  const IS_ADMIN = {{ 'true' if current_user.role == 'admin' else 'false' }};
 
   let allItems = [];
   let currentFilter = 'all';
@@ -364,9 +367,10 @@
             const ttLabel = TASK_LABELS[item.task_type] || item.task_type;
             const ttClass = TASK_CLASS[item.task_type] || 'completion';
             const toolUrl = TOOL_URLS[item.task_type] || '/completions';
-            const actionBtn = item.status === 'pending' || item.status === 'in_progress'
+            const workBtn = item.status === 'pending' || item.status === 'in_progress'
               ? `<a href="${toolUrl}?work_item=${item.id}&case_number=${encodeURIComponent(item.case_number)}" class="btn-work" onclick="markInProgress(${item.id}, event)">▶ Work</a>`
               : `<span style="color:#bbb;font-size:0.82rem;">Done</span>`;
+            const delBtn = IS_ADMIN ? `<button class="btn-del-item" onclick="deleteWorkItem(${item.id}, event)" title="Delete work item">✕</button>` : '';
             return `
               <tr data-id="${item.id}">
                 <td><strong>${escHtml(item.case_number)}</strong></td>
@@ -374,7 +378,7 @@
                 <td><span class="tt-chip ${ttClass}">${escHtml(ttLabel)}</span></td>
                 <td><span class="${dc}">${fmtDate(item.due_date)}</span></td>
                 <td><span class="status-chip ${item.status}">${item.status.replace('_',' ')}</span></td>
-                <td>${actionBtn}</td>
+                <td style="display:flex;gap:0.4rem;align-items:center;">${workBtn}${delBtn}</td>
               </tr>`;
           }).join('')}
         </tbody>
@@ -391,6 +395,20 @@
       const item = allItems.find(i => i.id === id);
       if (item) item.status = 'in_progress';
     } catch {}
+  }
+
+  async function deleteWorkItem(id, e) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!confirm('Remove this work item from the queue?')) return;
+    try {
+      const res = await fetch(`/api/work-items/${id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error();
+      allItems = allItems.filter(i => i.id !== id);
+      renderQueue();
+    } catch {
+      alert('Failed to delete work item.');
+    }
   }
 
   document.getElementById('queue-filters').addEventListener('click', e => {

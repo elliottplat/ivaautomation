@@ -1394,11 +1394,13 @@
     { key: 'salary_wages',         label: 'Salary / wages (take home)' },
     { key: 'self_employed',        label: 'Self-employed income' },
     { key: 'benefits_tax_credits', label: 'Benefits & tax credits' },
+    { key: 'child_benefit',        label: 'Child Benefit' },
     { key: 'pensions',             label: 'Pensions' },
     { key: 'maintenance_received', label: 'Maintenance received' },
     { key: 'other_income',         label: 'Other income' },
   ];
 
+  // flexible: true = has a household-calculated trigger figure from AI
   const IE_EXP_CATS = [
     { key: 'home_and_contents', label: 'Home & Contents', fields: [
       { key: 'rent', label: 'Rent' },
@@ -1416,31 +1418,31 @@
       { key: 'other_fuel', label: 'Other fuel' },
       { key: 'water', label: 'Water' },
     ]},
-    { key: 'communications_and_leisure', label: 'Communications & Leisure', trigger: 79, fields: [
+    { key: 'communications_and_leisure', label: 'Communications & Leisure', flexible: true, fields: [
       { key: 'home_phone_internet_tv', label: 'Home phone / internet / TV' },
       { key: 'mobile_phone', label: 'Mobile phone' },
       { key: 'hobbies_leisure_sport', label: 'Hobbies, leisure, sport' },
       { key: 'gifts', label: 'Gifts' },
       { key: 'pocket_money', label: 'Pocket money' },
+      { key: 'newspapers_magazines', label: 'Newspapers & magazines' },
     ]},
-    { key: 'food_and_housekeeping', label: 'Food & Housekeeping', trigger: 262, fields: [
+    { key: 'food_and_housekeeping', label: 'Food & Housekeeping', flexible: true, fields: [
       { key: 'groceries', label: 'Groceries' },
       { key: 'nappies_baby_items', label: 'Nappies & baby items' },
       { key: 'school_meals_work_meals', label: 'School / work meals' },
       { key: 'laundry_dry_cleaning', label: 'Laundry & dry cleaning' },
       { key: 'alcohol', label: 'Alcohol' },
       { key: 'smoking', label: 'Smoking products' },
+      { key: 'vet_bills', label: 'Vet bills' },
     ]},
-    { key: 'personal_costs', label: 'Personal Costs', trigger: 105, fields: [
+    { key: 'personal_costs', label: 'Personal Costs', flexible: true, fields: [
       { key: 'clothing_footwear', label: 'Clothing & footwear' },
       { key: 'hairdressing', label: 'Hairdressing' },
       { key: 'toiletries', label: 'Toiletries' },
       { key: 'prescriptions_medicines_dental_optical', label: 'Prescriptions / medicines / dental / optical' },
-      { key: 'life_assurance_pensions_insurances', label: 'Life assurance / pensions / insurances' },
-      { key: 'professional_fees_unions', label: 'Professional fees / unions' },
       { key: 'other', label: 'Other' },
     ]},
-    { key: 'travel', label: 'Travel', trigger: 148, fields: [
+    { key: 'travel', label: 'Travel', fields: [
       { key: 'public_transport', label: 'Public transport' },
       { key: 'hire_purchase_vehicle', label: 'Hire purchase / vehicle' },
       { key: 'car_insurance', label: 'Car insurance' },
@@ -1456,6 +1458,12 @@
       { key: 'school_trips_uniform_lessons', label: 'School trips / uniform / lessons' },
       { key: 'adult_education', label: 'Adult education / training' },
     ]},
+    { key: 'insurances_and_pensions', label: 'Insurances & Pensions', fields: [
+      { key: 'life_assurance', label: 'Life assurance' },
+      { key: 'pension_contributions', label: 'Pension contributions' },
+      { key: 'other_insurances', label: 'Other insurances' },
+      { key: 'professional_fees_unions', label: 'Professional fees / union subscriptions' },
+    ]},
     { key: 'other', label: 'Other Essential', fields: [
       { key: 'court_fines', label: 'Court fines' },
       { key: 'other_essential', label: 'Other essential expenditure' },
@@ -1464,6 +1472,8 @@
 
   function recalcIE(state) {
     if (!state) return;
+    if (!state.summary) state.summary = {};
+
     // Income total
     let totalIncome = 0;
     IE_INCOME_FIELDS.forEach(f => { totalIncome += state.income[f.key] || 0; });
@@ -1471,13 +1481,19 @@
 
     // Category subtotals + total expenditure
     let totalExp = 0;
+    let combinedFlexSpend = 0, combinedFlexTrigger = 0;
     IE_EXP_CATS.forEach(cat => {
-      const catObj = state.expenditure[cat.key];
+      const catObj = state.expenditure && state.expenditure[cat.key];
       if (!catObj) return;
       let sub = 0;
       cat.fields.forEach(f => { sub += catObj[f.key] || 0; });
       catObj.subtotal = Math.round(sub * 100) / 100;
-      if (cat.trigger != null) catObj.over_trigger = catObj.subtotal > cat.trigger;
+      if (cat.flexible && catObj.trigger_figure != null) {
+        catObj.over_trigger = catObj.subtotal > catObj.trigger_figure;
+        catObj.variance_from_trigger = Math.round((catObj.subtotal - catObj.trigger_figure) * 100) / 100;
+        combinedFlexSpend += catObj.subtotal;
+        combinedFlexTrigger += catObj.trigger_figure;
+      }
       totalExp += catObj.subtotal;
     });
     state.expenditure.total_expenditure = Math.round(totalExp * 100) / 100;
@@ -1488,6 +1504,9 @@
     state.summary.total_expenditure = state.expenditure.total_expenditure;
     state.summary.surplus_or_deficit = surplus;
     state.summary.status = surplus > 0 ? 'surplus' : surplus < 0 ? 'deficit' : 'balanced';
+    state.summary.combined_flexible_spend = Math.round(combinedFlexSpend * 100) / 100;
+    state.summary.combined_flexible_trigger = Math.round(combinedFlexTrigger * 100) / 100;
+    state.summary.combined_flexible_variance = Math.round((combinedFlexSpend - combinedFlexTrigger) * 100) / 100;
   }
 
   function fmtIE(n) {
@@ -1529,14 +1548,22 @@
 
     // Client info
     const c = state.client || {};
+    const adultsDisplay = c.household_size_adults != null
+      ? c.household_size_adults + (c.household_assumed ? ' (assumed)' : '')
+      : (c.assumed_single_adult ? '1 (assumed)' : '—');
+    const childrenU16 = c.household_size_children_under_16 != null ? c.household_size_children_under_16 : '—';
+    const children1618 = c.household_size_children_16_to_18 != null ? c.household_size_children_16_to_18 : '—';
+    const taHousehold = (state.trigger_analysis && state.trigger_analysis.household_used_for_calculation) ? state.trigger_analysis.household_used_for_calculation : '';
     html += `<div class="ie-section-card" style="background:#f0fdf9;border:1px solid #6ee7b7;">
       <div class="ie-section-header">
         <span class="ie-section-title">👤 Client / Household</span>
+        ${taHousehold ? `<span style="font-size:0.75rem;color:#555;">${escHtml(taHousehold)}</span>` : ''}
       </div>
       <table class="ie-table">
         ${c.name ? `<tr><td>Name</td><td style="text-align:right;font-weight:600;">${escHtml(c.name)}</td></tr>` : ''}
-        <tr><td>Adults</td><td style="text-align:right;">${c.household_size_adults ?? (c.assumed_single_adult ? '1 (assumed)' : '—')}</td></tr>
-        <tr><td>Children</td><td style="text-align:right;">${c.household_size_children ?? '—'}</td></tr>
+        <tr><td>Adults</td><td style="text-align:right;">${adultsDisplay}</td></tr>
+        <tr><td>Children under 16</td><td style="text-align:right;">${childrenU16}</td></tr>
+        <tr><td>Children 16–18</td><td style="text-align:right;">${children1618}</td></tr>
       </table>
     </div>`;
 
@@ -1555,11 +1582,14 @@
     // Expenditure categories
     IE_EXP_CATS.forEach(cat => {
       const catObj = (state.expenditure && state.expenditure[cat.key]) || {};
-      const hasTrigger = cat.trigger != null;
-      const isOver = hasTrigger && catObj.over_trigger;
-      const triggerBadge = hasTrigger
-        ? `<span class="trigger-badge ${isOver ? 'over' : 'ok'}" id="ie-trigger-${cat.key}">${isOver ? '⚠ Over trigger £' + cat.trigger : '✓ Within £' + cat.trigger}</span>`
-        : '';
+      const isOver = cat.flexible && catObj.over_trigger;
+      let triggerBadge = '';
+      if (cat.flexible) {
+        const tf = catObj.trigger_figure != null ? catObj.trigger_figure : '?';
+        const vari = catObj.variance_from_trigger != null ? catObj.variance_from_trigger : null;
+        const variStr = vari != null ? (vari >= 0 ? ` (+£${Math.abs(vari).toFixed(2)})` : ` (-£${Math.abs(vari).toFixed(2)})`) : '';
+        triggerBadge = `<span class="trigger-badge ${isOver ? 'over' : 'ok'}" id="ie-trigger-${cat.key}">${isOver ? '⚠' : '✓'} Trigger £${typeof tf === 'number' ? tf.toFixed(2) : tf}${variStr}</span>`;
+      }
       html += `<div class="ie-section-card">
         <div class="ie-section-header">
           <span class="ie-section-title">${escHtml(cat.label)}</span>
@@ -1670,12 +1700,15 @@
     IE_EXP_CATS.forEach(cat => {
       const sub = document.getElementById('ie-sub-' + cat.key);
       const badge = document.getElementById('ie-trigger-' + cat.key);
-      const catObj = state.expenditure[cat.key] || {};
-      if (sub)   sub.textContent = fmtIE(catObj.subtotal);
-      if (badge && cat.trigger != null) {
+      const catObj = (state.expenditure && state.expenditure[cat.key]) || {};
+      if (sub) sub.textContent = fmtIE(catObj.subtotal);
+      if (badge && cat.flexible) {
         const over = catObj.over_trigger;
+        const tf = catObj.trigger_figure != null ? catObj.trigger_figure : '?';
+        const vari = catObj.variance_from_trigger != null ? catObj.variance_from_trigger : null;
+        const variStr = vari != null ? (vari >= 0 ? ` (+£${Math.abs(vari).toFixed(2)})` : ` (-£${Math.abs(vari).toFixed(2)})`) : '';
         badge.className = 'trigger-badge ' + (over ? 'over' : 'ok');
-        badge.textContent = over ? `⚠ Over trigger £${cat.trigger}` : `✓ Within £${cat.trigger}`;
+        badge.textContent = `${over ? '⚠' : '✓'} Trigger £${typeof tf === 'number' ? tf.toFixed(2) : tf}${variStr}`;
       }
     });
   }
