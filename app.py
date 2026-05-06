@@ -2603,6 +2603,27 @@ def review_case(case_id):
         return jsonify({"error": str(e)}), 500
 
 
+@app.route("/api/admin/variation-cases", methods=["DELETE"])
+@login_required
+def delete_all_variation_cases():
+    if current_user.role != "admin":
+        return jsonify({"error": "Forbidden"}), 403
+    try:
+        conn = get_db_conn()
+        with conn.cursor() as cur:
+            cur.execute("""
+                DELETE FROM notifications WHERE case_id IN
+                    (SELECT id FROM cases WHERE task_type = 'variation')
+            """)
+            cur.execute("DELETE FROM cases WHERE task_type = 'variation'")
+            cur.execute("SELECT COUNT(*) FROM cases WHERE task_type = 'variation'")
+        conn.commit()
+        conn.close()
+        return jsonify({"ok": True})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 @app.route("/api/cases/<int:case_id>", methods=["DELETE"])
 @login_required
 def delete_case(case_id):

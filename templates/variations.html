@@ -393,6 +393,8 @@
         <a href="/admin/users">👥 Users</a>
         <a href="/admin/projects">🏢 Projects</a>
         <div class="divider"></div>
+        <a href="#" id="admin-delete-all-variations" class="danger">🗑 Delete All Variation Cases</a>
+        <div class="divider"></div>
         <a href="/logout" class="danger">Sign out</a>
       </div>
     </div>
@@ -527,9 +529,12 @@
         </div>
       </div>
 
-      <!-- Variation Reason -->
+      {% endif %}
+
+      <!-- Variation Reason - visible to all roles -->
       <div class="reason-card" id="reason-card">
         <div class="reason-title">Variation Reason</div>
+        {% if current_user.role in ['uploader', 'admin'] %}
         <div class="var-buttons">
           <button type="button" class="var-btn" data-var="case_number">📎 Case Ref</button>
           <button type="button" class="var-btn" data-var="ff_amount">💷 F&amp;F Amount</button>
@@ -543,17 +548,21 @@
           <button type="button" class="var-btn" data-var="ie_total_expenditure" id="varbtn-ie_total_expenditure">🧾 I&amp;E Expenditure</button>
           <button type="button" class="var-btn" data-var="ie_disposable"    id="varbtn-ie_disposable">📋 Disposable Income</button>
         </div>
-        <textarea class="reason-textarea" id="reason-textarea" placeholder="Draft the reason for this variation here. Use the buttons above to insert values at the cursor position…"></textarea>
+        {% endif %}
+        <textarea class="reason-textarea" id="reason-textarea" placeholder="Variation reason will appear here when a case is loaded…"></textarea>
+        {% if current_user.role in ['uploader', 'admin'] %}
         <div class="reason-actions">
           <button type="button" class="btn-tidy" id="btn-tidy">
             <span id="tidy-label">✨ Tidy with AI</span>
           </button>
           <span id="tidy-status" style="font-size:0.8rem;color:#888;"></span>
         </div>
+        {% endif %}
         <div style="margin-top:0.65rem;">
           <button type="button" class="save-section-btn" id="save-reason-btn">💾 Save Reason</button>
           <span id="save-reason-status" style="font-size:0.8rem;color:#888;margin-left:0.75rem;"></span>
         </div>
+        {% if current_user.role in ['uploader', 'admin'] %}
         <div class="reason-output-wrap" id="reason-output-wrap">
           <div class="reason-output-label">
             <span>Structured Result</span>
@@ -561,9 +570,8 @@
           </div>
           <div class="reason-output-box" id="reason-output-box"></div>
         </div>
+        {% endif %}
       </div>
-
-      {% endif %}
 
       <!-- Workflow bar -->
       <div class="workflow-bar" id="workflow-bar" style="display:none;">
@@ -2386,12 +2394,14 @@
     }
   });
 
-  // ── Reason save button ────────────────────────────────────────────────────
+  {% endif %}
+
+  // ── Reason save + workflow buttons (all roles) ────────────────────────────
   const reasonSaveBtn = document.getElementById('save-reason-btn');
   const reasonSaveStatus = document.getElementById('save-reason-status');
   if (reasonSaveBtn) {
     reasonSaveBtn.addEventListener('click', async () => {
-      if (!currentCaseId) { reasonSaveStatus.textContent = 'Generate EOS first.'; return; }
+      if (!currentCaseId) { reasonSaveStatus.textContent = 'Load a case first.'; return; }
       const text = document.getElementById('reason-textarea').value.trim();
       if (!text) { reasonSaveStatus.textContent = 'Write a reason first.'; return; }
       reasonSaveBtn.disabled = true;
@@ -2400,6 +2410,8 @@
         const result = await saveVariationSection('reason', text);
         if (result.error) { reasonSaveStatus.textContent = 'Error: ' + result.error; return; }
         saved.reason = true;
+        const entry = store[String(currentCaseId)];
+        if (entry) { entry.savedReason = text; if (!entry.savedFlags) entry.savedFlags = {}; entry.savedFlags.reason = true; }
         reasonSaveBtn.classList.add('saved');
         reasonSaveBtn.textContent = '✓ Reason Saved';
         reasonSaveStatus.textContent = '';
@@ -2413,8 +2425,6 @@
     });
   }
 
-  // ── Workflow buttons ──────────────────────────────────────────────────────
-  // Send for review
   document.getElementById('btn-send-review').addEventListener('click', async () => {
     if (!currentCaseId) return;
     const btn = document.getElementById('btn-send-review');
@@ -2430,7 +2440,6 @@
     finally { btn.disabled = false; }
   });
 
-  // Reviewer approve
   document.getElementById('btn-wf-approve').addEventListener('click', async () => {
     if (!currentCaseId) return;
     const res = await fetch(`/api/cases/${currentCaseId}/review`, {
@@ -2444,7 +2453,6 @@
     updateWorkflowBar();
   });
 
-  // Reviewer reject
   document.getElementById('btn-wf-reject').addEventListener('click', async () => {
     if (!currentCaseId) return;
     const note = prompt('Rejection note (required):');
@@ -2460,7 +2468,6 @@
     updateWorkflowBar();
   });
 
-  // Mark as actioned
   document.getElementById('btn-wf-action').addEventListener('click', async () => {
     if (!currentCaseId) return;
     const res = await fetch(`/api/cases/${currentCaseId}/action`, { method: 'POST' });
@@ -2470,8 +2477,6 @@
     updateSidebarStatus(String(currentCaseId), 'actioned');
     updateWorkflowBar();
   });
-
-  {% endif %}
 
   // ── Review Modal ──────────────────────────────────────────────────────────
   {% if current_user.role in ['reviewer', 'admin'] %}
@@ -2691,6 +2696,29 @@
     adminBtn.classList.toggle('open', open);
   });
   document.addEventListener('click', () => { adminDropdown.classList.remove('open'); adminBtn.classList.remove('open'); });
+
+  const delAllBtn = document.getElementById('admin-delete-all-variations');
+  if (delAllBtn) {
+    delAllBtn.addEventListener('click', async e => {
+      e.preventDefault();
+      adminDropdown.classList.remove('open');
+      if (!confirm('Delete ALL variation cases permanently? This cannot be undone.')) return;
+      const res = await fetch('/api/admin/variation-cases', { method: 'DELETE' });
+      if (res.ok) {
+        Object.keys(store).forEach(k => delete store[k]);
+        document.getElementById('case-list').innerHTML = '<div class="sidebar-empty" id="sidebar-empty">No cases yet</div>';
+        document.getElementById('output-wrap').className = 'output-wrap';
+        document.getElementById('output-wrap').innerHTML = '';
+        document.getElementById('ie-output-wrap').className = 'ie-output-wrap';
+        document.getElementById('ie-output-wrap').innerHTML = '';
+        const imgsec = document.getElementById('case-images-section');
+        if (imgsec) imgsec.remove();
+        currentCaseId = null;
+        updateWorkflowBar();
+        alert('All variation cases deleted.');
+      } else { alert('Delete failed.'); }
+    });
+  }
   {% endif %}
 </script>
 </body>
