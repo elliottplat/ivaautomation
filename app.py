@@ -3,6 +3,7 @@ import base64
 import json
 import csv
 import io
+import time
 import anthropic
 import psycopg2
 from psycopg2.extras import RealDictCursor
@@ -22,6 +23,11 @@ login_manager = LoginManager(app)
 login_manager.login_view = "login_page"
 
 client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
+
+
+def is_overloaded(exc):
+    return isinstance(exc, (anthropic.InternalServerError, anthropic.APIStatusError)) and \
+           "overloaded" in str(exc).lower()
 
 
 # ---------------------------------------------------------------------------
@@ -1394,59 +1400,70 @@ def analyze_variation():
 
     def generate():
         full_text = []
-        try:
-            with client.messages.stream(
-                model="claude-opus-4-7",
-                max_tokens=2000,
-                system=[{"type": "text", "text": VARIATION_EOS_SYSTEM_PROMPT, "cache_control": {"type": "ephemeral"}}],
-                messages=[{"role": "user", "content": content}],
-            ) as stream:
-                for text in stream.text_stream:
-                    full_text.append(text)
-                    yield f"data: {json.dumps({'text': text})}\n\n"
+        max_attempts = 3
+        delay = 4
+        for attempt in range(max_attempts):
+            full_text = []
+            try:
+                with client.messages.stream(
+                    model="claude-opus-4-7",
+                    max_tokens=2000,
+                    system=[{"type": "text", "text": VARIATION_EOS_SYSTEM_PROMPT, "cache_control": {"type": "ephemeral"}}],
+                    messages=[{"role": "user", "content": content}],
+                ) as stream:
+                    for text in stream.text_stream:
+                        full_text.append(text)
+                        yield f"data: {json.dumps({'text': text})}\n\n"
 
-                msg = stream.get_final_message()
-                usage = msg.usage
-                case_id = None
+                    msg = stream.get_final_message()
+                    usage = msg.usage
+                    case_id = None
 
-                if case_number and os.environ.get("DATABASE_URL"):
-                    try:
-                        conn = get_db_conn()
-                        with conn.cursor() as cur:
-                            cur.execute(
-                                """INSERT INTO cases
-                                   (case_number, result, input_tokens, output_tokens,
-                                    cache_creation_tokens, cache_read_tokens, submitted_by,
-                                    project_id, task_type)
-                                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'variation') RETURNING id""",
-                                (case_number, "".join(full_text), usage.input_tokens, usage.output_tokens,
-                                 getattr(usage, "cache_creation_input_tokens", 0),
-                                 getattr(usage, "cache_read_input_tokens", 0), submitted_by, project_id),
-                            )
-                            case_id = cur.fetchone()[0]
-                            if work_item_id:
+                    if case_number and os.environ.get("DATABASE_URL"):
+                        try:
+                            conn = get_db_conn()
+                            with conn.cursor() as cur:
                                 cur.execute(
-                                    "UPDATE work_items SET status='in_progress', assigned_to=%s WHERE id=%s",
-                                    (submitted_by, work_item_id),
+                                    """INSERT INTO cases
+                                       (case_number, result, input_tokens, output_tokens,
+                                        cache_creation_tokens, cache_read_tokens, submitted_by,
+                                        project_id, task_type)
+                                       VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'variation') RETURNING id""",
+                                    (case_number, "".join(full_text), usage.input_tokens, usage.output_tokens,
+                                     getattr(usage, "cache_creation_input_tokens", 0),
+                                     getattr(usage, "cache_read_input_tokens", 0), submitted_by, project_id),
                                 )
-                            cur.execute(
-                                "SELECT id FROM users WHERE role IN ('reviewer', 'admin') AND active = TRUE AND id != %s",
-                                (submitted_by,),
-                            )
-                            for (uid,) in cur.fetchall():
+                                case_id = cur.fetchone()[0]
+                                if work_item_id:
+                                    cur.execute(
+                                        "UPDATE work_items SET status='in_progress', assigned_to=%s WHERE id=%s",
+                                        (submitted_by, work_item_id),
+                                    )
                                 cur.execute(
-                                    "INSERT INTO notifications (user_id, case_id, message) VALUES (%s, %s, %s)",
-                                    (uid, case_id, f"New variation for review: {case_number}"),
+                                    "SELECT id FROM users WHERE role IN ('reviewer', 'admin') AND active = TRUE AND id != %s",
+                                    (submitted_by,),
                                 )
-                        conn.commit()
-                        conn.close()
-                    except Exception as e:
-                        print(f"Failed to save variation case: {e}")
+                                for (uid,) in cur.fetchall():
+                                    cur.execute(
+                                        "INSERT INTO notifications (user_id, case_id, message) VALUES (%s, %s, %s)",
+                                        (uid, case_id, f"New variation for review: {case_number}"),
+                                    )
+                            conn.commit()
+                            conn.close()
+                        except Exception as e:
+                            print(f"Failed to save variation case: {e}")
 
-                yield f"data: {json.dumps({'done': True, 'case_id': case_id, 'usage': {'input_tokens': usage.input_tokens, 'output_tokens': usage.output_tokens, 'cache_creation_tokens': getattr(usage, 'cache_creation_input_tokens', 0), 'cache_read_tokens': getattr(usage, 'cache_read_input_tokens', 0)}})}\n\n"
+                    yield f"data: {json.dumps({'done': True, 'case_id': case_id, 'usage': {'input_tokens': usage.input_tokens, 'output_tokens': usage.output_tokens, 'cache_creation_tokens': getattr(usage, 'cache_creation_input_tokens', 0), 'cache_read_tokens': getattr(usage, 'cache_read_input_tokens', 0)}})}\n\n"
+                    return
 
-        except anthropic.APIError as e:
-            yield f"data: {json.dumps({'error': str(e)})}\n\n"
+            except Exception as e:
+                if is_overloaded(e) and attempt < max_attempts - 1 and not full_text:
+                    yield f"data: {json.dumps({'status': f'API busy, retrying in {delay}s… (attempt {attempt + 2}/{max_attempts})'})}\n\n"
+                    time.sleep(delay)
+                    delay *= 2
+                    continue
+                yield f"data: {json.dumps({'error': str(e)})}\n\n"
+                return
 
     return Response(stream_with_context(generate()), mimetype="text/event-stream")
 
@@ -1503,18 +1520,30 @@ def tidy_variation_reason():
     user_message = f"Case context:\n{ctx_block}\n\nDraft reason:\n{text}"
 
     def generate():
-        try:
-            with client.messages.stream(
-                model="claude-opus-4-7",
-                max_tokens=800,
-                system=[{"type": "text", "text": VARIATION_REASON_SYSTEM_PROMPT, "cache_control": {"type": "ephemeral"}}],
-                messages=[{"role": "user", "content": user_message}],
-            ) as stream:
-                for chunk in stream.text_stream:
-                    yield f"data: {json.dumps({'text': chunk})}\n\n"
-                yield f"data: {json.dumps({'done': True})}\n\n"
-        except anthropic.APIError as e:
-            yield f"data: {json.dumps({'error': str(e)})}\n\n"
+        max_attempts = 3
+        delay = 4
+        for attempt in range(max_attempts):
+            yielded = []
+            try:
+                with client.messages.stream(
+                    model="claude-opus-4-7",
+                    max_tokens=800,
+                    system=[{"type": "text", "text": VARIATION_REASON_SYSTEM_PROMPT, "cache_control": {"type": "ephemeral"}}],
+                    messages=[{"role": "user", "content": user_message}],
+                ) as stream:
+                    for chunk in stream.text_stream:
+                        yielded.append(chunk)
+                        yield f"data: {json.dumps({'text': chunk})}\n\n"
+                    yield f"data: {json.dumps({'done': True})}\n\n"
+                    return
+            except Exception as e:
+                if is_overloaded(e) and attempt < max_attempts - 1 and not yielded:
+                    yield f"data: {json.dumps({'status': f'API busy, retrying in {delay}s… (attempt {attempt + 2}/{max_attempts})'})}\n\n"
+                    time.sleep(delay)
+                    delay *= 2
+                    continue
+                yield f"data: {json.dumps({'error': str(e)})}\n\n"
+                return
 
     return Response(stream_with_context(generate()), mimetype="text/event-stream")
 
@@ -1837,20 +1866,30 @@ def analyze_ie():
     })
 
     def generate():
-        full_text = []
-        try:
-            with client.messages.stream(
-                model="claude-opus-4-7",
-                max_tokens=4000,
-                system=[{"type": "text", "text": IE_SYSTEM_PROMPT, "cache_control": {"type": "ephemeral"}}],
-                messages=[{"role": "user", "content": content}],
-            ) as stream:
-                for text in stream.text_stream:
-                    full_text.append(text)
-                    yield f"data: {json.dumps({'text': text})}\n\n"
-                yield f"data: {json.dumps({'done': True})}\n\n"
-        except anthropic.APIError as e:
-            yield f"data: {json.dumps({'error': str(e)})}\n\n"
+        max_attempts = 3
+        delay = 4
+        for attempt in range(max_attempts):
+            full_text = []
+            try:
+                with client.messages.stream(
+                    model="claude-opus-4-7",
+                    max_tokens=4000,
+                    system=[{"type": "text", "text": IE_SYSTEM_PROMPT, "cache_control": {"type": "ephemeral"}}],
+                    messages=[{"role": "user", "content": content}],
+                ) as stream:
+                    for text in stream.text_stream:
+                        full_text.append(text)
+                        yield f"data: {json.dumps({'text': text})}\n\n"
+                    yield f"data: {json.dumps({'done': True})}\n\n"
+                    return
+            except Exception as e:
+                if is_overloaded(e) and attempt < max_attempts - 1 and not full_text:
+                    yield f"data: {json.dumps({'status': f'API busy, retrying in {delay}s… (attempt {attempt + 2}/{max_attempts})'})}\n\n"
+                    time.sleep(delay)
+                    delay *= 2
+                    continue
+                yield f"data: {json.dumps({'error': str(e)})}\n\n"
+                return
 
     return Response(stream_with_context(generate()), mimetype="text/event-stream")
 
