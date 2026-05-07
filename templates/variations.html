@@ -599,12 +599,20 @@
         <div class="ie-form-title">Income &amp; Expenditure Review (SFS)</div>
         <div class="ie-form-row">
           <div class="ie-field">
-            <label for="ie-adults">Adults</label>
-            <input type="number" id="ie-adults" min="1" max="10" value="1" />
+            <label for="ie-adults">Adults <span style="color:#dc2626;font-size:0.75rem;">*</span></label>
+            <input type="number" id="ie-adults" min="1" max="10" value="1" required />
           </div>
           <div class="ie-field">
-            <label for="ie-children">Children</label>
-            <input type="number" id="ie-children" min="0" max="10" value="0" />
+            <label for="ie-children-0-16">Children (0–16)</label>
+            <input type="number" id="ie-children-0-16" min="0" max="20" value="0" required />
+          </div>
+          <div class="ie-field">
+            <label for="ie-children-16-18">Children (16–18)</label>
+            <input type="number" id="ie-children-16-18" min="0" max="20" value="0" required />
+          </div>
+          <div class="ie-field">
+            <label for="ie-vehicles">Vehicles</label>
+            <input type="number" id="ie-vehicles" min="0" max="10" value="0" required />
           </div>
         </div>
         <div class="ie-doc-row">
@@ -2526,8 +2534,34 @@
     refreshIESlot();
   });
 
+  // I&E household composition validation
+  function ieHouseholdValid() {
+    const adults = parseInt(document.getElementById('ie-adults').value, 10);
+    const ch016  = parseInt(document.getElementById('ie-children-0-16').value, 10);
+    const ch1618 = parseInt(document.getElementById('ie-children-16-18').value, 10);
+    const veh    = parseInt(document.getElementById('ie-vehicles').value, 10);
+    return !isNaN(adults) && adults >= 1
+        && !isNaN(ch016)  && ch016  >= 0
+        && !isNaN(ch1618) && ch1618 >= 0
+        && !isNaN(veh)    && veh    >= 0;
+  }
+
+  function updateIESubmitState() {
+    const btn = document.getElementById('btn-ie-submit');
+    if (btn) btn.disabled = !ieHouseholdValid();
+  }
+
+  ['ie-adults','ie-children-0-16','ie-children-16-18','ie-vehicles'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('input', updateIESubmitState);
+  });
+
+  // Run once on load to set initial state
+  updateIESubmitState();
+
   // I&E form submit
   document.getElementById('btn-ie-submit').addEventListener('click', async () => {
+    if (!ieHouseholdValid()) { document.getElementById('ie-submit-status').textContent = 'Please fill in all household fields correctly.'; return; }
     if (!ieFileMap.length) { document.getElementById('ie-submit-status').textContent = 'Please upload the I&E document.'; return; }
     const btn    = document.getElementById('btn-ie-submit');
     const label  = document.getElementById('ie-btn-label');
@@ -2541,8 +2575,10 @@
     wrap.innerHTML = '<div class="calculating-card"><div class="calculating-spinner"></div><p>Mapping to SFS — this may take a moment…</p></div>';
 
     const fd = new FormData();
-    fd.append('adults',   document.getElementById('ie-adults').value || '1');
-    fd.append('children', document.getElementById('ie-children').value || '0');
+    fd.append('adults',            document.getElementById('ie-adults').value || '1');
+    fd.append('children_0_to_16', document.getElementById('ie-children-0-16').value || '0');
+    fd.append('children_16_to_18',document.getElementById('ie-children-16-18').value || '0');
+    fd.append('vehicles',          document.getElementById('ie-vehicles').value || '0');
     ieFileMap.forEach(f => fd.append('ie_document', f));
 
     try {

@@ -4,10 +4,12 @@ import json
 import csv
 import io
 import time
+import hashlib
+import secrets
 import anthropic
 import psycopg2
 from psycopg2.extras import RealDictCursor
-from flask import Flask, render_template, request, jsonify, Response, stream_with_context, redirect, url_for
+from flask import Flask, render_template, request, jsonify, Response, stream_with_context, redirect, url_for, flash, abort
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
 from functools import wraps
@@ -25,6 +27,12 @@ login_manager.login_view = "login_page"
 
 client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
 
+# ---------------------------------------------------------------------------
+# Env vars
+# ---------------------------------------------------------------------------
+RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "")
+APP_URL = os.environ.get("APP_URL", "https://automation.omnigroupuae.com")
+
 
 def is_overloaded(exc):
     return isinstance(exc, (anthropic.InternalServerError, anthropic.APIStatusError)) and \
@@ -35,11 +43,14 @@ def is_overloaded(exc):
 # Auth
 # ---------------------------------------------------------------------------
 class User(UserMixin):
-    def __init__(self, id, username, role, display_name=None):
+    def __init__(self, id, username, role, display_name=None, specialisms=None, email=None, email_verified_at=None):
         self.id = str(id)
         self.username = username
         self.role = role
         self.display_name = display_name or username
+        self.specialisms = specialisms if specialisms is not None else "all"
+        self.email = email
+        self.email_verified_at = email_verified_at
 
 
 @login_manager.user_loader
@@ -50,12 +61,17 @@ def load_user(user_id):
         conn = get_db_conn()
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute(
-                "SELECT id, username, role, display_name FROM users WHERE id = %s AND active = TRUE",
+                "SELECT id, username, role, display_name, specialisms, email, email_verified_at FROM users WHERE id = %s AND active = TRUE",
                 (int(user_id),),
             )
             row = cur.fetchone()
         conn.close()
-        return User(row["id"], row["username"], row["role"], row.get("display_name")) if row else None
+        if not row:
+            return None
+        return User(
+            row["id"], row["username"], row["role"], row.get("display_name"),
+            row.get("specialisms"), row.get("email"), row.get("email_verified_at")
+        )
     except Exception:
         return None
 
@@ -69,6 +85,27 @@ def roles_required(*roles):
             return f(*args, **kwargs)
         return decorated
     return decorator
+
+
+# ---------------------------------------------------------------------------
+# Task type visibility
+# ---------------------------------------------------------------------------
+TASK_TYPES = ["completion", "variation", "termination", "arrears", "dss", "annual"]
+
+
+def user_can_see(user, task_type: str) -> bool:
+    """Return True if the user has visibility of the given task type."""
+    if not user or not user.is_authenticated:
+        return False
+    spec = getattr(user, "specialisms", "all") or "all"
+    if spec == "all":
+        return True
+    return task_type in [s.strip() for s in spec.split(",")]
+
+
+@app.context_processor
+def inject_visibility():
+    return {"user_can_see": user_can_see}
 
 # ---------------------------------------------------------------------------
 # IVA COMPLETION CALCULATION – MASTER PROMPT  (STRICT v20)
@@ -1205,6 +1242,16 @@ def init_db():
                     END IF;
                 END $$
             """)
+            # ensure no existing user has NULL specialisms
+            cur.execute("UPDATE users SET specialisms = 'all' WHERE specialisms IS NULL")
+            # ── email / password-reset columns
+            cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS email VARCHAR(255)")
+            cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified_at TIMESTAMP")
+            cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS password_reset_token VARCHAR(255)")
+            cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS password_reset_expires TIMESTAMP")
+            cur.execute(
+                "CREATE UNIQUE INDEX IF NOT EXISTS users_email_idx ON users(email) WHERE email IS NOT NULL"
+            )
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS cases (
                     id SERIAL PRIMARY KEY,
@@ -1739,6 +1786,27 @@ def extract_cashier_instruction(text):
 
 
 # ---------------------------------------------------------------------------
+# Email-prompt middleware
+# ---------------------------------------------------------------------------
+_EMAIL_EXEMPT = {"/login", "/logout", "/set-email", "/forgot-password", "/reset-password"}
+
+
+@app.before_request
+def require_email():
+    """Redirect logged-in users who have no email on file to the set-email page."""
+    if not current_user.is_authenticated:
+        return
+    if request.path.startswith("/static/"):
+        return
+    if request.path.startswith("/api/"):
+        return
+    if request.path in _EMAIL_EXEMPT:
+        return
+    if not current_user.email:
+        return redirect(url_for("set_email"))
+
+
+# ---------------------------------------------------------------------------
 # Auth routes
 # ---------------------------------------------------------------------------
 @app.route("/login", methods=["GET", "POST"])
@@ -1774,6 +1842,128 @@ def logout():
     return redirect(url_for("login_page"))
 
 
+@app.route("/set-email", methods=["GET", "POST"])
+@login_required
+def set_email():
+    error = None
+    if request.method == "POST":
+        email = (request.form.get("email") or "").strip().lower()
+        if not email or "@" not in email:
+            error = "Please enter a valid email address."
+        else:
+            try:
+                conn = get_db_conn()
+                with conn.cursor() as cur:
+                    cur.execute("UPDATE users SET email = %s WHERE id = %s", (email, int(current_user.id)))
+                conn.commit()
+                conn.close()
+                # Refresh user in session by reloading
+                current_user.email = email
+                next_url = request.args.get("next") or url_for("home")
+                return redirect(next_url)
+            except psycopg2.errors.UniqueViolation:
+                error = "That email address is already associated with another account."
+            except Exception as e:
+                error = "Failed to save email. Please try again."
+    return render_template("set_email.html", error=error)
+
+
+@app.route("/forgot-password", methods=["GET", "POST"])
+def forgot_password():
+    submitted = False
+    if request.method == "POST":
+        email = (request.form.get("email") or "").strip().lower()
+        submitted = True
+        if email and "@" in email and os.environ.get("DATABASE_URL"):
+            try:
+                conn = get_db_conn()
+                with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                    cur.execute("SELECT id, email FROM users WHERE email = %s AND active = TRUE", (email,))
+                    row = cur.fetchone()
+                if row:
+                    raw_token = secrets.token_urlsafe(32)
+                    token_hash = hashlib.sha256(raw_token.encode()).hexdigest()
+                    import datetime
+                    expires = datetime.datetime.utcnow() + datetime.timedelta(hours=1)
+                    with conn.cursor() as cur:
+                        cur.execute(
+                            "UPDATE users SET password_reset_token = %s, password_reset_expires = %s WHERE id = %s",
+                            (token_hash, expires, row["id"]),
+                        )
+                    conn.commit()
+                    reset_url = f"{APP_URL}/reset-password?token={raw_token}"
+                    from mailer import send_password_reset
+                    send_password_reset(row["email"], reset_url)
+                conn.close()
+            except Exception:
+                pass  # Never reveal failures
+    return render_template("forgot_password.html", submitted=submitted)
+
+
+@app.route("/reset-password", methods=["GET", "POST"])
+def reset_password():
+    import datetime
+    error = None
+    token_raw = request.args.get("token") or request.form.get("token") or ""
+
+    if request.method == "POST":
+        new_password = request.form.get("new_password") or ""
+        confirm_password = request.form.get("confirm_password") or ""
+        if new_password != confirm_password:
+            error = "Passwords do not match."
+        elif len(new_password) < 8:
+            error = "Password must be at least 8 characters."
+        else:
+            if token_raw and os.environ.get("DATABASE_URL"):
+                token_hash = hashlib.sha256(token_raw.encode()).hexdigest()
+                try:
+                    conn = get_db_conn()
+                    with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                        cur.execute(
+                            "SELECT id, password_reset_expires FROM users WHERE password_reset_token = %s",
+                            (token_hash,),
+                        )
+                        row = cur.fetchone()
+                    if row and row["password_reset_expires"] and row["password_reset_expires"] > datetime.datetime.utcnow():
+                        with conn.cursor() as cur:
+                            cur.execute(
+                                "UPDATE users SET password_hash = %s, password_reset_token = NULL, password_reset_expires = NULL WHERE id = %s",
+                                (generate_password_hash(new_password), row["id"]),
+                            )
+                        conn.commit()
+                        conn.close()
+                        flash("Password reset successfully. Please sign in.", "success")
+                        return redirect(url_for("login_page"))
+                    else:
+                        conn.close()
+                        error = "This link is invalid or has expired."
+                except Exception:
+                    error = "An error occurred. Please try again."
+            else:
+                error = "Invalid token."
+        return render_template("reset_password.html", token=token_raw, error=error)
+
+    # GET — validate token and show form
+    if token_raw and os.environ.get("DATABASE_URL"):
+        token_hash = hashlib.sha256(token_raw.encode()).hexdigest()
+        try:
+            conn = get_db_conn()
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute(
+                    "SELECT id, password_reset_expires FROM users WHERE password_reset_token = %s",
+                    (token_hash,),
+                )
+                row = cur.fetchone()
+            conn.close()
+            if not row or not row["password_reset_expires"] or row["password_reset_expires"] <= datetime.datetime.utcnow():
+                return render_template("reset_password.html", token=None, error="This link is invalid or has expired.")
+        except Exception:
+            return render_template("reset_password.html", token=None, error="An error occurred.")
+    else:
+        return render_template("reset_password.html", token=None, error="No reset token provided.")
+    return render_template("reset_password.html", token=token_raw, error=None)
+
+
 # ---------------------------------------------------------------------------
 # Page routes
 # ---------------------------------------------------------------------------
@@ -1786,6 +1976,8 @@ def home():
 @app.route("/completions")
 @login_required
 def completions():
+    if not user_can_see(current_user, "completion"):
+        abort(404)
     return render_template("completions.html")
 
 
@@ -1816,24 +2008,32 @@ def admin_projects_page():
 @app.route("/arrears")
 @login_required
 def arrears():
+    if not user_can_see(current_user, "arrears"):
+        abort(404)
     return render_template("arrears.html")
 
 
 @app.route("/annuals")
 @login_required
 def annuals():
+    if not user_can_see(current_user, "annual"):
+        abort(404)
     return render_template("coming_soon.html", task_type="Annual Reviews")
 
 
 @app.route("/terminations")
 @login_required
 def terminations():
+    if not user_can_see(current_user, "termination"):
+        abort(404)
     return render_template("terminations.html")
 
 
 @app.route("/variations")
 @login_required
 def variations():
+    if not user_can_see(current_user, "variation"):
+        abort(404)
     return render_template("variations.html")
 
 
@@ -1844,6 +2044,8 @@ def variations():
 @login_required
 def analyze_termination():
     if current_user.role not in ("uploader", "admin"):
+        return jsonify({"error": "Forbidden"}), 403
+    if not user_can_see(current_user, "termination"):
         return jsonify({"error": "Forbidden"}), 403
 
     case_number = request.form.get("case_number", "").strip()
@@ -1941,6 +2143,8 @@ def analyze_termination():
 @login_required
 def analyze_variation():
     if current_user.role not in ("uploader", "admin"):
+        return jsonify({"error": "Forbidden"}), 403
+    if not user_can_see(current_user, "variation"):
         return jsonify({"error": "Forbidden"}), 403
 
     case_number = request.form.get("case_number", "").strip()
@@ -2213,13 +2417,24 @@ def tidy_variation_reason():
 IE_SYSTEM_PROMPT = """\
 You are an expert UK debt adviser assistant trained to convert informal Income & Expenditure (I&E) statements into the Standard Financial Statement (SFS) format used by the Money Adviser Network / Money and Pensions Service.
 
-You will receive an image of an Income & Expenditure statement. Your task is to:
+You will receive an image of an Income & Expenditure statement and a household composition input. Your task is to:
 1. Extract every line item with its value
 2. Map each item to the correct SFS category and subcategory
-3. Calculate household-specific trigger figures for the three flexible spending categories using the 2026/27 SFS guidelines
-4. Flag any flexible category that exceeds its calculated trigger
-5. Return a single, valid JSON object matching the schema below
-6. Use null for any SFS field where the source document does not provide information
+3. Calculate household-specific SFS trigger thresholds for each relevant category using the provided household composition and the 2026/27 SFS guidelines below
+4. Compare the debtor's stated figure for each category against its computed trigger
+5. Add "sfs_flag": true, "sfs_trigger": <amount>, "sfs_note": "<explanation>" to any category or line that exceeds its trigger
+6. Return a single, valid JSON object matching the schema below
+7. Use null for any SFS field where the source document does not provide information
+
+## HOUSEHOLD COMPOSITION INPUT SCHEMA
+
+The user message will supply four integer values:
+- adults (≥ 1)
+- children_0_to_16 (≥ 0)
+- children_16_to_18 (≥ 0)
+- vehicles (≥ 0)
+
+Use these values — do not infer household size from the document itself. If the values are absent, assume 1 adult, 0 children, 0 vehicles and set "household_assumed": true.
 
 ## SFS CATEGORY STRUCTURE
 
@@ -2300,19 +2515,48 @@ Map every expenditure line into exactly ONE of these SFS categories and subcateg
 - Maintenance received
 - Other income
 
-## SFS SPENDING GUIDELINES — MONTHLY (2026/27)
+## SFS TRIGGER THRESHOLDS — MONTHLY (2026/27)
 
-Calculate the trigger figure for each flexible category by adding components based on household composition:
+Use the household composition values provided in the user message to compute the trigger for each category below. Compare the debtor's stated expenditure against the trigger. If it exceeds the trigger, set sfs_flag: true on that category with the computed trigger and a plain-English note.
 
-| Category | First adult | Additional adult (each) | Child <16 (each) | Child 16-18 (each) |
-|---|---|---|---|---|
-| Communications & leisure | 276.00 | 171.00 | 72.00 | 148.00 |
-| Food & housekeeping | 423.00 | 296.00 | 136.00 | 251.00 |
-| Personal costs | 108.00 | 74.00 | 49.00 | 104.00 |
+### Food & Housekeeping
+- Base (1 adult, 0 children): £519/month
+- 2 adults, 0 children: £738/month
+- Per additional child aged 0–16: +£134/month each
+- Per additional child aged 16–18: +£155/month each
+- Formula: 519 + (additional_adults × 219) + (children_0_to_16 × 134) + (children_16_to_18 × 155)
+  where additional_adults = max(0, adults - 1)
 
-trigger = first_adult + (additional_adults × additional_adult_rate) + (children_under_16 × child_under_16_rate) + (children_16_to_18 × child_16_18_rate)
+### Travel (total across all travel subcategories)
+- 0 vehicles: trigger = £0 — flag any travel expenditure > £0 as requiring justification
+- 1 vehicle: trigger = £220/month
+- 2+ vehicles: trigger = £220/month × vehicles
+- Formula: vehicles × 220
 
-**If household composition is unknown:** assume 1 adult, 0 children, set "household_assumed": true, and add to "missing_information".
+### Personal Costs (clothing, hairdressing, toiletries, prescriptions, other)
+- Per adult: £165/month
+- Formula: adults × 165
+
+### Clothing & Footwear (subcategory of Personal Costs — use independently if itemised separately)
+- 1 adult, 0 children: £76/month
+- Per additional adult: +£22/month
+- Per child 0–16: +£25/month each
+- Per child 16–18: +£29/month each
+- Formula: 76 + (additional_adults × 22) + (children_0_to_16 × 25) + (children_16_to_18 × 29)
+
+### Communications & Leisure
+- Phone/internet total: £117/month (fixed — does not scale with household)
+- Leisure: £56/month per adult
+- Formula: 117 + (adults × 56)
+
+### Childcare
+- Only applicable if children present. Flag if > £1,100/month per child under 5, or > £600/month per school-age child.
+- If no children: trigger = £0 — flag any childcare expenditure.
+
+### Pet Costs (within Food & Housekeeping > Vet bills, or as a separate line)
+- If any pet costs claimed: flag if > £75/month.
+
+**If household composition is unknown:** assume 1 adult, 0 children, 0 vehicles, set "household_assumed": true, and add to "missing_information".
 
 ## CHILD BENEFIT RATES 2026/27 (for reference / income reconciliation only)
 
@@ -2339,9 +2583,10 @@ Return ONLY a valid JSON object. No preamble, no markdown fences, no commentary 
   "client": {
     "name": null,
     "household_size_adults": null,
-    "household_size_children_under_16": null,
+    "household_size_children_0_to_16": null,
     "household_size_children_16_to_18": null,
-    "household_assumed": true
+    "household_size_vehicles": null,
+    "household_assumed": false
   },
   "income": {
     "salary_wages": null,
@@ -2383,7 +2628,10 @@ Return ONLY a valid JSON object. No preamble, no markdown fences, no commentary 
       "trigger_figure": 0.00,
       "trigger_calculation": "276 (1st adult) = 276",
       "over_trigger": false,
-      "variance_from_trigger": 0.00
+      "variance_from_trigger": 0.00,
+      "sfs_flag": false,
+      "sfs_trigger": null,
+      "sfs_note": null
     },
     "food_and_housekeeping": {
       "groceries": null,
@@ -2397,7 +2645,10 @@ Return ONLY a valid JSON object. No preamble, no markdown fences, no commentary 
       "trigger_figure": 0.00,
       "trigger_calculation": "string",
       "over_trigger": false,
-      "variance_from_trigger": 0.00
+      "variance_from_trigger": 0.00,
+      "sfs_flag": false,
+      "sfs_trigger": null,
+      "sfs_note": null
     },
     "personal_costs": {
       "clothing_footwear": null,
@@ -2409,7 +2660,10 @@ Return ONLY a valid JSON object. No preamble, no markdown fences, no commentary 
       "trigger_figure": 0.00,
       "trigger_calculation": "string",
       "over_trigger": false,
-      "variance_from_trigger": 0.00
+      "variance_from_trigger": 0.00,
+      "sfs_flag": false,
+      "sfs_trigger": null,
+      "sfs_note": null
     },
     "travel": {
       "public_transport": null,
@@ -2420,7 +2674,14 @@ Return ONLY a valid JSON object. No preamble, no markdown fences, no commentary 
       "breakdown_cover": null,
       "fuel_parking_tolls": null,
       "other": null,
-      "subtotal": 0.00
+      "subtotal": 0.00,
+      "trigger_figure": 0.00,
+      "trigger_calculation": "string",
+      "over_trigger": false,
+      "variance_from_trigger": 0.00,
+      "sfs_flag": false,
+      "sfs_trigger": null,
+      "sfs_note": null
     },
     "childcare_and_education": {
       "childcare": null,
@@ -2460,7 +2721,8 @@ Return ONLY a valid JSON object. No preamble, no markdown fences, no commentary 
     "combined_flexible_variance": 0.00
   },
   "trigger_analysis": {
-    "household_used_for_calculation": "1 adult, 0 children (assumed)",
+    "household_used_for_calculation": "N adult(s), N child(ren) 0-16, N child(ren) 16-18, N vehicle(s)",
+    "household_assumed": false,
     "categories_over_trigger": [],
     "categories_within_trigger": [],
     "notes": "string"
@@ -2483,6 +2745,10 @@ Return ONLY a valid JSON object. No preamble, no markdown fences, no commentary 
 - Calculate every subtotal, total, trigger figure, and variance yourself
 - variance_from_trigger = subtotal - trigger_figure (positive = over, negative = under)
 - over_trigger = true only if subtotal > trigger_figure
+- sfs_flag = true only if the debtor's stated figure for that category exceeds the computed SFS trigger; otherwise sfs_flag = false
+- sfs_trigger = the computed monthly SFS threshold for that category given the supplied household composition
+- sfs_note = a plain-English explanation, e.g. "Exceeds SFS trigger for 2 adults, 1 child 0-16 (£738/month)"
+- Lines within or at the trigger must have sfs_flag = false and sfs_note = null
 - combined_flexible_spend = sum of the three flexible category subtotals
 - combined_flexible_trigger = sum of the three flexible category trigger figures
 - If your calculated total differs from the source's stated total, use your calculated total and note in "mapping_notes"
@@ -2499,12 +2765,28 @@ def analyze_ie():
 
     try:
         adults = int(request.form.get("adults", "1") or "1")
+        if adults < 1:
+            adults = 1
     except ValueError:
         adults = 1
     try:
-        children = int(request.form.get("children", "0") or "0")
+        children_0_to_16 = int(request.form.get("children_0_to_16", "0") or "0")
+        if children_0_to_16 < 0:
+            children_0_to_16 = 0
     except ValueError:
-        children = 0
+        children_0_to_16 = 0
+    try:
+        children_16_to_18 = int(request.form.get("children_16_to_18", "0") or "0")
+        if children_16_to_18 < 0:
+            children_16_to_18 = 0
+    except ValueError:
+        children_16_to_18 = 0
+    try:
+        vehicles = int(request.form.get("vehicles", "0") or "0")
+        if vehicles < 0:
+            vehicles = 0
+    except ValueError:
+        vehicles = 0
 
     files = request.files.getlist("ie_document")
     pages = [f for f in files if f and f.filename]
@@ -2521,7 +2803,17 @@ def analyze_ie():
 
     content.append({
         "type": "text",
-        "text": f"Income & Expenditure statement attached.\n\nHousehold: {adults} adult(s), {children} child(ren).\n\nExtract all line items, map to SFS categories, and return the JSON."
+        "text": (
+            f"Income & Expenditure statement attached.\n\n"
+            f"Household composition:\n"
+            f"- adults: {adults}\n"
+            f"- children_0_to_16: {children_0_to_16}\n"
+            f"- children_16_to_18: {children_16_to_18}\n"
+            f"- vehicles: {vehicles}\n\n"
+            f"Use these values to compute the SFS trigger thresholds for each relevant category, "
+            f"compare the debtor's stated figures against those triggers, and add sfs_flag / sfs_trigger / sfs_note "
+            f"to any line that exceeds its trigger. Extract all line items, map to SFS categories, and return the JSON."
+        )
     })
 
     def generate():
@@ -3037,6 +3329,9 @@ def list_cases():
     if not os.environ.get("DATABASE_URL"):
         return jsonify([])
     task_type_filter = request.args.get("task_type")
+    # Enforce visibility: if a specific task_type is requested, check access
+    if task_type_filter and not user_can_see(current_user, task_type_filter):
+        return jsonify({"error": "Forbidden"}), 403
     try:
         conn = get_db_conn()
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
@@ -3046,7 +3341,16 @@ def list_cases():
                     (task_type_filter,),
                 )
             else:
-                cur.execute("SELECT id, case_number, created_at, review_status, variation_subtype, custom_variation_type_name FROM cases ORDER BY created_at DESC LIMIT 100")
+                # Filter to only task types the user can see
+                spec = getattr(current_user, "specialisms", "all") or "all"
+                if spec == "all":
+                    cur.execute("SELECT id, case_number, created_at, review_status, variation_subtype, custom_variation_type_name FROM cases ORDER BY created_at DESC LIMIT 100")
+                else:
+                    visible_types = [s.strip() for s in spec.split(",")]
+                    cur.execute(
+                        "SELECT id, case_number, created_at, review_status, variation_subtype, custom_variation_type_name FROM cases WHERE task_type = ANY(%s) ORDER BY created_at DESC LIMIT 100",
+                        (visible_types,),
+                    )
             rows = cur.fetchall()
         conn.close()
         return jsonify([{"id": r["id"], "case_number": r["case_number"], "created_at": r["created_at"].isoformat(), "review_status": r["review_status"], "variation_subtype": r.get("variation_subtype"), "custom_variation_type_name": r.get("custom_variation_type_name")} for r in rows])
@@ -3425,6 +3729,8 @@ def analyze():
 @login_required
 def arrears_projects():
     """Return projects the current user can access (admin sees all)."""
+    if not user_can_see(current_user, "arrears"):
+        return jsonify({"error": "Forbidden"}), 403
     try:
         conn = get_db_conn()
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
@@ -3450,6 +3756,8 @@ def arrears_projects():
 def arrears_upload():
     """Accept a CSV upload for arrears data."""
     if current_user.role not in ("uploader", "admin"):
+        return jsonify({"error": "Forbidden"}), 403
+    if not user_can_see(current_user, "arrears"):
         return jsonify({"error": "Forbidden"}), 403
     project_id = request.form.get("project_id")
     upload_date = request.form.get("upload_date") or None
@@ -3548,6 +3856,8 @@ def _build_arrears_sql_filter(cfg):
 @login_required
 def arrears_dashboard():
     """Return stats for a project: total live cases, in-arrears count, percentage."""
+    if not user_can_see(current_user, "arrears"):
+        return jsonify({"error": "Forbidden"}), 403
     project_id = request.args.get("project_id")
     if not project_id:
         return jsonify({"error": "project_id required"}), 400
@@ -3588,6 +3898,8 @@ def arrears_dashboard():
 @login_required
 def arrears_cases_list():
     """Return in-arrears cases from the latest upload for a project."""
+    if not user_can_see(current_user, "arrears"):
+        return jsonify({"error": "Forbidden"}), 403
     project_id = request.args.get("project_id")
     if not project_id:
         return jsonify({"error": "project_id required"}), 400
@@ -4293,6 +4605,8 @@ def pp_snapshots_list():
 def dss_index():
     if current_user.role not in ("admin", "team_leader"):
         return redirect(url_for("home"))
+    if not user_can_see(current_user, "dss"):
+        abort(404)
     return redirect(url_for("dss_dashboard"))
 
 
@@ -4301,6 +4615,8 @@ def dss_index():
 def dss_dashboard():
     if current_user.role not in ("admin", "team_leader"):
         return redirect(url_for("home"))
+    if not user_can_see(current_user, "dss"):
+        abort(404)
     return render_template("dss_dashboard.html")
 
 
@@ -4309,6 +4625,8 @@ def dss_dashboard():
 def dss_entry():
     if current_user.role not in ("admin", "team_leader"):
         return redirect(url_for("home"))
+    if not user_can_see(current_user, "dss"):
+        abort(404)
     return render_template("dss_entry.html")
 
 
@@ -4317,6 +4635,8 @@ def dss_entry():
 def dss_history():
     if current_user.role not in ("admin", "team_leader"):
         return redirect(url_for("home"))
+    if not user_can_see(current_user, "dss"):
+        abort(404)
     return render_template("dss_history.html")
 
 
@@ -4325,6 +4645,8 @@ def dss_history():
 def dss_settings():
     if current_user.role != "admin":
         return redirect(url_for("home"))
+    if not user_can_see(current_user, "dss"):
+        abort(404)
     return render_template("dss_settings.html")
 
 
@@ -4457,6 +4779,8 @@ def _dss_build_series(shift_rows, landing_rows, base_rate, starting_backlog):
 @login_required
 def dss_api_dashboard():
     if current_user.role not in ("admin", "team_leader"):
+        return jsonify({"error": "Forbidden"}), 403
+    if not user_can_see(current_user, "dss"):
         return jsonify({"error": "Forbidden"}), 403
 
     date_str = request.args.get("date")
@@ -4591,6 +4915,8 @@ def dss_api_dashboard():
 def dss_api_entry_get():
     if current_user.role not in ("admin", "team_leader"):
         return jsonify({"error": "Forbidden"}), 403
+    if not user_can_see(current_user, "dss"):
+        return jsonify({"error": "Forbidden"}), 403
 
     date_str = request.args.get("date")
     try:
@@ -4687,6 +5013,8 @@ def dss_api_entry_get():
 @login_required
 def dss_api_entry_post():
     if current_user.role not in ("admin", "team_leader"):
+        return jsonify({"error": "Forbidden"}), 403
+    if not user_can_see(current_user, "dss"):
         return jsonify({"error": "Forbidden"}), 403
 
     data = request.get_json() or {}
@@ -4790,6 +5118,8 @@ def dss_api_entry_post():
 @login_required
 def dss_api_history():
     if current_user.role not in ("admin", "team_leader"):
+        return jsonify({"error": "Forbidden"}), 403
+    if not user_can_see(current_user, "dss"):
         return jsonify({"error": "Forbidden"}), 403
 
     try:
