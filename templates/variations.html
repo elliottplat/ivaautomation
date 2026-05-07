@@ -232,6 +232,11 @@
     .model-field .mf-label { font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; color: #999; margin-bottom: 0.2rem; }
     .model-field .mf-value { font-size: 0.88rem; color: #333; font-family: ui-monospace, monospace; }
 
+    /* ── Variation type flag note ── */
+    .vtype-flag { display: none; background: #fffbeb; border: 1px solid #fcd34d; border-radius: 8px; padding: 0.6rem 0.9rem; margin-bottom: 0.75rem; font-size: 0.84rem; color: #78350f; line-height: 1.5; }
+    .vtype-flag.visible { display: block; }
+    .vtype-flag strong { color: #92400e; }
+
     /* ── Variation Reason ── */
     .reason-card { background: #fff; border-radius: 12px; box-shadow: 0 1px 6px rgba(0,0,0,0.07); padding: 1rem 1.25rem; margin-bottom: 1.25rem; }
     .reason-title { font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #999; margin-bottom: 0.75rem; }
@@ -429,6 +434,14 @@
         <label for="variation-type">Type</label>
         <select id="variation-type">
           <option value="full_and_final">Full &amp; Final Offer</option>
+          <option value="changing_ip">Changing IP</option>
+          <option value="funds_paid_to_date">Funds Paid to Date</option>
+          <option value="contributions_reduction">Contributions Reduction</option>
+          <option value="extension_for_arrears">Extension for Arrears</option>
+          <option value="extra_payment_breaks">Extra Payment Breaks</option>
+          <option value="min_dividend_not_complied">Min. Dividend Mod. Not Complied With</option>
+          <option value="other_modification_not_complied">Other Modification Not Complied With</option>
+          <option value="increase_in_claims">Increase in Claims</option>
         </select>
       </div>
 
@@ -483,7 +496,7 @@
             <div class="file-list" id="list-modifications"></div>
           </div>
 
-          <div class="card">
+          <div class="card" id="card-chart_of_accounts">
             <div class="slot-label"><span class="dot" id="dot-chart_of_accounts"></span>Chart of Accounts</div>
             <div class="upload-area" id="area-chart_of_accounts">
               <span class="area-text">Click or drag images here</span>
@@ -502,6 +515,7 @@
       </form>
 
       <!-- I&E Review -->
+      <div id="ie-section-wrap">
       <div class="ie-form-card" id="ie-form-card">
         <div class="ie-form-title">Income &amp; Expenditure Review (SFS)</div>
         <div class="ie-form-row">
@@ -531,6 +545,7 @@
           <span id="ie-submit-status" style="font-size:0.8rem;color:#888;"></span>
         </div>
       </div>
+      </div><!-- /ie-section-wrap -->
 
       {% endif %}
 
@@ -538,6 +553,7 @@
       {% if current_user.role in ['uploader', 'admin'] %}
       <div class="reason-card" id="reason-card">
         <div class="reason-title">Variation Reason</div>
+        <div class="vtype-flag" id="vtype-flag-note"></div>
         {% if current_user.role in ['uploader', 'admin'] %}
         <div class="var-buttons">
           <button type="button" class="var-btn" data-var="case_number">📎 Case Ref</button>
@@ -667,6 +683,68 @@
 <script>
   const USER_ROLE = "{{ current_user.role }}";
   const CAN_REVIEW = (USER_ROLE === 'reviewer' || USER_ROLE === 'admin');
+
+  // ── Variation type configuration ─────────────────────────────────────────
+  const VARIATION_TYPE_LABELS = {
+    full_and_final:                  'Full & Final Offer',
+    changing_ip:                     'Changing IP',
+    funds_paid_to_date:              'Funds Paid to Date',
+    contributions_reduction:         'Contributions Reduction',
+    extension_for_arrears:           'Extension for Arrears',
+    extra_payment_breaks:            'Extra Payment Breaks',
+    min_dividend_not_complied:       'Min. Dividend Mod. Not Complied With',
+    other_modification_not_complied: 'Other Modification Not Complied With',
+    increase_in_claims:              'Increase in Claims',
+  };
+
+  // hasIE: show I&E section; hasCOA: show Chart of Accounts card; hasFFInputs: show F&F specific fields
+  const VARIATION_TYPE_CONFIG = {
+    full_and_final:                  { hasIE: true,  hasCOA: true,  hasFFInputs: true,  flagNote: null },
+    changing_ip:                     { hasIE: false, hasCOA: false, hasFFInputs: false, flagNote: null },
+    funds_paid_to_date:              { hasIE: true,  hasCOA: true,  hasFFInputs: false, flagNote: null },
+    contributions_reduction:         { hasIE: true,  hasCOA: true,  hasFFInputs: false, flagNote: null },
+    extension_for_arrears:           { hasIE: false, hasCOA: false, hasFFInputs: false, flagNote: null },
+    extra_payment_breaks:            { hasIE: false, hasCOA: false, hasFFInputs: false, flagNote: null },
+    min_dividend_not_complied:       { hasIE: false, hasCOA: false, hasFFInputs: false, flagNote: null },
+    other_modification_not_complied: { hasIE: false, hasCOA: false, hasFFInputs: false, flagNote: '<strong>Note:</strong> Specify in the reason which modification is not going to be complied with, and explain why it cannot be met.' },
+    increase_in_claims:              { hasIE: false, hasCOA: false, hasFFInputs: false, flagNote: '<strong>Note:</strong> Specify in the reason where the claim has come from and why it has increased.' },
+  };
+
+  {% if current_user.role in ['uploader', 'admin'] %}
+  function applyVariationType(type) {
+    const cfg = VARIATION_TYPE_CONFIG[type] || VARIATION_TYPE_CONFIG['full_and_final'];
+
+    // F&F specific inputs
+    const ffInputs = document.getElementById('ff-inputs');
+    if (ffInputs) ffInputs.style.display = cfg.hasFFInputs ? '' : 'none';
+
+    // COA upload card
+    const coaCard = document.getElementById('card-chart_of_accounts');
+    if (coaCard) coaCard.style.display = cfg.hasCOA ? '' : 'none';
+
+    // I&E section
+    const ieWrap = document.getElementById('ie-section-wrap');
+    if (ieWrap) ieWrap.style.display = cfg.hasIE ? '' : 'none';
+
+    // Flag note in reason card
+    const flagEl = document.getElementById('vtype-flag-note');
+    if (flagEl) {
+      if (cfg.flagNote) {
+        flagEl.innerHTML = cfg.flagNote;
+        flagEl.classList.add('visible');
+      } else {
+        flagEl.classList.remove('visible');
+      }
+    }
+  }
+
+  document.getElementById('variation-type').addEventListener('change', function() {
+    applyVariationType(this.value);
+  });
+
+  // Apply initial state
+  applyVariationType(document.getElementById('variation-type').value);
+  {% endif %}
 
   // store: key → { caseNumber, rawJson, parsedResult, eosState, pending, usage, reviewStatus }
   const store = {};
@@ -976,13 +1054,15 @@
     if (status) el.classList.add('status-' + status);
   }
 
-  function sidebarAddPending(key, caseNumber, dt) {
+  function sidebarAddPending(key, caseNumber, dt, variationSubtype) {
     const el = document.createElement('div');
     el.className = 'case-item';
     el.id = 'case-item-' + key;
     const label = caseNumber || 'Untitled';
     const dtStr = dt.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
-    el.innerHTML = `<span class="cn"><span class="status-dot pending-dot"></span>${escHtml(label)}</span><span class="dt">${dtStr} · generating…</span>`;
+    const typeLabel = VARIATION_TYPE_LABELS[variationSubtype] || variationSubtype || '';
+    const typeStr = typeLabel ? ` <span style="font-size:0.68rem;color:#aaa;">${escHtml(typeLabel)}</span>` : '';
+    el.innerHTML = `<span class="cn"><span class="status-dot pending-dot"></span>${escHtml(label)}${typeStr}</span><span class="dt">${dtStr} · generating…</span>`;
     el.addEventListener('click', () => showOutputForKey(key));
     document.getElementById('case-list').prepend(el);
     document.getElementById('sidebar-empty').style.display = 'none';
@@ -1017,13 +1097,15 @@
     }
   }
 
-  function sidebarAddStored(id, caseNumber, createdAt, reviewStatus) {
-    store[String(id)] = { caseNumber, rawJson: null, parsedResult: null, eosState: null, pending: false, usage: null, reviewStatus };
+  function sidebarAddStored(id, caseNumber, createdAt, reviewStatus, variationSubtype) {
+    store[String(id)] = { caseNumber, rawJson: null, parsedResult: null, eosState: null, pending: false, usage: null, reviewStatus, variationSubtype };
     const el = document.createElement('div');
     el.className = 'case-item';
     el.id = 'case-item-' + id;
     const dt = new Date(createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
-    el.innerHTML = `<span class="cn"><span class="status-dot"></span>${escHtml(caseNumber)}</span><span class="dt">${dt}</span>`;
+    const typeLabel = VARIATION_TYPE_LABELS[variationSubtype] || variationSubtype || '';
+    const typeStr = typeLabel ? ` <span style="font-size:0.68rem;color:#aaa;">${escHtml(typeLabel)}</span>` : '';
+    el.innerHTML = `<span class="cn"><span class="status-dot"></span>${escHtml(caseNumber)}${typeStr}</span><span class="dt">${dt}</span>`;
     applyStatusClass(el, reviewStatus || 'pending');
     el.addEventListener('click', () => showOutputForKey(String(id)));
     document.getElementById('case-list').appendChild(el);
@@ -1441,6 +1523,7 @@
         const data = await res.json();
         entry.rawJson = data.result || '';
         entry.reviewStatus = data.review_status;
+        entry.variationSubtype = data.variation_subtype || null;
         caseReviewStatus = data.review_status;
         caseSubmittedBy = data.submitted_by;
         currentCaseId = key;
@@ -1987,8 +2070,8 @@
     const variationType = document.getElementById('variation-type').value;
     const tempKey = 'temp-' + Date.now();
 
-    store[tempKey] = { caseNumber, rawJson: '', parsedResult: null, eosState: null, pending: true, usage: null, reviewStatus: null };
-    sidebarAddPending(tempKey, caseNumber, new Date());
+    store[tempKey] = { caseNumber, rawJson: '', parsedResult: null, eosState: null, pending: true, usage: null, reviewStatus: null, variationSubtype: variationType };
+    sidebarAddPending(tempKey, caseNumber, new Date(), variationType);
     showCalculating();
 
     const fd = new FormData();
@@ -2284,12 +2367,15 @@
     const eos = activeEntry && activeEntry.eosState ? activeEntry.eosState : null;
     const summary = activeEntry && activeEntry.parsedResult && activeEntry.parsedResult.summary;
 
+    const activeVarType = (activeEntry && activeEntry.variationSubtype)
+      || document.getElementById('variation-type').value;
     const context = {
+      variation_type:    activeVarType,
       case_number:       document.getElementById('case-number').value.trim(),
-      ff_amount:         document.getElementById('ff-amount').value || '0',
-      creditors_claim:   document.getElementById('creditors-claim').value || '0',
-      variation_fee_enabled: document.getElementById('variation-fee-toggle').checked,
-      variation_fee_amount:  document.getElementById('variation-fee-amount').value || '400',
+      ff_amount:         document.getElementById('ff-amount') ? (document.getElementById('ff-amount').value || '0') : '0',
+      creditors_claim:   document.getElementById('creditors-claim') ? (document.getElementById('creditors-claim').value || '0') : '0',
+      variation_fee_enabled: document.getElementById('variation-fee-toggle') ? document.getElementById('variation-fee-toggle').checked : false,
+      variation_fee_amount:  document.getElementById('variation-fee-amount') ? (document.getElementById('variation-fee-amount').value || '400') : '400',
       current_dividend:  eos && eos.estimated_dividend_pence_per_pound ? eos.estimated_dividend_pence_per_pound.current : null,
       agreed_dividend:   eos && eos.estimated_dividend_pence_per_pound ? eos.estimated_dividend_pence_per_pound.last_agreed : null,
       afd_current:       eos && eos.available_for_distribution ? eos.available_for_distribution.current : null,
@@ -2432,7 +2518,8 @@
     const entry = store[key] || {};
 
     document.getElementById('review-case-number').textContent = entry.caseNumber || key;
-    document.getElementById('review-case-meta').textContent = 'Full & Final Variation EOS';
+    const metaType = VARIATION_TYPE_LABELS[entry.variationSubtype] || entry.variationSubtype || 'Variation';
+    document.getElementById('review-case-meta').textContent = metaType + ' EOS';
     document.getElementById('review-rejection-note').value = '';
     document.getElementById('review-error').textContent = '';
 
@@ -2582,7 +2669,7 @@
       const res = await fetch('/api/cases?task_type=variation');
       const cases = await res.json();
       if (Array.isArray(cases)) {
-        cases.reverse().forEach(c => sidebarAddStored(c.id, c.case_number, c.created_at, c.review_status));
+        cases.reverse().forEach(c => sidebarAddStored(c.id, c.case_number, c.created_at, c.review_status, c.variation_subtype));
       }
     } catch {}
   }

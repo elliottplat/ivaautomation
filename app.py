@@ -957,6 +957,156 @@ OUTPUT RULES:
 - If a screenshot is unreadable or missing required data, populate the JSON as best you can and put a clear flag in compliance.notes.\
 """
 
+VARIATION_TYPE_LABELS = {
+    "full_and_final": "Full & Final Offer",
+    "changing_ip": "Changing IP",
+    "funds_paid_to_date": "Funds Paid to Date",
+    "contributions_reduction": "Contributions Reduction",
+    "extension_for_arrears": "Extension for Arrears",
+    "extra_payment_breaks": "Extra Payment Breaks",
+    "min_dividend_not_complied": "Minimum Dividend Modification Not Going To Be Complied With",
+    "other_modification_not_complied": "Other Modification Not Going To Be Complied With",
+    "increase_in_claims": "Increase in Claims",
+}
+
+VARIATION_EOS_SYSTEM_PROMPT_GENERIC = """\
+You are an Insolvency Practitioner's assistant generating an Estimated Outcome Statement (EOS) for an IVA variation case. You will receive:
+
+1. A screenshot of the Agreed EOS (the position locked at arrangement approval)
+2. A screenshot of the Schedule of Modifications (the agreed fee/cost rules)
+3. Optionally, a screenshot of the Chart of Accounts (COA) — present only for variation types that require it
+4. Structured field inputs supplied by the user, including the variation_type
+
+Your job:
+- Scrape the screenshots for figures and rules they contain
+- Build a side-by-side EOS comparing "Last Agreed" (locked at approval) vs "Current Estimate" (live position)
+- Apply the locked modification model to the Current column
+- Return a single JSON object the front-end can render
+
+## VARIATION TYPES AND WHAT CHANGES
+
+Adapt the Current column based on variation_type:
+
+**changing_ip**: Change of Insolvency Practitioner. Arrangement terms unchanged financially. Current = Last Agreed. Compliance note: IP change only. No COA provided.
+
+**funds_paid_to_date**: Debtor has paid sufficient funds to close the IVA early. COA provided. Current column reflects actual balances received. VC = COA balance. Apply locked model to costs. Show actual outcome vs agreed.
+
+**contributions_reduction**: Debtor's monthly contributions are being reduced. COA provided. Current VC = projected total at reduced rate (use COA VC balance as starting point). I&E documents may also be present. Compliance note: show impact on estimated dividend.
+
+**extension_for_arrears**: Arrangement extended to recover missed payments. No COA. Current VC = Last Agreed VC + (arrears recovery amount if determinable from agreed EOS, else note as "subject to agreed extension term"). Compliance note: extension rationale.
+
+**extra_payment_breaks**: Additional payment holidays granted. No COA. Current VC = Last Agreed VC - (break months × monthly contribution if determinable). Compliance note: payment break impact on dividend.
+
+**min_dividend_not_complied**: The minimum dividend modification will not be achieved. No COA. Show why dividend falls short based on current projected position from agreed EOS context. Flag in compliance.notes.
+
+**other_modification_not_complied**: A specific modification will not be complied with (details in reason text). No COA. Show current position from agreed EOS. Flag in compliance.notes that the specific modification should be identified in the variation reason.
+
+**increase_in_claims**: A creditor claim has increased or a new claim admitted. No COA. Current unsecured_creditors updated to reflect the new/increased claim (use figures from agreed EOS and flag that claim details should be in the reason). Show impact on dividend.
+
+## CORE RULES
+
+### Locked Model Principle
+The Schedule of Modifications is binding. Whatever caps, sub-caps, and rules it sets at approval are the ceiling for fees drawn. Apply these to build the Current column costs (same as always).
+
+### Fee Drawing Hierarchy (when COA is present)
+1. Statutory / pass-through items at locked figures (Specific Bond, BIS Registration Fees, AML Check)
+2. Disbursements drawn IN FULL from COA balance
+3. Nominee Fee — flex DOWN if Nominee + Disbursements > Nominee+Disb sub-cap
+4. Supervisor Remuneration — absorb remaining headroom up to total cap
+5. Variation Meeting Fee (if supplied) — additive ON TOP of cap, as its own line
+
+### When COA is NOT present
+- Last Agreed column: extract from agreed EOS screenshot
+- Current column: mirror Last Agreed, then apply only the changes specific to this variation type (as described above)
+- If the change cannot be quantified, use the Last Agreed figure and note it in compliance.notes
+
+## ASSET LINES
+
+Always include:
+- Voluntary Contributions (from COA VC balance if COA present; else from agreed EOS)
+- Do NOT include a "Full & Final Offer" line (that is only for full_and_final type)
+
+## CALCULATIONS
+- Total Assets = sum of asset lines
+- Total Costs = sum of cost lines
+- Available for Distribution = Total Assets - Total Costs
+- Surplus/(Deficiency) = Available for Distribution - Unsecured Creditors
+- Estimated Dividend (p/£) = (Available for Distribution / Unsecured Creditors) × 100, capped at 100, min 0
+
+## INPUT SCHEMA
+
+You will receive:
+- Image attachments (Agreed EOS, Modifications, optionally COA)
+- A JSON block with:
+  variation_type: (string) one of the types listed above
+  variation_meeting_fee: (number) GBP, 0 if no variation meeting
+  case_reference: (string) optional
+
+## OUTPUT SCHEMA
+
+Return a single valid JSON object with this exact structure. Do not include any prose outside the JSON.
+
+{
+  "case_reference": "...",
+  "variation_type": "...",
+  "locked_model": {
+    "total_cost_cap": 3650.00,
+    "nominee_disbursements_subcap": 1900.00,
+    "supervisor_cap": 1750.00,
+    "specific_bond": 60.00,
+    "bis_registration": 15.00,
+    "agreed_nominee_fee": 1604.50,
+    "agreed_disbursements": 220.50,
+    "term_months": 60,
+    "additional_asset_fee_percent": null
+  },
+  "eos": {
+    "assets_available": [
+      {"label": "Voluntary Contributions", "last_agreed": 6540.00, "current": 6540.00}
+    ],
+    "total_assets_available": {"last_agreed": 6540.00, "current": 6540.00},
+    "costs_and_disbursements": [
+      {"label": "AML Check", "last_agreed": 0.00, "current": 0.00},
+      {"label": "BIS Registration Fees", "last_agreed": 15.00, "current": 15.00},
+      {"label": "Disbursements", "last_agreed": 220.50, "current": 220.50},
+      {"label": "Nominees Fee", "last_agreed": 1604.50, "current": 1604.50},
+      {"label": "Specific Bond", "last_agreed": 60.00, "current": 60.00},
+      {"label": "Supervisor Remuneration", "last_agreed": 1750.00, "current": 1750.00}
+    ],
+    "total_costs": {"last_agreed": 3650.00, "current": 3650.00},
+    "available_for_distribution": {"last_agreed": 2890.00, "current": 2890.00},
+    "unsecured_creditors": {"last_agreed": 10322.00, "current": 10322.00},
+    "surplus_deficiency": {"last_agreed": -7432.00, "current": -7432.00},
+    "estimated_dividend_pence_per_pound": {"last_agreed": 28.00, "current": 28.00}
+  },
+  "compliance": {
+    "total_cost_cap_status": "WITHIN_CAP",
+    "total_cost_cap_headroom": 0.00,
+    "nominee_disb_subcap_status": "WITHIN_SUBCAP",
+    "nominee_disb_subcap_headroom": 0.00,
+    "coa_disbursements_actual": null,
+    "coa_disbursements_above_original_model": null,
+    "nominee_fee_reduction_required": null,
+    "supervisor_fee_reduction_required": null,
+    "notes": "Plain-English summary of the variation type, any changes to the EOS, and any compliance points."
+  },
+  "summary": {
+    "outcome_uplift_pence_per_pound": null,
+    "outcome_uplift_percent": null,
+    "recommendation_basis": "Plain-English summary of the variation and its impact on the arrangement.",
+    "review_flags": []
+  }
+}
+
+OUTPUT RULES:
+- Return ONLY the JSON object. No markdown fences, no preamble, no commentary outside the JSON.
+- Use null for any field you cannot determine from the inputs.
+- Round all monetary values to 2 decimal places.
+- Round dividend p/pound to 2 decimal places.
+- Include Variation Meeting Fee line ONLY if variation_meeting_fee > 0.
+- If a screenshot is unreadable or missing required data, populate the JSON as best you can and put a clear flag in compliance.notes.\
+"""
+
 VARIATION_DOCUMENT_SLOTS = [
     ("agreed_eos", "Agreed EOS"),
     ("modifications", "Schedule of Modifications"),
@@ -1116,6 +1266,13 @@ def init_db():
                 DO $$ BEGIN
                   IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='cases' AND column_name='variation_data') THEN
                     ALTER TABLE cases ADD COLUMN variation_data TEXT;
+                  END IF;
+                END $$;
+            """)
+            cur.execute("""
+                DO $$ BEGIN
+                  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='cases' AND column_name='variation_subtype') THEN
+                    ALTER TABLE cases ADD COLUMN variation_subtype VARCHAR(50);
                   END IF;
                 END $$;
             """)
@@ -1540,12 +1697,18 @@ def analyze_variation():
     except ValueError:
         variation_fee_amount = 400.0
 
+    # Determine which prompt to use
+    is_ff = (variation_type == "full_and_final")
+    eos_prompt = VARIATION_EOS_SYSTEM_PROMPT if is_ff else VARIATION_EOS_SYSTEM_PROMPT_GENERIC
+
     inputs = {
-        "full_and_final_offer": ff_amount,
+        "variation_type": variation_type,
         "variation_meeting_fee": variation_fee_amount if variation_fee_enabled else 0.0,
-        "creditors_claim_amount": creditors_claim,
         "case_reference": case_number,
     }
+    if is_ff:
+        inputs["full_and_final_offer"] = ff_amount
+        inputs["creditors_claim_amount"] = creditors_claim
 
     content = []
     any_document = False
@@ -1582,7 +1745,7 @@ def analyze_variation():
                 with client.messages.stream(
                     model="claude-opus-4-7",
                     max_tokens=2000,
-                    system=[{"type": "text", "text": VARIATION_EOS_SYSTEM_PROMPT, "cache_control": {"type": "ephemeral"}}],
+                    system=[{"type": "text", "text": eos_prompt, "cache_control": {"type": "ephemeral"}}],
                     messages=[{"role": "user", "content": content}],
                 ) as stream:
                     for text in stream.text_stream:
@@ -1601,11 +1764,12 @@ def analyze_variation():
                                     """INSERT INTO cases
                                        (case_number, result, input_tokens, output_tokens,
                                         cache_creation_tokens, cache_read_tokens, submitted_by,
-                                        project_id, task_type)
-                                       VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'variation') RETURNING id""",
+                                        project_id, task_type, variation_subtype)
+                                       VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'variation', %s) RETURNING id""",
                                     (case_number, "".join(full_text), usage.input_tokens, usage.output_tokens,
                                      getattr(usage, "cache_creation_input_tokens", 0),
-                                     getattr(usage, "cache_read_input_tokens", 0), submitted_by, project_id),
+                                     getattr(usage, "cache_read_input_tokens", 0), submitted_by, project_id,
+                                     variation_type),
                                 )
                                 case_id = cur.fetchone()[0]
                                 if work_item_id:
@@ -1646,7 +1810,7 @@ def analyze_variation():
 # Variation Reason Tidy
 # ---------------------------------------------------------------------------
 VARIATION_REASON_SYSTEM_PROMPT = """\
-You are a professional insolvency practitioner's assistant. Your task is to tidy and professionally structure a reason statement for a Full & Final Offer IVA variation.
+You are a professional insolvency practitioner's assistant. Your task is to tidy and professionally structure a reason statement for an IVA variation.
 
 Rules:
 - Keep every fact and figure exactly as stated — do not change any numbers
@@ -1655,7 +1819,16 @@ Rules:
 - Do not add any preamble, commentary, or closing remarks — return only the structured statement text
 - If the draft mentions a dividend improvement, lead with that outcome
 - Write in third person (referring to the debtor's position, not "I" or "we")
-- NEVER mention the variation meeting fee, nominee fee, or any fee charged for the variation itself — omit entirely if present in the draft\
+- NEVER mention the variation meeting fee, nominee fee, or any fee charged for the variation itself — omit entirely if present in the draft
+- Adapt your tone and focus to the variation type provided in the context:
+  * changing_ip: Focus on continuity of the arrangement, the reason for the IP change, and confirmation that terms are unaffected
+  * funds_paid_to_date: Lead with the funds received and the basis for early closure
+  * contributions_reduction: Lead with the financial change and I&E justification for the reduced contribution
+  * extension_for_arrears: Lead with the arrears position and the extension terms to recover them
+  * extra_payment_breaks: State the breaks requested and the debtor's circumstances justifying them
+  * min_dividend_not_complied: Explain why the minimum dividend will not be achieved and the proposed resolution
+  * other_modification_not_complied: Name the specific modification, explain why it cannot be complied with, and the proposed resolution
+  * increase_in_claims: Identify the creditor, state the claim increase, and explain the source and impact\
 """
 
 
@@ -1671,6 +1844,9 @@ def tidy_variation_reason():
 
     # Build context block
     ctx_lines = []
+    if context.get("variation_type"):
+        label = VARIATION_TYPE_LABELS.get(context["variation_type"], context["variation_type"])
+        ctx_lines.append(f"Variation Type: {label} ({context['variation_type']})")
     if context.get("case_number"):
         ctx_lines.append(f"Case Reference: {context['case_number']}")
     if context.get("ff_amount"):
@@ -2557,14 +2733,14 @@ def list_cases():
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             if task_type_filter:
                 cur.execute(
-                    "SELECT id, case_number, created_at, review_status FROM cases WHERE task_type = %s ORDER BY created_at DESC LIMIT 100",
+                    "SELECT id, case_number, created_at, review_status, variation_subtype FROM cases WHERE task_type = %s ORDER BY created_at DESC LIMIT 100",
                     (task_type_filter,),
                 )
             else:
-                cur.execute("SELECT id, case_number, created_at, review_status FROM cases ORDER BY created_at DESC LIMIT 100")
+                cur.execute("SELECT id, case_number, created_at, review_status, variation_subtype FROM cases ORDER BY created_at DESC LIMIT 100")
             rows = cur.fetchall()
         conn.close()
-        return jsonify([{"id": r["id"], "case_number": r["case_number"], "created_at": r["created_at"].isoformat(), "review_status": r["review_status"]} for r in rows])
+        return jsonify([{"id": r["id"], "case_number": r["case_number"], "created_at": r["created_at"].isoformat(), "review_status": r["review_status"], "variation_subtype": r.get("variation_subtype")} for r in rows])
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -2624,6 +2800,7 @@ def get_case(case_id):
             "review_status": row.get("review_status"),
             "variation_data": row.get("variation_data"),
             "submitted_by": row.get("submitted_by"),
+            "variation_subtype": row.get("variation_subtype"),
         })
     except Exception as e:
         return jsonify({"error": str(e)}), 500
