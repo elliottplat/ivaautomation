@@ -600,7 +600,7 @@
           <div class="card">
             <div class="slot-label"><span class="dot" id="dot-agreed_eos"></span>Agreed EOS</div>
             <div class="upload-area" id="area-agreed_eos">
-              <span class="area-text">Click or drag images here</span>
+              <span class="area-text">Click, drag, or paste images here</span>
               <input type="file" name="agreed_eos" id="inp-agreed_eos" accept="image/*" multiple />
             </div>
             <div class="file-list" id="list-agreed_eos"></div>
@@ -609,7 +609,7 @@
           <div class="card">
             <div class="slot-label"><span class="dot" id="dot-modifications"></span>Schedule of Modifications</div>
             <div class="upload-area" id="area-modifications">
-              <span class="area-text">Click or drag images here</span>
+              <span class="area-text">Click, drag, or paste images here</span>
               <input type="file" name="modifications" id="inp-modifications" accept="image/*" multiple />
             </div>
             <div class="file-list" id="list-modifications"></div>
@@ -618,7 +618,7 @@
           <div class="card" id="card-chart_of_accounts">
             <div class="slot-label"><span class="dot" id="dot-chart_of_accounts"></span>Chart of Accounts <span style="color:#dc2626;font-size:0.75rem;font-weight:700;">*</span></div>
             <div class="upload-area" id="area-chart_of_accounts">
-              <span class="area-text">Click or drag images here</span>
+              <span class="area-text">Click, drag, or paste images here</span>
               <input type="file" name="chart_of_accounts" id="inp-chart_of_accounts" accept="image/*" multiple />
             </div>
             <div class="file-list" id="list-chart_of_accounts"></div>
@@ -660,7 +660,7 @@
           <div class="card" style="margin-bottom:0;">
             <div class="slot-label"><span class="dot" id="dot-ie_document"></span>I&amp;E Document</div>
             <div class="upload-area" id="area-ie_document">
-              <span class="area-text">Click or drag image(s) here</span>
+              <span class="area-text">Click, drag, or paste images here</span>
               <input type="file" name="ie_document" id="inp-ie_document" accept="image/*" multiple />
             </div>
             <div class="file-list" id="list-ie_document"></div>
@@ -2378,7 +2378,7 @@
       text.textContent = files.length + ' file(s) selected';
     } else {
       area.classList.remove('has-files'); dot.classList.remove('filled');
-      text.textContent = 'Click or drag images here';
+      text.textContent = 'Click, drag, or paste images here';
     }
     list.innerHTML = '';
     files.forEach((f, i) => {
@@ -2389,10 +2389,16 @@
     });
   }
 
+  // Track which slot was last interacted with for paste targeting
+  let activeSlot = slots[0];
+  let activeIEFocus = false;
+
   slots.forEach(slot => {
     const area  = document.getElementById('area-' + slot);
     const input = document.getElementById('inp-' + slot);
-    area.addEventListener('click', e => { if (e.target !== input) input.click(); });
+    area.addEventListener('click', e => { activeSlot = slot; activeIEFocus = false; if (e.target !== input) input.click(); });
+    area.addEventListener('focus', () => { activeSlot = slot; activeIEFocus = false; });
+    area.setAttribute('tabindex', '0');
     input.addEventListener('change', () => {
       fileMap[slot] = [...fileMap[slot], ...input.files];
       input.value = '';
@@ -2403,10 +2409,39 @@
     area.addEventListener('dragleave', () => area.classList.remove('drag'));
     area.addEventListener('drop', e => {
       e.preventDefault(); area.classList.remove('drag');
-      fileMap[slot] = [...fileMap[slot], ...e.dataTransfer.files];
+      const images = [...e.dataTransfer.files].filter(f => f.type.startsWith('image/'));
+      fileMap[slot] = [...fileMap[slot], ...images];
       refreshSlot(slot);
       validateEosForm();
     });
+  });
+
+  // Global paste handler — pastes clipboard images into the last-clicked upload slot
+  document.addEventListener('paste', e => {
+    const tag = (document.activeElement || {}).tagName || '';
+    if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+    const items = (e.clipboardData || {}).items || [];
+    const images = [];
+    for (const item of items) {
+      if (item.kind === 'file' && item.type.startsWith('image/')) {
+        const f = item.getAsFile();
+        if (f) images.push(f);
+      }
+    }
+    if (!images.length) return;
+    e.preventDefault();
+    if (activeIEFocus) {
+      ieFileMap.push(...images);
+      refreshIESlot();
+      ieDocArea.classList.add('drag'); setTimeout(() => ieDocArea.classList.remove('drag'), 600);
+    } else {
+      const target = activeSlot || slots[0];
+      fileMap[target] = [...fileMap[target], ...images];
+      refreshSlot(target);
+      validateEosForm();
+      const area = document.getElementById('area-' + target);
+      if (area) { area.classList.add('drag'); setTimeout(() => area.classList.remove('drag'), 600); }
+    }
   });
 
   document.addEventListener('click', e => {
@@ -2571,7 +2606,7 @@
       ieDocArea.querySelector('.area-text').textContent = ieFileMap.length + ' file(s) selected';
     } else {
       ieDocArea.classList.remove('has-files'); ieDocDot.classList.remove('filled');
-      ieDocArea.querySelector('.area-text').textContent = 'Click or drag image(s) here';
+      ieDocArea.querySelector('.area-text').textContent = 'Click, drag, or paste images here';
     }
     ieDocList.innerHTML = '';
     ieFileMap.forEach((f, i) => {
@@ -2582,11 +2617,17 @@
     });
   }
 
-  ieDocArea.addEventListener('click', e => { if (e.target !== ieDocInput) ieDocInput.click(); });
+  ieDocArea.setAttribute('tabindex', '0');
+  ieDocArea.addEventListener('click', e => { activeIEFocus = true; if (e.target !== ieDocInput) ieDocInput.click(); });
+  ieDocArea.addEventListener('focus', () => { activeIEFocus = true; });
   ieDocInput.addEventListener('change', () => { ieFileMap.push(...ieDocInput.files); ieDocInput.value = ''; refreshIESlot(); });
   ieDocArea.addEventListener('dragover', e => { e.preventDefault(); ieDocArea.classList.add('drag'); });
   ieDocArea.addEventListener('dragleave', () => ieDocArea.classList.remove('drag'));
-  ieDocArea.addEventListener('drop', e => { e.preventDefault(); ieDocArea.classList.remove('drag'); ieFileMap.push(...e.dataTransfer.files); refreshIESlot(); });
+  ieDocArea.addEventListener('drop', e => {
+    e.preventDefault(); ieDocArea.classList.remove('drag');
+    const images = [...e.dataTransfer.files].filter(f => f.type.startsWith('image/'));
+    ieFileMap.push(...images); refreshIESlot();
+  });
   document.addEventListener('click', e => {
     const btn = e.target.closest('[data-ie-idx]');
     if (!btn) return;
