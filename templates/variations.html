@@ -128,11 +128,11 @@
     .slot-label { font-size: 0.78rem; font-weight: 700; color: #555; margin-bottom: 0.6rem; display: flex; align-items: center; gap: 0.4rem; }
     .dot { width: 7px; height: 7px; border-radius: 50%; background: #d1d5db; flex-shrink: 0; transition: background 0.2s; }
     .dot.filled { background: #6366f1; }
-    .upload-area { border: 2px dashed #d0d5dd; border-radius: 8px; padding: 1rem; text-align: center; cursor: pointer; transition: border-color 0.2s, background 0.2s; position: relative; }
+    .upload-area { border: 2px dashed #d0d5dd; border-radius: 8px; padding: 1rem; text-align: center; cursor: pointer; transition: border-color 0.2s, background 0.2s; position: relative; display: block; }
     .upload-area:hover, .upload-area.drag { border-color: #6366f1; background: #f5f5ff; }
     .upload-area.has-files { border-color: #6366f1; background: #f5f5ff; border-style: solid; }
-    .area-text { font-size: 0.78rem; color: #aaa; pointer-events: none; }
-    .upload-area input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+    .area-text { font-size: 0.78rem; color: #aaa; }
+    .upload-area input[type="file"] { display: none; }
     .file-list { margin-top: 0.5rem; }
     .file-item { display: flex; align-items: center; justify-content: space-between; font-size: 0.78rem; color: #555; padding: 0.2rem 0; }
     .file-item .fname { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 120px; }
@@ -599,28 +599,28 @@
 
           <div class="card">
             <div class="slot-label"><span class="dot" id="dot-agreed_eos"></span>Agreed EOS</div>
-            <div class="upload-area" id="area-agreed_eos">
+            <label class="upload-area" id="area-agreed_eos">
               <span class="area-text">Click, drag, or paste images here</span>
               <input type="file" name="agreed_eos" id="inp-agreed_eos" accept="image/*" multiple />
-            </div>
+            </label>
             <div class="file-list" id="list-agreed_eos"></div>
           </div>
 
           <div class="card">
             <div class="slot-label"><span class="dot" id="dot-modifications"></span>Schedule of Modifications</div>
-            <div class="upload-area" id="area-modifications">
+            <label class="upload-area" id="area-modifications">
               <span class="area-text">Click, drag, or paste images here</span>
               <input type="file" name="modifications" id="inp-modifications" accept="image/*" multiple />
-            </div>
+            </label>
             <div class="file-list" id="list-modifications"></div>
           </div>
 
           <div class="card" id="card-chart_of_accounts">
             <div class="slot-label"><span class="dot" id="dot-chart_of_accounts"></span>Chart of Accounts <span style="color:#dc2626;font-size:0.75rem;font-weight:700;">*</span></div>
-            <div class="upload-area" id="area-chart_of_accounts">
+            <label class="upload-area" id="area-chart_of_accounts">
               <span class="area-text">Click, drag, or paste images here</span>
               <input type="file" name="chart_of_accounts" id="inp-chart_of_accounts" accept="image/*" multiple />
-            </div>
+            </label>
             <div class="file-list" id="list-chart_of_accounts"></div>
             <div class="coa-required-hint" id="coa-required-hint">Chart of Accounts required to generate EOS</div>
           </div>
@@ -659,10 +659,10 @@
         <div class="ie-doc-row">
           <div class="card" style="margin-bottom:0;">
             <div class="slot-label"><span class="dot" id="dot-ie_document"></span>I&amp;E Document</div>
-            <div class="upload-area" id="area-ie_document">
+            <label class="upload-area" id="area-ie_document">
               <span class="area-text">Click, drag, or paste images here</span>
               <input type="file" name="ie_document" id="inp-ie_document" accept="image/*" multiple />
-            </div>
+            </label>
             <div class="file-list" id="list-ie_document"></div>
           </div>
         </div>
@@ -2396,7 +2396,7 @@
   slots.forEach(slot => {
     const area  = document.getElementById('area-' + slot);
     const input = document.getElementById('inp-' + slot);
-    area.addEventListener('click', e => { activeSlot = slot; activeIEFocus = false; if (e.target !== input) input.click(); });
+    area.addEventListener('click', () => { activeSlot = slot; activeIEFocus = false; });
     area.addEventListener('focus', () => { activeSlot = slot; activeIEFocus = false; });
     area.setAttribute('tabindex', '0');
     input.addEventListener('change', () => {
@@ -2618,7 +2618,7 @@
   }
 
   ieDocArea.setAttribute('tabindex', '0');
-  ieDocArea.addEventListener('click', e => { activeIEFocus = true; if (e.target !== ieDocInput) ieDocInput.click(); });
+  ieDocArea.addEventListener('click', () => { activeIEFocus = true; });
   ieDocArea.addEventListener('focus', () => { activeIEFocus = true; });
   ieDocInput.addEventListener('change', () => { ieFileMap.push(...ieDocInput.files); ieDocInput.value = ''; refreshIESlot(); });
   ieDocArea.addEventListener('dragover', e => { e.preventDefault(); ieDocArea.classList.add('drag'); });
