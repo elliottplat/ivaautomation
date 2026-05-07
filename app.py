@@ -968,6 +968,7 @@ VARIATION_TYPE_LABELS = {
     "min_dividend_not_complied": "Minimum Dividend Modification Not Going To Be Complied With",
     "other_modification_not_complied": "Other Modification Not Going To Be Complied With",
     "increase_in_claims": "Increase in Claims",
+    "other": "Other",
 }
 
 VARIATION_EOS_SYSTEM_PROMPT_GENERIC = """\
@@ -1004,6 +1005,8 @@ Adapt the Current column based on variation_type:
 
 **increase_in_claims**: A creditor claim has increased or a new claim admitted. No COA. Current unsecured_creditors updated to reflect the new/increased claim (use figures from agreed EOS and flag that claim details should be in the reason). Show impact on dividend.
 
+**other**: A variation not covered by the specific types above. Apply standard assets section. No additional asset lines. Use custom_variation_type_name in summary.recommendation_basis and any review_flags to frame the rationale.
+
 ## CORE RULES
 
 ### Locked Model Principle
@@ -1020,6 +1023,25 @@ The Schedule of Modifications is binding. Whatever caps, sub-caps, and rules it 
 - Last Agreed column: extract from agreed EOS screenshot
 - Current column: mirror Last Agreed, then apply only the changes specific to this variation type (as described above)
 - If the change cannot be quantified, use the Last Agreed figure and note it in compliance.notes
+
+### Variation Type Handling
+
+The user input includes a variation_type field. Apply the asset-line rules below in addition to the existing fee/cost hierarchy (which is unchanged across all types). The locked-model principle and fee drawing hierarchy apply identically regardless of type.
+
+The universal creditors_claim_amount from the input always populates eos.unsecured_creditors.current. The Last Agreed value remains the figure scraped from the Agreed EOS. The universal variation_meeting_fee always applies on top of the total cost cap regardless of variation_type — include the line item only when the value is > 0.
+
+- changing_ip — Standard assets section. No extra lines.
+- funds_paid_to_date — VC line on the Current column = coa_vc_balance (do not project remaining contributions). Add an extra asset line using additional_assets_label (default "Additional Assets Received") with value additional_assets_amount.
+- contributions_reduction — VC line on Current = coa_vc_balance. Add an asset line "Proposed Reduced Contributions" with value new_contribution_amount × remaining_months.
+- extension_for_arrears — VC line on Current = coa_vc_balance. Add "Remaining Regular Contributions" = regular_vc_amount × regular_remaining_months. Add "Proposed Extension" = extension_vc_amount × extension_months.
+- extra_payment_breaks — Standard assets section.
+- min_dividend_not_complied — Standard assets section.
+- other_modification_not_complied — Standard assets section.
+- increase_in_claims — Standard assets section. If propose_extension is true, add "Proposed Extension" = extension_vc_amount × extension_months.
+- full_and_final — Existing behaviour: F&F Offer line on Current.
+- other — Standard assets section. Use custom_variation_type_name in summary.recommendation_basis and any review_flags to frame the rationale.
+
+Only fields relevant to the selected variation_type will be populated; others may be null/0 and should be ignored.
 
 ## ASSET LINES
 
@@ -1038,14 +1060,35 @@ Always include:
 
 You will receive:
 - Image attachments (Agreed EOS, Modifications, optionally COA)
-- A JSON block with:
-  variation_type: (string) one of the types listed above
-  variation_meeting_fee: (number) GBP, 0 if no variation meeting
-  case_reference: (string) optional
+- A JSON block with dynamic fields:
+
+```json
+{
+  "variation_type": "extension_for_arrears",
+  "custom_variation_type_name": null,
+  "creditors_claim_amount": 10211.94,
+  "variation_meeting_fee": 0.00,
+  "full_and_final_offer": 0.00,
+  "additional_assets_amount": 0.00,
+  "additional_assets_label": null,
+  "new_contribution_amount": 0.00,
+  "remaining_months": 0,
+  "regular_vc_amount": 0.00,
+  "regular_remaining_months": 0,
+  "extension_months": 0,
+  "extension_vc_amount": 0.00,
+  "propose_extension": false,
+  "case_reference": "4478"
+}
+```
+
+Only fields relevant to the selected variation_type will be populated; others may be null/0 and should be ignored.
 
 ## OUTPUT SCHEMA
 
 Return a single valid JSON object with this exact structure. Do not include any prose outside the JSON.
+
+The assets_available array length depends on variation_type — include exactly the lines specified for that type per the Variation Type Handling rules. Do not invent additional lines.
 
 {
   "case_reference": "...",
@@ -1076,7 +1119,7 @@ Return a single valid JSON object with this exact structure. Do not include any 
     ],
     "total_costs": {"last_agreed": 3650.00, "current": 3650.00},
     "available_for_distribution": {"last_agreed": 2890.00, "current": 2890.00},
-    "unsecured_creditors": {"last_agreed": 10322.00, "current": 10322.00},
+    "unsecured_creditors": {"last_agreed": 10322.00, "current": 10211.94},
     "surplus_deficiency": {"last_agreed": -7432.00, "current": -7432.00},
     "estimated_dividend_pence_per_pound": {"last_agreed": 28.00, "current": 28.00}
   },
@@ -1105,6 +1148,10 @@ OUTPUT RULES:
 - Round all monetary values to 2 decimal places.
 - Round dividend p/pound to 2 decimal places.
 - Include Variation Meeting Fee line ONLY if variation_meeting_fee > 0.
+- The assets_available array length depends on variation_type. Include exactly the lines specified for that type. Do not invent additional lines.
+- When variation_type is "other", echo custom_variation_type_name verbatim in summary.recommendation_basis.
+- The universal creditors_claim_amount from the input always populates eos.unsecured_creditors.current. The Last Agreed value remains the figure scraped from the Agreed EOS.
+- The universal variation_meeting_fee always applies on top of the total cost cap regardless of variation_type, including for non-F&F types — include the line item only when the value is > 0.
 - If a screenshot is unreadable or missing required data, populate the JSON as best you can and put a clear flag in compliance.notes.\
 """
 
@@ -1275,6 +1322,13 @@ def init_db():
                 DO $$ BEGIN
                   IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='cases' AND column_name='variation_subtype') THEN
                     ALTER TABLE cases ADD COLUMN variation_subtype VARCHAR(50);
+                  END IF;
+                END $$;
+            """)
+            cur.execute("""
+                DO $$ BEGIN
+                  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='cases' AND column_name='custom_variation_type_name') THEN
+                    ALTER TABLE cases ADD COLUMN custom_variation_type_name VARCHAR(200);
                   END IF;
                 END $$;
             """)
@@ -1897,11 +1951,8 @@ def analyze_variation():
     work_item_id = int(work_item_id_raw) if work_item_id_raw.isdigit() else None
     submitted_by = int(current_user.id)
 
-    # Dynamic inputs
-    try:
-        ff_amount = float(request.form.get("ff_amount", "0") or "0")
-    except ValueError:
-        ff_amount = 0.0
+    # Dynamic inputs — universal
+    custom_variation_type_name = request.form.get("custom_variation_type_name", "").strip() or None
     try:
         creditors_claim = float(request.form.get("creditors_claim_amount", "0") or "0")
     except ValueError:
@@ -1912,18 +1963,56 @@ def analyze_variation():
     except ValueError:
         variation_fee_amount = 400.0
 
-    # Determine which prompt to use
+    # F&F-specific
+    try:
+        ff_amount = float(request.form.get("ff_amount", "0") or "0")
+    except ValueError:
+        ff_amount = 0.0
+
+    # Per-type fields
+    def _float(key, default=0.0):
+        try:
+            return float(request.form.get(key, str(default)) or str(default))
+        except ValueError:
+            return default
+
+    def _int(key, default=0):
+        try:
+            return int(request.form.get(key, str(default)) or str(default))
+        except ValueError:
+            return default
+
+    additional_assets_amount = _float("additional_assets_amount")
+    additional_assets_label = request.form.get("additional_assets_label", "").strip() or None
+    new_contribution_amount = _float("new_contribution_amount")
+    remaining_months = _int("remaining_months")
+    regular_vc_amount = _float("regular_vc_amount")
+    regular_remaining_months = _int("regular_remaining_months")
+    extension_months = _int("extension_months")
+    extension_vc_amount = _float("extension_vc_amount")
+    propose_extension = request.form.get("propose_extension", "no").lower() == "yes"
+
+    # Determine which prompt to use — F&F uses dedicated prompt, all others use generic
     is_ff = (variation_type == "full_and_final")
     eos_prompt = VARIATION_EOS_SYSTEM_PROMPT if is_ff else VARIATION_EOS_SYSTEM_PROMPT_GENERIC
 
     inputs = {
         "variation_type": variation_type,
+        "custom_variation_type_name": custom_variation_type_name,
+        "creditors_claim_amount": creditors_claim,
         "variation_meeting_fee": variation_fee_amount if variation_fee_enabled else 0.0,
+        "full_and_final_offer": ff_amount if is_ff else 0.0,
+        "additional_assets_amount": additional_assets_amount,
+        "additional_assets_label": additional_assets_label,
+        "new_contribution_amount": new_contribution_amount,
+        "remaining_months": remaining_months,
+        "regular_vc_amount": regular_vc_amount,
+        "regular_remaining_months": regular_remaining_months,
+        "extension_months": extension_months,
+        "extension_vc_amount": extension_vc_amount,
+        "propose_extension": propose_extension,
         "case_reference": case_number,
     }
-    if is_ff:
-        inputs["full_and_final_offer"] = ff_amount
-        inputs["creditors_claim_amount"] = creditors_claim
 
     content = []
     any_document = False
@@ -1979,12 +2068,12 @@ def analyze_variation():
                                     """INSERT INTO cases
                                        (case_number, result, input_tokens, output_tokens,
                                         cache_creation_tokens, cache_read_tokens, submitted_by,
-                                        project_id, task_type, variation_subtype)
-                                       VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'variation', %s) RETURNING id""",
+                                        project_id, task_type, variation_subtype, custom_variation_type_name)
+                                       VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'variation', %s, %s) RETURNING id""",
                                     (case_number, "".join(full_text), usage.input_tokens, usage.output_tokens,
                                      getattr(usage, "cache_creation_input_tokens", 0),
                                      getattr(usage, "cache_read_input_tokens", 0), submitted_by, project_id,
-                                     variation_type),
+                                     variation_type, custom_variation_type_name),
                                 )
                                 case_id = cur.fetchone()[0]
                                 if work_item_id:
@@ -2060,8 +2149,13 @@ def tidy_variation_reason():
     # Build context block
     ctx_lines = []
     if context.get("variation_type"):
-        label = VARIATION_TYPE_LABELS.get(context["variation_type"], context["variation_type"])
-        ctx_lines.append(f"Variation Type: {label} ({context['variation_type']})")
+        vtype = context["variation_type"]
+        custom_name = context.get("custom_variation_type_name")
+        if vtype == "other" and custom_name:
+            label = f"Other — {custom_name}"
+        else:
+            label = VARIATION_TYPE_LABELS.get(vtype, vtype)
+        ctx_lines.append(f"Variation Type: {label} ({vtype})")
     if context.get("case_number"):
         ctx_lines.append(f"Case Reference: {context['case_number']}")
     if context.get("ff_amount"):
@@ -2948,14 +3042,14 @@ def list_cases():
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             if task_type_filter:
                 cur.execute(
-                    "SELECT id, case_number, created_at, review_status, variation_subtype FROM cases WHERE task_type = %s ORDER BY created_at DESC LIMIT 100",
+                    "SELECT id, case_number, created_at, review_status, variation_subtype, custom_variation_type_name FROM cases WHERE task_type = %s ORDER BY created_at DESC LIMIT 100",
                     (task_type_filter,),
                 )
             else:
-                cur.execute("SELECT id, case_number, created_at, review_status, variation_subtype FROM cases ORDER BY created_at DESC LIMIT 100")
+                cur.execute("SELECT id, case_number, created_at, review_status, variation_subtype, custom_variation_type_name FROM cases ORDER BY created_at DESC LIMIT 100")
             rows = cur.fetchall()
         conn.close()
-        return jsonify([{"id": r["id"], "case_number": r["case_number"], "created_at": r["created_at"].isoformat(), "review_status": r["review_status"], "variation_subtype": r.get("variation_subtype")} for r in rows])
+        return jsonify([{"id": r["id"], "case_number": r["case_number"], "created_at": r["created_at"].isoformat(), "review_status": r["review_status"], "variation_subtype": r.get("variation_subtype"), "custom_variation_type_name": r.get("custom_variation_type_name")} for r in rows])
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -3016,6 +3110,7 @@ def get_case(case_id):
             "variation_data": row.get("variation_data"),
             "submitted_by": row.get("submitted_by"),
             "variation_subtype": row.get("variation_subtype"),
+            "custom_variation_type_name": row.get("custom_variation_type_name"),
         })
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -4252,77 +4347,107 @@ def _dss_get_base_rate(cur, team_id):
     return float(row["rate_per_hour"]) if row else 15.0
 
 
-def _dss_compute_shift_metrics(cur, shift_id, hours_worked, base_rate):
-    """Fetch completions for a shift and run shift_metrics."""
-    cur.execute(
-        "SELECT count, conversion_factor FROM dss_daily_completions WHERE daily_shift_id = %s",
-        (shift_id,),
-    )
-    completions = [{"count": r["count"], "conversion_factor": float(r["conversion_factor"])} for r in cur.fetchall()]
-    return dss_calc.shift_metrics(float(hours_worked), completions, base_rate)
-
-
-def _dss_accumulate_backlog(cur, team_id, base_rate, up_to_date_exclusive):
+def _dss_bulk_load(cur, team_id, up_to_date):
     """
-    Sum all backlog_changes from earliest shift date up to (not including) up_to_date_exclusive.
-    Returns prior_backlog (starting_backlog + accumulated changes).
+    Load all shifts+completions and landings up to (and including) up_to_date in 2 queries.
+    Returns (shift_rows, landing_rows) as raw dicts for downstream processing.
     """
-    cur.execute("SELECT starting_backlog_units FROM dss_team_settings WHERE team_id = %s", (team_id,))
-    row = cur.fetchone()
-    starting = float(row["starting_backlog_units"]) if row else 0.0
-
-    # All distinct dates with data before the given date
     cur.execute(
-        """SELECT DISTINCT work_date FROM dss_daily_shifts
-           WHERE team_id = %s AND work_date < %s
-           UNION
-           SELECT DISTINCT work_date FROM dss_daily_landings
-           WHERE team_id = %s AND work_date < %s
-           ORDER BY work_date""",
-        (team_id, up_to_date_exclusive, team_id, up_to_date_exclusive),
+        """SELECT ds.id AS shift_id, ds.team_member_id, ds.work_date,
+                  ds.hours_worked, ds.notes, tm.name AS member_name,
+                  dc.count AS comp_count, dc.conversion_factor
+           FROM dss_daily_shifts ds
+           JOIN dss_team_members tm ON tm.id = ds.team_member_id
+           LEFT JOIN dss_daily_completions dc ON dc.daily_shift_id = ds.id
+           WHERE ds.team_id = %s AND ds.work_date <= %s
+           ORDER BY ds.work_date, ds.id""",
+        (team_id, up_to_date),
     )
-    dates = [r["work_date"] for r in cur.fetchall()]
+    shift_rows = cur.fetchall()
 
-    running = starting
-    for d in dates:
-        landed = _dss_landed_units_for_date(cur, team_id, d)
-        completed = _dss_completed_units_for_date(cur, team_id, base_rate, d)
-        rollup = dss_calc.daily_team_rollup(landed, completed, 0, running)
-        running = rollup["running_backlog"]
-    return running
-
-
-def _dss_landed_units_for_date(cur, team_id, work_date):
-    """Sum of landing.count * conversion_factor(task_type) for a date."""
     cur.execute(
-        """SELECT dl.count, tt.rate_per_hour,
-                  (SELECT rate_per_hour FROM dss_task_types WHERE team_id = %s AND is_base = TRUE AND is_active = TRUE LIMIT 1) AS base_rate
+        """SELECT dl.work_date,
+                  dl.count * (br.base_rate / tt.rate_per_hour) AS units
            FROM dss_daily_landings dl
            JOIN dss_task_types tt ON tt.id = dl.task_type_id
-           WHERE dl.team_id = %s AND dl.work_date = %s""",
-        (team_id, team_id, work_date),
+           CROSS JOIN (
+               SELECT rate_per_hour AS base_rate
+               FROM dss_task_types
+               WHERE team_id = %s AND is_base = TRUE AND is_active = TRUE
+               LIMIT 1
+           ) br
+           WHERE dl.team_id = %s AND dl.work_date <= %s""",
+        (team_id, team_id, up_to_date),
     )
-    total = 0.0
-    for r in cur.fetchall():
-        if r["rate_per_hour"] and float(r["rate_per_hour"]) > 0:
-            cf = float(r["base_rate"]) / float(r["rate_per_hour"])
-            total += r["count"] * cf
-    return total
+    landing_rows = cur.fetchall()
+    return shift_rows, landing_rows
 
 
-def _dss_completed_units_for_date(cur, team_id, base_rate, work_date):
-    """Sum of actual_units across all shifts on a date."""
-    cur.execute(
-        """SELECT ds.id, ds.hours_worked FROM dss_daily_shifts ds
-           WHERE ds.team_id = %s AND ds.work_date = %s""",
-        (team_id, work_date),
-    )
-    shifts = cur.fetchall()
-    total = 0.0
-    for s in shifts:
-        metrics = _dss_compute_shift_metrics(cur, s["id"], s["hours_worked"], base_rate)
-        total += metrics["actual_units"]
-    return total
+def _dss_build_series(shift_rows, landing_rows, base_rate, starting_backlog):
+    """
+    From raw bulk rows build:
+      shifts_by_date, completions_by_shift, landed_by_date,
+      completed_by_date, backlog_by_date, all_dates (sorted)
+    All heavy lifting done in Python — zero extra DB queries.
+    """
+    from collections import defaultdict
+
+    seen_shifts = {}
+    shifts_by_date = defaultdict(list)
+    completions_by_shift = defaultdict(list)
+
+    for row in shift_rows:
+        sid = row["shift_id"]
+        if sid not in seen_shifts:
+            s = {
+                "id": sid,
+                "team_member_id": row["team_member_id"],
+                "work_date": row["work_date"],
+                "hours_worked": float(row["hours_worked"] or 0),
+                "notes": row.get("notes"),
+                "member_name": row["member_name"],
+            }
+            seen_shifts[sid] = s
+            shifts_by_date[row["work_date"]].append(s)
+        if row["comp_count"] is not None:
+            completions_by_shift[sid].append({
+                "count": row["comp_count"],
+                "conversion_factor": float(row["conversion_factor"]),
+            })
+
+    landed_by_date = defaultdict(float)
+    for row in landing_rows:
+        landed_by_date[row["work_date"]] += float(row["units"])
+
+    all_dates = sorted(set(list(shifts_by_date.keys()) + list(landed_by_date.keys())))
+
+    completed_by_date = {}
+    for d in all_dates:
+        total = 0.0
+        for shift in shifts_by_date.get(d, []):
+            comps = completions_by_shift.get(shift["id"], [])
+            metrics = dss_calc.shift_metrics(shift["hours_worked"], comps, base_rate)
+            total += metrics["actual_units"]
+        completed_by_date[d] = total
+
+    backlog_by_date = {}
+    running = starting_backlog
+    for d in all_dates:
+        landed = landed_by_date.get(d, 0.0)
+        completed = completed_by_date.get(d, 0.0)
+        rollup = dss_calc.daily_team_rollup(landed, completed, 0, running)
+        running = rollup["running_backlog"]
+        backlog_by_date[d] = running
+
+    return {
+        "seen_shifts": seen_shifts,
+        "shifts_by_date": shifts_by_date,
+        "completions_by_shift": completions_by_shift,
+        "landed_by_date": landed_by_date,
+        "completed_by_date": completed_by_date,
+        "backlog_by_date": backlog_by_date,
+        "all_dates": all_dates,
+    }
 
 
 # ---------------------------------------------------------------------------

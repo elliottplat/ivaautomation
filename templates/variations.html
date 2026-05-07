@@ -370,6 +370,15 @@
     .status-badge-inline.approved { background: #dcfce7; color: #15803d; }
     .status-badge-inline.rejected { background: #fee2e2; color: #b91c1c; }
     .status-badge-inline.pending  { background: #fff7ed; color: #c2410c; }
+
+    /* Custom line add/remove in EOS table */
+    .eos-add-line-btn { display: inline-flex; align-items: center; gap: 0.3rem; font-size: 0.78rem; font-weight: 600; padding: 0.25rem 0.65rem; border: 1.5px solid #c7d2fe; border-radius: 6px; background: #eef2ff; color: #4f46e5; cursor: pointer; transition: background 0.15s; margin: 0.35rem 0 0; }
+    .eos-add-line-btn:hover { background: #e0e7ff; border-color: #6366f1; }
+    .eos-custom-row td { background: #f5f5ff; }
+    .eos-custom-label-input { width: 100%; border: 1.5px solid #c7d2fe; border-radius: 5px; padding: 0.28rem 0.45rem; font-size: 0.85rem; font-family: inherit; transition: border-color 0.2s; background: #fefeff; }
+    .eos-custom-label-input:focus { outline: none; border-color: #6366f1; }
+    .eos-remove-line-btn { background: none; border: none; color: #fca5a5; cursor: pointer; font-size: 1rem; padding: 0 0.2rem; transition: color 0.15s; }
+    .eos-remove-line-btn:hover { color: #ef4444; }
   </style>
 </head>
 <body>
@@ -442,26 +451,31 @@
           <option value="min_dividend_not_complied">Min. Dividend Mod. Not Complied With</option>
           <option value="other_modification_not_complied">Other Modification Not Complied With</option>
           <option value="increase_in_claims">Increase in Claims</option>
+          <option value="other">Other</option>
         </select>
+        <div id="other-type-name-wrap" style="display:none;align-items:center;gap:0.4rem;">
+          <label for="other-type-name" style="font-size:0.82rem;font-weight:700;color:#555;white-space:nowrap;">Specify variation type</label>
+          <input type="text" id="other-type-name" placeholder="e.g. Director's Loan Repayment" style="border:1.5px solid #d0d5dd;border-radius:8px;padding:0.5rem 0.85rem;font-size:0.9rem;font-family:inherit;width:240px;" />
+        </div>
       </div>
 
       <input type="hidden" id="hidden-work-item-id" value="" />
 
-      <!-- F&F Inputs -->
-      <div class="ff-inputs" id="ff-inputs">
-        <div class="ff-inputs-title">Full &amp; Final Offer Inputs</div>
+      <!-- Generate EOS Form — universal fields always shown, type-specific fields conditional -->
+      <div class="ff-inputs" id="eos-form-inputs">
+        <div class="ff-inputs-title" id="eos-form-title">Generate EOS Inputs</div>
         <div class="ff-inputs-grid">
+
+          <!-- UNIVERSAL: Creditors Claim -->
           <div class="ff-field">
-            <label for="ff-amount">Full &amp; Final Offer Amount (£)</label>
-            <input type="number" id="ff-amount" step="0.01" min="0" placeholder="0.00" />
-          </div>
-          <div class="ff-field">
-            <label for="creditors-claim">Creditors Claim Amount (£)</label>
+            <label for="creditors-claim">Creditors' Claim Amount (£) <span style="color:#ef4444;">*</span></label>
             <input type="number" id="creditors-claim" step="0.01" min="0" placeholder="0.00" />
           </div>
-          <div class="ff-field" style="grid-column: 1/-1;">
+
+          <!-- UNIVERSAL: Variation Fee Toggle -->
+          <div class="ff-field" style="justify-content:flex-end;">
             <div class="ff-toggle-row">
-              <span class="ff-toggle-label">Variation Fee</span>
+              <span class="ff-toggle-label">Variation Meeting Fee</span>
               <label class="toggle-switch">
                 <input type="checkbox" id="variation-fee-toggle" checked />
                 <span class="toggle-slider"></span>
@@ -472,6 +486,71 @@
               </div>
             </div>
           </div>
+
+          <!-- F&F ONLY: F&F Amount -->
+          <div class="ff-field" id="ff-amount-field">
+            <label for="ff-amount">Full &amp; Final Offer Amount (£) <span style="color:#ef4444;">*</span></label>
+            <input type="number" id="ff-amount" step="0.01" min="0" placeholder="0.00" />
+          </div>
+
+          <!-- FUNDS PAID TO DATE: additional assets -->
+          <div class="ff-field" id="field-additional-assets-amount" style="display:none;">
+            <label for="additional-assets-amount">Additional Assets Received (£) <span style="color:#ef4444;">*</span></label>
+            <input type="number" id="additional-assets-amount" step="0.01" min="0" placeholder="0.00" />
+          </div>
+          <div class="ff-field" id="field-additional-assets-label" style="display:none;">
+            <label for="additional-assets-label">Assets Line Label <span style="font-weight:400;color:#aaa;">(optional)</span></label>
+            <input type="text" id="additional-assets-label" placeholder="Additional Assets Received" />
+          </div>
+
+          <!-- CONTRIBUTIONS REDUCTION -->
+          <div class="ff-field" id="field-new-contribution" style="display:none;">
+            <label for="new-contribution-amount">New Monthly Contribution (£) <span style="color:#ef4444;">*</span></label>
+            <input type="number" id="new-contribution-amount" step="0.01" min="0" placeholder="0.00" />
+          </div>
+          <div class="ff-field" id="field-remaining-months-cr" style="display:none;">
+            <label for="remaining-months-cr">Remaining Months <span style="color:#ef4444;">*</span></label>
+            <input type="number" id="remaining-months-cr" step="1" min="0" placeholder="0" />
+          </div>
+
+          <!-- EXTENSION FOR ARREARS -->
+          <div class="ff-field" id="field-regular-vc-amount" style="display:none;">
+            <label for="regular-vc-amount">Regular VC (£/month) <span style="color:#ef4444;">*</span></label>
+            <input type="number" id="regular-vc-amount" step="0.01" min="0" placeholder="0.00" />
+          </div>
+          <div class="ff-field" id="field-regular-remaining-months" style="display:none;">
+            <label for="regular-remaining-months">Regular Remaining Months <span style="color:#ef4444;">*</span></label>
+            <input type="number" id="regular-remaining-months" step="1" min="0" placeholder="0" />
+          </div>
+          <div class="ff-field" id="field-extension-months-ea" style="display:none;">
+            <label for="extension-months-ea">Extension Months <span style="color:#ef4444;">*</span></label>
+            <input type="number" id="extension-months-ea" step="1" min="0" value="12" />
+          </div>
+          <div class="ff-field" id="field-extension-vc-ea" style="display:none;">
+            <label for="extension-vc-ea">Extension VC (£/month) <span style="color:#ef4444;">*</span></label>
+            <input type="number" id="extension-vc-ea" step="0.01" min="0" placeholder="0.00" />
+          </div>
+
+          <!-- INCREASE IN CLAIMS: propose extension toggle -->
+          <div class="ff-field" id="field-propose-extension" style="display:none;grid-column:1/-1;">
+            <div class="ff-toggle-row">
+              <span class="ff-toggle-label">Propose Extension?</span>
+              <label class="toggle-switch">
+                <input type="checkbox" id="propose-extension-toggle" />
+                <span class="toggle-slider"></span>
+              </label>
+              <span id="propose-extension-status" style="font-size:0.8rem;color:#666;">No</span>
+            </div>
+          </div>
+          <div class="ff-field" id="field-extension-vc-ic" style="display:none;">
+            <label for="extension-vc-ic">Extension VC (£/month) <span style="color:#ef4444;">*</span></label>
+            <input type="number" id="extension-vc-ic" step="0.01" min="0" placeholder="0.00" />
+          </div>
+          <div class="ff-field" id="field-extension-months-ic" style="display:none;">
+            <label for="extension-months-ic">Extension Months <span style="color:#ef4444;">*</span></label>
+            <input type="number" id="extension-months-ic" step="1" min="0" placeholder="0" />
+          </div>
+
         </div>
       </div>
 
@@ -695,28 +774,76 @@
     min_dividend_not_complied:       'Min. Dividend Mod. Not Complied With',
     other_modification_not_complied: 'Other Modification Not Complied With',
     increase_in_claims:              'Increase in Claims',
+    other:                           'Other',
   };
 
-  // hasIE: show I&E section; hasCOA: show Chart of Accounts card; hasFFInputs: show F&F specific fields
+  // hasIE: show I&E section; hasCOA: show Chart of Accounts card; hasFFAmountField: show F&F amount input
+  // extraFields: array of field IDs to show for this type
   const VARIATION_TYPE_CONFIG = {
-    full_and_final:                  { hasIE: true,  hasCOA: true,  hasFFInputs: true,  flagNote: null },
-    changing_ip:                     { hasIE: false, hasCOA: false, hasFFInputs: false, flagNote: null },
-    funds_paid_to_date:              { hasIE: true,  hasCOA: true,  hasFFInputs: false, flagNote: null },
-    contributions_reduction:         { hasIE: true,  hasCOA: true,  hasFFInputs: false, flagNote: null },
-    extension_for_arrears:           { hasIE: false, hasCOA: false, hasFFInputs: false, flagNote: null },
-    extra_payment_breaks:            { hasIE: false, hasCOA: false, hasFFInputs: false, flagNote: null },
-    min_dividend_not_complied:       { hasIE: false, hasCOA: false, hasFFInputs: false, flagNote: null },
-    other_modification_not_complied: { hasIE: false, hasCOA: false, hasFFInputs: false, flagNote: '<strong>Note:</strong> Specify in the reason which modification is not going to be complied with, and explain why it cannot be met.' },
-    increase_in_claims:              { hasIE: false, hasCOA: false, hasFFInputs: false, flagNote: '<strong>Note:</strong> Specify in the reason where the claim has come from and why it has increased.' },
+    full_and_final:                  { hasIE: true,  hasCOA: true,  hasFFAmountField: true,  flagNote: null,
+      extraFields: ['ff-amount-field'], requiredFields: ['creditors-claim','ff-amount'] },
+    changing_ip:                     { hasIE: false, hasCOA: false, hasFFAmountField: false, flagNote: null,
+      extraFields: [], requiredFields: ['creditors-claim'] },
+    funds_paid_to_date:              { hasIE: true,  hasCOA: true,  hasFFAmountField: false, flagNote: null,
+      extraFields: ['field-additional-assets-amount','field-additional-assets-label'],
+      requiredFields: ['creditors-claim','additional-assets-amount'] },
+    contributions_reduction:         { hasIE: true,  hasCOA: true,  hasFFAmountField: false, flagNote: null,
+      extraFields: ['field-new-contribution','field-remaining-months-cr'],
+      requiredFields: ['creditors-claim','new-contribution-amount','remaining-months-cr'] },
+    extension_for_arrears:           { hasIE: false, hasCOA: false, hasFFAmountField: false, flagNote: null,
+      extraFields: ['field-regular-vc-amount','field-regular-remaining-months','field-extension-months-ea','field-extension-vc-ea'],
+      requiredFields: ['creditors-claim','regular-vc-amount','regular-remaining-months','extension-months-ea','extension-vc-ea'] },
+    extra_payment_breaks:            { hasIE: false, hasCOA: false, hasFFAmountField: false, flagNote: null,
+      extraFields: [], requiredFields: ['creditors-claim'] },
+    min_dividend_not_complied:       { hasIE: false, hasCOA: false, hasFFAmountField: false, flagNote: null,
+      extraFields: [], requiredFields: ['creditors-claim'] },
+    other_modification_not_complied: { hasIE: false, hasCOA: false, hasFFAmountField: false,
+      flagNote: '<strong>Note:</strong> Specify in the reason which modification is not going to be complied with, and explain why it cannot be met.',
+      extraFields: [], requiredFields: ['creditors-claim'] },
+    increase_in_claims:              { hasIE: false, hasCOA: false, hasFFAmountField: false,
+      flagNote: '<strong>Note:</strong> Specify in the reason where the claim has come from and why it has increased.',
+      extraFields: ['field-propose-extension'], requiredFields: ['creditors-claim'] },
+    other:                           { hasIE: false, hasCOA: false, hasFFAmountField: false, flagNote: null,
+      extraFields: [], requiredFields: ['creditors-claim'] },
   };
+
+  // All possible conditional field wrapper IDs
+  const ALL_EXTRA_FIELD_IDS = [
+    'ff-amount-field',
+    'field-additional-assets-amount','field-additional-assets-label',
+    'field-new-contribution','field-remaining-months-cr',
+    'field-regular-vc-amount','field-regular-remaining-months','field-extension-months-ea','field-extension-vc-ea',
+    'field-propose-extension','field-extension-vc-ic','field-extension-months-ic',
+  ];
 
   {% if current_user.role in ['uploader', 'admin'] %}
   function applyVariationType(type) {
     const cfg = VARIATION_TYPE_CONFIG[type] || VARIATION_TYPE_CONFIG['full_and_final'];
 
-    // F&F specific inputs
-    const ffInputs = document.getElementById('ff-inputs');
-    if (ffInputs) ffInputs.style.display = cfg.hasFFInputs ? '' : 'none';
+    // "Other" custom name field
+    const otherNameWrap = document.getElementById('other-type-name-wrap');
+    if (otherNameWrap) otherNameWrap.style.display = (type === 'other') ? 'flex' : 'none';
+
+    // Hide all extra fields then show only the ones for this type
+    ALL_EXTRA_FIELD_IDS.forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.style.display = 'none';
+    });
+    (cfg.extraFields || []).forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.style.display = '';
+    });
+
+    // For increase_in_claims, also handle propose-extension sub-fields visibility
+    if (type === 'increase_in_claims') {
+      const pt = document.getElementById('propose-extension-toggle');
+      if (pt) syncProposeExtension(pt.checked);
+    } else {
+      ['field-extension-vc-ic','field-extension-months-ic'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = 'none';
+      });
+    }
 
     // COA upload card
     const coaCard = document.getElementById('card-chart_of_accounts');
@@ -736,11 +863,94 @@
         flagEl.classList.remove('visible');
       }
     }
+
+    // Update form title
+    const titleEl = document.getElementById('eos-form-title');
+    if (titleEl) {
+      if (type === 'full_and_final') titleEl.textContent = 'Full & Final Offer Inputs';
+      else titleEl.textContent = 'Generate EOS Inputs';
+    }
+
+    validateEosForm();
   }
+
+  function syncProposeExtension(checked) {
+    ['field-extension-vc-ic','field-extension-months-ic'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.style.display = checked ? '' : 'none';
+    });
+    const status = document.getElementById('propose-extension-status');
+    if (status) status.textContent = checked ? 'Yes' : 'No';
+    validateEosForm();
+  }
+
+  const proposeExtToggle = document.getElementById('propose-extension-toggle');
+  if (proposeExtToggle) {
+    proposeExtToggle.addEventListener('change', () => syncProposeExtension(proposeExtToggle.checked));
+  }
+
+  function validateEosForm() {
+    const type = document.getElementById('variation-type').value;
+    const cfg = VARIATION_TYPE_CONFIG[type] || VARIATION_TYPE_CONFIG['full_and_final'];
+    const submitBtn = document.getElementById('submit-btn');
+    if (!submitBtn) return;
+
+    let valid = true;
+
+    // Check required fields
+    (cfg.requiredFields || []).forEach(id => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      const val = el.value.trim();
+      if (!val || (el.type === 'number' && (parseFloat(val) <= 0 || isNaN(parseFloat(val))))) {
+        valid = false;
+      }
+    });
+
+    // Variation fee: if toggle on, fee must be > 0
+    const feeToggle = document.getElementById('variation-fee-toggle');
+    const feeAmount = document.getElementById('variation-fee-amount');
+    if (feeToggle && feeToggle.checked && feeAmount) {
+      const fv = parseFloat(feeAmount.value) || 0;
+      if (fv <= 0) valid = false;
+    }
+
+    // "Other" type: custom name required
+    if (type === 'other') {
+      const customName = document.getElementById('other-type-name');
+      if (!customName || !customName.value.trim()) valid = false;
+    }
+
+    // increase_in_claims with propose_extension: extension fields required
+    if (type === 'increase_in_claims') {
+      const pt = document.getElementById('propose-extension-toggle');
+      if (pt && pt.checked) {
+        ['extension-vc-ic','extension-months-ic'].forEach(id => {
+          const el = document.getElementById(id);
+          if (!el) { valid = false; return; }
+          const val = parseFloat(el.value) || 0;
+          if (val <= 0) valid = false;
+        });
+      }
+    }
+
+    submitBtn.disabled = !valid;
+  }
+
+  // Trigger validation on any relevant input change
+  document.querySelectorAll('#eos-form-inputs input, #case-bar input, #variation-type, #other-type-name').forEach(el => {
+    if (el) el.addEventListener('input', validateEosForm);
+  });
+  // Also on toggle changes
+  const feeToggleEl = document.getElementById('variation-fee-toggle');
+  if (feeToggleEl) feeToggleEl.addEventListener('change', validateEosForm);
 
   document.getElementById('variation-type').addEventListener('change', function() {
     applyVariationType(this.value);
   });
+
+  const otherNameInput = document.getElementById('other-type-name');
+  if (otherNameInput) otherNameInput.addEventListener('input', validateEosForm);
 
   // Apply initial state
   applyVariationType(document.getElementById('variation-type').value);
@@ -1054,13 +1264,18 @@
     if (status) el.classList.add('status-' + status);
   }
 
-  function sidebarAddPending(key, caseNumber, dt, variationSubtype) {
+  function getVariationDisplayLabel(variationSubtype, customName) {
+    if (variationSubtype === 'other' && customName) return customName;
+    return VARIATION_TYPE_LABELS[variationSubtype] || variationSubtype || '';
+  }
+
+  function sidebarAddPending(key, caseNumber, dt, variationSubtype, customName) {
     const el = document.createElement('div');
     el.className = 'case-item';
     el.id = 'case-item-' + key;
     const label = caseNumber || 'Untitled';
     const dtStr = dt.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
-    const typeLabel = VARIATION_TYPE_LABELS[variationSubtype] || variationSubtype || '';
+    const typeLabel = getVariationDisplayLabel(variationSubtype, customName);
     const typeStr = typeLabel ? ` <span style="font-size:0.68rem;color:#aaa;">${escHtml(typeLabel)}</span>` : '';
     el.innerHTML = `<span class="cn"><span class="status-dot pending-dot"></span>${escHtml(label)}${typeStr}</span><span class="dt">${dtStr} · generating…</span>`;
     el.addEventListener('click', () => showOutputForKey(key));
@@ -1077,7 +1292,9 @@
     if (!entry) return;
     const label = entry.caseNumber || finalKey;
     const dt = new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
-    el.querySelector('.cn').innerHTML = '<span class="status-dot"></span>' + escHtml(label);
+    const typeLabel = getVariationDisplayLabel(entry.variationSubtype, entry.customVariationTypeName);
+    const typeStr = typeLabel ? ` <span style="font-size:0.68rem;color:#aaa;">${escHtml(typeLabel)}</span>` : '';
+    el.querySelector('.cn').innerHTML = '<span class="status-dot"></span>' + escHtml(label) + typeStr;
     el.querySelector('.dt').textContent = dt + ' · done';
     el.onclick = () => showOutputForKey(finalKey);
     applyStatusClass(el, entry.reviewStatus || 'pending');
@@ -1097,13 +1314,13 @@
     }
   }
 
-  function sidebarAddStored(id, caseNumber, createdAt, reviewStatus, variationSubtype) {
-    store[String(id)] = { caseNumber, rawJson: null, parsedResult: null, eosState: null, pending: false, usage: null, reviewStatus, variationSubtype };
+  function sidebarAddStored(id, caseNumber, createdAt, reviewStatus, variationSubtype, customName) {
+    store[String(id)] = { caseNumber, rawJson: null, parsedResult: null, eosState: null, pending: false, usage: null, reviewStatus, variationSubtype, customVariationTypeName: customName || null };
     const el = document.createElement('div');
     el.className = 'case-item';
     el.id = 'case-item-' + id;
     const dt = new Date(createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
-    const typeLabel = VARIATION_TYPE_LABELS[variationSubtype] || variationSubtype || '';
+    const typeLabel = getVariationDisplayLabel(variationSubtype, customName);
     const typeStr = typeLabel ? ` <span style="font-size:0.68rem;color:#aaa;">${escHtml(typeLabel)}</span>` : '';
     el.innerHTML = `<span class="cn"><span class="status-dot"></span>${escHtml(caseNumber)}${typeStr}</span><span class="dt">${dt}</span>`;
     applyStatusClass(el, reviewStatus || 'pending');
@@ -1134,6 +1351,15 @@
     if (!state) return '<p style="color:#bbb;">No EOS data.</p>';
 
     const rows_assets = (state.assets_available || []).map((r, i) => {
+      const isCustom = r._custom ? true : false;
+      if (editable && isCustom) {
+        return `<tr class="eos-custom-row" data-custom-section="assets" data-custom-idx="${i}">
+          <td><input class="eos-custom-label-input" type="text" value="${escHtml(r.label)}" placeholder="Line label" data-custom-label="assets:${i}" />
+          <button class="eos-remove-line-btn" title="Remove line" data-remove-custom-section="assets" data-remove-custom-idx="${i}">🗑</button></td>
+          <td><input type="number" class="eos-input" data-section="assets" data-idx="${i}" data-col="last_agreed" value="${fmtNum(r.last_agreed)}" step="0.01" /></td>
+          <td><input type="number" class="eos-input" data-section="assets" data-idx="${i}" data-col="current" value="${fmtNum(r.current)}" step="0.01" /></td>
+        </tr>`;
+      }
       const cur = editable
         ? `<input type="number" class="eos-input" data-section="assets" data-idx="${i}" data-col="current" value="${fmtNum(r.current)}" step="0.01" />${copyBtn(r.current, r.label + ' current')}`
         : `${fmtFS(r.current)}${copyBtn(fmtFSnum(r.current), r.label)}`;
@@ -1142,6 +1368,15 @@
 
     const ta = state.total_assets_available || {};
     const rows_costs = (state.costs_and_disbursements || []).map((r, i) => {
+      const isCustom = r._custom ? true : false;
+      if (editable && isCustom) {
+        return `<tr class="eos-custom-row" data-custom-section="costs" data-custom-idx="${i}">
+          <td><input class="eos-custom-label-input" type="text" value="${escHtml(r.label)}" placeholder="Line label" data-custom-label="costs:${i}" />
+          <button class="eos-remove-line-btn" title="Remove line" data-remove-custom-section="costs" data-remove-custom-idx="${i}">🗑</button></td>
+          <td><input type="number" class="eos-input" data-section="costs" data-idx="${i}" data-col="last_agreed" value="${fmtNum(r.last_agreed)}" step="0.01" /></td>
+          <td><input type="number" class="eos-input" data-section="costs" data-idx="${i}" data-col="current" value="${fmtNum(r.current)}" step="0.01" /></td>
+        </tr>`;
+      }
       const cur = editable
         ? `<input type="number" class="eos-input" data-section="costs" data-idx="${i}" data-col="current" value="${fmtNum(r.current)}" step="0.01" />${copyBtn(r.current, r.label + ' current')}`
         : `${fmtFS(r.current)}${copyBtn(fmtFSnum(r.current), r.label)}`;
@@ -1160,6 +1395,9 @@
     const ucCurInput = editable
       ? `<input type="number" class="eos-input" data-section="uc" data-idx="0" data-col="current" value="${fmtNum(uc.current)}" step="0.01" />${copyBtn(uc.current, 'Unsecured Creditors current')}`
       : `${fmtFS(uc.current)}${copyBtn(fmtFSnum(uc.current), 'Unsecured Creditors')}`;
+
+    const addAssetBtn = editable ? `<tr id="eos-add-asset-row"><td colspan="3"><button class="eos-add-line-btn" id="eos-add-asset-btn">+ Add line</button></td></tr>` : '';
+    const addCostBtn  = editable ? `<tr id="eos-add-cost-row"><td colspan="3"><button class="eos-add-line-btn" id="eos-add-cost-btn">+ Add line</button></td></tr>` : '';
 
     // Build copy-all text for the whole table
     const allRows = [
@@ -1192,9 +1430,11 @@
         <tbody>
           <tr class="fin-section"><td colspan="3">Assets Available</td></tr>
           ${rows_assets}
+          ${addAssetBtn}
           <tr class="fin-total"><td>Total Assets Available</td><td>${fmtFS(ta.last_agreed)}${copyBtn(fmtFSnum(ta.last_agreed),'Total Assets LA')}</td><td>${fmtFS(ta.current)}${copyBtn(fmtFSnum(ta.current),'Total Assets Current')}</td></tr>
           <tr class="fin-section"><td colspan="3">Estimated Costs &amp; Disbursements</td></tr>
           ${rows_costs}
+          ${addCostBtn}
           <tr class="fin-total"><td>Total Estimated Costs &amp; Disbursements</td><td>${fmtFS(tc.last_agreed)}${copyBtn(fmtFSnum(tc.last_agreed),'Total Costs LA')}</td><td>${fmtFS(tc.current)}${copyBtn(fmtFSnum(tc.current),'Total Costs Current')}</td></tr>
           <tr class="fin-grand"><td>Estimated Available For Distribution</td><td>${fmtFS(afd.last_agreed)}${copyBtn(fmtFSnum(afd.last_agreed),'AFD LA')}</td><td>${fmtFS(afd.current)}${copyBtn(fmtFSnum(afd.current),'AFD Current')}</td></tr>
           <tr><td>Unsecured Creditors</td><td>${fmtFS(uc.last_agreed)}${copyBtn(fmtFSnum(uc.last_agreed),'UC LA')}</td><td>${ucCurInput}</td></tr>
@@ -1345,25 +1585,90 @@
     }
   }
 
+  function addCustomEosLine(entry, section, key) {
+    const state = entry.eosState;
+    if (!state) return;
+    const newLine = { label: '', last_agreed: 0, current: 0, _custom: true };
+    if (section === 'assets') {
+      if (!state.assets_available) state.assets_available = [];
+      state.assets_available.push(newLine);
+    } else {
+      if (!state.costs_and_disbursements) state.costs_and_disbursements = [];
+      state.costs_and_disbursements.push(newLine);
+    }
+    recalcEosState(state);
+    renderResult(entry.parsedResult, key);
+    // wireEosInputs is called inside renderResult
+  }
+
+  function removeCustomEosLine(entry, section, idx, key) {
+    const state = entry.eosState;
+    if (!state) return;
+    if (section === 'assets' && state.assets_available) {
+      state.assets_available.splice(idx, 1);
+    } else if (section === 'costs' && state.costs_and_disbursements) {
+      state.costs_and_disbursements.splice(idx, 1);
+    }
+    recalcEosState(state);
+    renderResult(entry.parsedResult, key);
+    // wireEosInputs is called inside renderResult
+  }
+
   function wireEosInputs(entry, key) {
     document.querySelectorAll('.eos-input').forEach(input => {
       input.addEventListener('input', () => {
         const section = input.dataset.section;
         const idx     = parseInt(input.dataset.idx);
+        const col     = input.dataset.col || 'current';
         const val     = parseFloat(input.value) || 0;
         const state   = entry.eosState;
         if (!state) return;
 
         if (section === 'assets' && state.assets_available && state.assets_available[idx]) {
-          state.assets_available[idx].current = val;
+          state.assets_available[idx][col] = val;
         } else if (section === 'costs' && state.costs_and_disbursements && state.costs_and_disbursements[idx]) {
-          state.costs_and_disbursements[idx].current = val;
+          state.costs_and_disbursements[idx][col] = val;
         } else if (section === 'uc') {
           if (!state.unsecured_creditors) state.unsecured_creditors = {};
-          state.unsecured_creditors.current = val;
+          state.unsecured_creditors[col] = val;
         }
         recalcEosState(state);
         refreshEosTotals(state);
+      });
+    });
+
+    // Custom label inputs
+    document.querySelectorAll('.eos-custom-label-input').forEach(input => {
+      input.addEventListener('input', () => {
+        const parts = (input.dataset.customLabel || '').split(':');
+        const section = parts[0];
+        const idx = parseInt(parts[1]);
+        const state = entry.eosState;
+        if (!state) return;
+        if (section === 'assets' && state.assets_available && state.assets_available[idx]) {
+          state.assets_available[idx].label = input.value;
+        } else if (section === 'costs' && state.costs_and_disbursements && state.costs_and_disbursements[idx]) {
+          state.costs_and_disbursements[idx].label = input.value;
+        }
+      });
+    });
+
+    // Add line buttons
+    const addAssetBtn = document.getElementById('eos-add-asset-btn');
+    if (addAssetBtn) {
+      addAssetBtn.addEventListener('click', () => addCustomEosLine(entry, 'assets', key));
+    }
+    const addCostBtn = document.getElementById('eos-add-cost-btn');
+    if (addCostBtn) {
+      addCostBtn.addEventListener('click', () => addCustomEosLine(entry, 'costs', key));
+    }
+
+    // Remove line buttons
+    document.querySelectorAll('[data-remove-custom-section]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const section = btn.dataset.removeCustomSection;
+        const idx = parseInt(btn.dataset.removeCustomIdx);
+        removeCustomEosLine(entry, section, idx, key);
       });
     });
 
@@ -1524,6 +1829,7 @@
         entry.rawJson = data.result || '';
         entry.reviewStatus = data.review_status;
         entry.variationSubtype = data.variation_subtype || null;
+        entry.customVariationTypeName = data.custom_variation_type_name || null;
         caseReviewStatus = data.review_status;
         caseSubmittedBy = data.submitted_by;
         currentCaseId = key;
@@ -2053,6 +2359,7 @@
     const on = feeToggle.checked;
     feeAmountWrap.classList.toggle('visible', on);
     feeStatus.textContent = on ? 'Yes' : 'No';
+    validateEosForm();
   });
 
   // ── Form submit ───────────────────────────────────────────────────────────
@@ -2068,19 +2375,35 @@
 
     const caseNumber = document.getElementById('case-number').value.trim();
     const variationType = document.getElementById('variation-type').value;
+    const customVariationTypeName = variationType === 'other'
+      ? (document.getElementById('other-type-name').value.trim() || null) : null;
     const tempKey = 'temp-' + Date.now();
 
-    store[tempKey] = { caseNumber, rawJson: '', parsedResult: null, eosState: null, pending: true, usage: null, reviewStatus: null, variationSubtype: variationType };
-    sidebarAddPending(tempKey, caseNumber, new Date(), variationType);
+    store[tempKey] = { caseNumber, rawJson: '', parsedResult: null, eosState: null, pending: true, usage: null, reviewStatus: null, variationSubtype: variationType, customVariationTypeName };
+    sidebarAddPending(tempKey, caseNumber, new Date(), variationType, customVariationTypeName);
     showCalculating();
 
     const fd = new FormData();
     fd.append('case_number',     caseNumber);
     fd.append('variation_type',  variationType);
-    fd.append('ff_amount',       document.getElementById('ff-amount').value || '0');
+    if (customVariationTypeName) fd.append('custom_variation_type_name', customVariationTypeName);
     fd.append('creditors_claim_amount', document.getElementById('creditors-claim').value || '0');
     fd.append('variation_fee_enabled',  feeToggle.checked ? 'yes' : 'no');
     fd.append('variation_fee_amount',   document.getElementById('variation-fee-amount').value || '400');
+    // F&F
+    fd.append('ff_amount', document.getElementById('ff-amount').value || '0');
+    // Per-type fields
+    const g = id => { const el = document.getElementById(id); return el ? el.value : ''; };
+    fd.append('additional_assets_amount', g('additional-assets-amount') || '0');
+    fd.append('additional_assets_label',  g('additional-assets-label'));
+    fd.append('new_contribution_amount',  g('new-contribution-amount') || '0');
+    fd.append('remaining_months',         g('remaining-months-cr') || '0');
+    fd.append('regular_vc_amount',        g('regular-vc-amount') || '0');
+    fd.append('regular_remaining_months', g('regular-remaining-months') || '0');
+    fd.append('extension_months',         g('extension-months-ea') || g('extension-months-ic') || '0');
+    fd.append('extension_vc_amount',      g('extension-vc-ea') || g('extension-vc-ic') || '0');
+    const proposeExt = document.getElementById('propose-extension-toggle');
+    fd.append('propose_extension', (proposeExt && proposeExt.checked) ? 'yes' : 'no');
     const workItemId = document.getElementById('hidden-work-item-id').value;
     if (workItemId) fd.append('work_item_id', workItemId);
     slots.forEach(slot => fileMap[slot].forEach(f => fd.append(slot, f)));
@@ -2369,8 +2692,11 @@
 
     const activeVarType = (activeEntry && activeEntry.variationSubtype)
       || document.getElementById('variation-type').value;
+    const activeCustomName = (activeEntry && activeEntry.customVariationTypeName)
+      || (activeVarType === 'other' ? (document.getElementById('other-type-name') ? document.getElementById('other-type-name').value.trim() : null) : null);
     const context = {
       variation_type:    activeVarType,
+      custom_variation_type_name: activeCustomName || null,
       case_number:       document.getElementById('case-number').value.trim(),
       ff_amount:         document.getElementById('ff-amount') ? (document.getElementById('ff-amount').value || '0') : '0',
       creditors_claim:   document.getElementById('creditors-claim') ? (document.getElementById('creditors-claim').value || '0') : '0',
@@ -2518,7 +2844,7 @@
     const entry = store[key] || {};
 
     document.getElementById('review-case-number').textContent = entry.caseNumber || key;
-    const metaType = VARIATION_TYPE_LABELS[entry.variationSubtype] || entry.variationSubtype || 'Variation';
+    const metaType = getVariationDisplayLabel(entry.variationSubtype, entry.customVariationTypeName) || 'Variation';
     document.getElementById('review-case-meta').textContent = metaType + ' EOS';
     document.getElementById('review-rejection-note').value = '';
     document.getElementById('review-error').textContent = '';
@@ -2669,7 +2995,7 @@
       const res = await fetch('/api/cases?task_type=variation');
       const cases = await res.json();
       if (Array.isArray(cases)) {
-        cases.reverse().forEach(c => sidebarAddStored(c.id, c.case_number, c.created_at, c.review_status, c.variation_subtype));
+        cases.reverse().forEach(c => sidebarAddStored(c.id, c.case_number, c.created_at, c.review_status, c.variation_subtype, c.custom_variation_type_name));
       }
     } catch {}
   }
