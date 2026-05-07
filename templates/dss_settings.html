@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DSS Settings – Omni Group</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, -apple-system, sans-serif; background: #f0f2f5; color: #1a1a2e; min-height: 100vh; }
+
+    /* ── Top bar ── */
+    .topbar { background: #fff; border-bottom: 1px solid #e5e7eb; padding: 0.75rem 1.5rem; display: flex; align-items: center; gap: 1rem; position: sticky; top: 0; z-index: 10; }
+    .topbar a.back { text-decoration: none; color: #6366f1; font-size: 0.88rem; font-weight: 600; display: flex; align-items: center; gap: 0.3rem; }
+    .topbar a.back:hover { color: #4f46e5; }
+    .topbar h1 { font-size: 1.05rem; font-weight: 700; }
+    .topbar-nav { display: flex; gap: 0.25rem; }
+    .topbar-nav a { font-size: 0.82rem; font-weight: 600; color: #555; text-decoration: none; padding: 0.3rem 0.75rem; border-radius: 7px; transition: background 0.1s, color 0.1s; }
+    .topbar-nav a:hover { background: #f5f5ff; color: #4f46e5; }
+    .topbar-nav a.active { background: #e0e7ff; color: #4f46e5; }
+    .topbar-spacer { flex: 1; }
+    .topbar-right { display: flex; align-items: center; gap: 0.85rem; }
+    .topbar-user { font-size: 0.82rem; color: #777; }
+    .topbar-user strong { color: #333; }
+    .admin-menu-wrap { position: relative; }
+    .admin-menu-btn { display: flex; align-items: center; gap: 0.3rem; font-size: 0.82rem; font-weight: 600; color: #6366f1; background: none; border: 1.5px solid #e0e7ff; border-radius: 7px; padding: 0.3rem 0.75rem; cursor: pointer; }
+    .admin-menu-btn:hover { background: #f5f5ff; }
+    .admin-menu-btn .chevron { font-size: 0.6rem; transition: transform 0.15s; }
+    .admin-menu-btn.open .chevron { transform: rotate(180deg); }
+    .admin-dropdown { position: absolute; top: calc(100% + 6px); right: 0; background: #fff; border-radius: 10px; box-shadow: 0 8px 28px rgba(0,0,0,0.13); border: 1px solid #e5e7eb; min-width: 180px; padding: 0.35rem 0; display: none; z-index: 300; }
+    .admin-dropdown.open { display: block; }
+    .admin-dropdown a { display: flex; align-items: center; gap: 0.5rem; width: 100%; padding: 0.6rem 1rem; font-size: 0.84rem; font-weight: 500; color: #333; text-decoration: none; }
+    .admin-dropdown a:hover { background: #f5f5ff; color: #4f46e5; }
+    .admin-dropdown .divider { height: 1px; background: #f0f0f0; margin: 0.25rem 0; }
+    .admin-dropdown .danger { color: #ef4444; }
+    .admin-dropdown .danger:hover { background: #fef2f2; color: #dc2626; }
+
+    /* ── Main ── */
+    .main { padding: 1.5rem; display: flex; flex-direction: column; gap: 1.25rem; max-width: 900px; margin: 0 auto; }
+
+    /* ── Tabs ── */
+    .tabs { display: flex; gap: 0; border-bottom: 2px solid #f0f0f0; }
+    .tab-btn { padding: 0.65rem 1.25rem; font-size: 0.85rem; font-weight: 600; color: #777; background: none; border: none; border-bottom: 2px solid transparent; margin-bottom: -2px; cursor: pointer; transition: color 0.15s, border-color 0.15s; }
+    .tab-btn:hover { color: #6366f1; }
+    .tab-btn.active { color: #6366f1; border-bottom-color: #6366f1; }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    /* ── Card ── */
+    .card { background: #fff; border-radius: 12px; box-shadow: 0 1px 6px rgba(0,0,0,0.07); padding: 1.1rem 1.25rem; }
+    .card-title { font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #999; margin-bottom: 0.9rem; display: flex; align-items: center; justify-content: space-between; }
+
+    /* ── Table ── */
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+    thead th { text-align: left; padding: 0.55rem 0.75rem; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; color: #999; border-bottom: 1.5px solid #f0f0f0; white-space: nowrap; }
+    tbody td { padding: 0.65rem 0.75rem; border-bottom: 1px solid #f7f7f7; vertical-align: middle; }
+    tbody tr:last-child td { border-bottom: none; }
+
+    /* ── Buttons ── */
+    .btn { padding: 0.4rem 1rem; border-radius: 7px; font-size: 0.82rem; font-weight: 600; cursor: pointer; border: none; transition: background 0.15s; }
+    .btn-primary { background: #6366f1; color: #fff; }
+    .btn-primary:hover { background: #4f46e5; }
+    .btn-sm { padding: 0.25rem 0.65rem; font-size: 0.75rem; font-weight: 600; border-radius: 6px; cursor: pointer; border: 1.5px solid; transition: all 0.15s; }
+    .btn-sm.edit { background: #f5f5ff; color: #4f46e5; border-color: #e0e7ff; }
+    .btn-sm.edit:hover { background: #e0e7ff; }
+    .btn-sm.deactivate { background: #fff7ed; color: #c2410c; border-color: #fed7aa; }
+    .btn-sm.deactivate:hover { background: #ffedd5; }
+    .btn-sm.activate { background: #f0fdf4; color: #15803d; border-color: #bbf7d0; }
+    .btn-sm.activate:hover { background: #dcfce7; }
+
+    /* ── Status badge ── */
+    .badge { display: inline-block; font-size: 0.72rem; font-weight: 700; padding: 0.2rem 0.6rem; border-radius: 10px; }
+    .badge.active { background: #dcfce7; color: #15803d; }
+    .badge.inactive { background: #f3f4f6; color: #888; }
+    .badge.base { background: #e0e7ff; color: #3730a3; }
+
+    /* ── Inline form ── */
+    .inline-form { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; margin-top: 0.75rem; padding: 0.75rem; background: #f8f9fb; border-radius: 8px; }
+    .inline-form input, .inline-form select { border: 1.5px solid #d0d5dd; border-radius: 7px; padding: 0.4rem 0.65rem; font-size: 0.85rem; font-family: inherit; background: #fff; color: #1a1a2e; }
+    .inline-form input:focus, .inline-form select:focus { outline: none; border-color: #6366f1; }
+    .inline-form label { font-size: 0.8rem; font-weight: 600; color: #555; }
+    .form-status { font-size: 0.78rem; font-weight: 600; }
+    .form-status.ok { color: #15803d; }
+    .form-status.err { color: #b91c1c; }
+
+    /* ── Sub-types section ── */
+    .sub-types-section { margin-top: 0.5rem; padding: 0.5rem 0.75rem; background: #f8f9fb; border-radius: 8px; }
+    .sub-types-section .sub-title { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; color: #999; margin-bottom: 0.4rem; }
+    .sub-type-list { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 0.5rem; }
+    .sub-type-chip { display: inline-flex; align-items: center; gap: 0.3rem; font-size: 0.78rem; font-weight: 600; padding: 0.2rem 0.6rem; border-radius: 10px; background: #e0e7ff; color: #3730a3; }
+    .sub-type-chip.inactive { background: #f3f4f6; color: #888; }
+
+    /* ── Team settings form ── */
+    .settings-form { display: flex; flex-direction: column; gap: 1rem; }
+    .settings-form .form-row { display: flex; flex-wrap: wrap; gap: 1rem; align-items: flex-end; }
+    .settings-form .form-group { display: flex; flex-direction: column; gap: 0.3rem; }
+    .settings-form label { font-size: 0.8rem; font-weight: 600; color: #555; }
+    .settings-form input[type="number"] { border: 1.5px solid #d0d5dd; border-radius: 8px; padding: 0.45rem 0.75rem; font-size: 0.85rem; font-family: inherit; width: 160px; }
+    .settings-form input[type="number"]:focus { outline: none; border-color: #6366f1; }
+    .settings-form .hint { font-size: 0.75rem; color: #aaa; }
+
+    /* ── Expandable task type rows ── */
+    .expand-btn { background: none; border: none; color: #6366f1; font-size: 0.8rem; font-weight: 600; cursor: pointer; padding: 0; }
+    .expand-btn:hover { color: #4f46e5; }
+    .expanded-row { display: none; }
+    .expanded-row.open { display: table-row; }
+    .expanded-cell { padding: 0.5rem 0.75rem 1rem 2rem; background: #fafafe; }
+  </style>
+</head>
+<body>
+
+<div class="topbar">
+  <a href="/" class="back">← Home</a>
+  <h1>DSS Workload</h1>
+  <nav class="topbar-nav">
+    <a href="/dss/dashboard">Dashboard</a>
+    <a href="/dss/entry">Entry</a>
+    <a href="/dss/history">History</a>
+    <a href="/dss/settings" class="active">Settings</a>
+  </nav>
+  <div class="topbar-spacer"></div>
+  <div class="topbar-right">
+    <span class="topbar-user">Signed in as <strong>{{ current_user.username }}</strong></span>
+    <div class="admin-menu-wrap">
+      <button class="admin-menu-btn" id="admin-menu-btn">⚙ Admin <span class="chevron">▼</span></button>
+      <div class="admin-dropdown" id="admin-dropdown">
+        <a href="/completions">✅ Completions</a>
+        <a href="/admin/corrections">📋 Review Log</a>
+        <a href="/admin/users">👥 Users</a>
+        <a href="/admin/projects">🏢 Projects</a>
+        <div class="divider"></div>
+        <a href="/logout" class="danger">Sign out</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="main">
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="members">Team Members</button>
+    <button class="tab-btn" data-tab="task-types">Task Types</button>
+    <button class="tab-btn" data-tab="team">Team Settings</button>
+  </div>
+
+  <!-- Members tab -->
+  <div class="tab-panel active" id="tab-members">
+    <div class="card">
+      <div class="card-title">
+        <span>Team Members</span>
+        <button class="btn btn-primary" id="btn-add-member">+ Add Member</button>
+      </div>
+      <div id="add-member-form" style="display:none;" class="inline-form">
+        <label>Name</label>
+        <input type="text" id="new-member-name" placeholder="Member name" maxlength="200" />
+        <button class="btn btn-primary" id="btn-save-member">Add</button>
+        <button class="btn" style="background:#f3f4f6;color:#555;" id="btn-cancel-member">Cancel</button>
+        <span class="form-status" id="member-add-status"></span>
+      </div>
+      <div class="table-wrap" style="margin-top:0.5rem;">
+        <table>
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="members-tbody">
+            <tr><td colspan="3" style="text-align:center;color:#bbb;padding:2rem;">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Task types tab -->
+  <div class="tab-panel" id="tab-task-types">
+    <div class="card">
+      <div class="card-title">
+        <span>Task Types</span>
+        <button class="btn btn-primary" id="btn-add-tt">+ Add Task Type</button>
+      </div>
+      <div id="add-tt-form" style="display:none;" class="inline-form">
+        <label>Name</label>
+        <input type="text" id="new-tt-name" placeholder="Task type name" maxlength="200" />
+        <label>Rate/hr</label>
+        <input type="number" id="new-tt-rate" placeholder="15" min="0.01" step="0.01" style="width:90px;" />
+        <label>Order</label>
+        <input type="number" id="new-tt-order" placeholder="10" min="0" step="1" style="width:70px;" />
+        <button class="btn btn-primary" id="btn-save-tt">Add</button>
+        <button class="btn" style="background:#f3f4f6;color:#555;" id="btn-cancel-tt">Cancel</button>
+        <span class="form-status" id="tt-add-status"></span>
+      </div>
+      <div class="table-wrap" style="margin-top:0.5rem;">
+        <table id="tt-table">
+          <thead>
+            <tr>
+              <th></th>
+              <th>Name</th>
+              <th>Rate/hr</th>
+              <th>Base?</th>
+              <th>Order</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="tt-tbody">
+            <tr><td colspan="7" style="text-align:center;color:#bbb;padding:2rem;">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Team settings tab -->
+  <div class="tab-panel" id="tab-team">
+    <div class="card">
+      <div class="card-title">Team Settings</div>
+      <div class="settings-form">
+        <div class="form-row">
+          <div class="form-group">
+            <label for="starting-backlog">Starting Backlog (units)</label>
+            <input type="number" id="starting-backlog" min="0" step="1" value="0" />
+            <span class="hint">Units carried over before first recorded day</span>
+          </div>
+          <div class="form-group">
+            <label for="sla-threshold">SLA Breach Threshold (days)</label>
+            <input type="number" id="sla-threshold" min="1" max="30" step="1" value="3" />
+            <span class="hint">Consecutive SLA-breached days before hiring trigger fires</span>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:1rem;">
+          <button class="btn btn-primary" id="btn-save-team-settings">Save Settings</button>
+          <span class="form-status" id="team-settings-status"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Tab switching
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+    });
+  });
+
+  function escHtml(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+  // ── Members ──────────────────────────────────────────────────────────
+  async function loadMembers() {
+    const res = await fetch('/api/dss/settings/members');
+    const data = await res.json();
+    const tbody = document.getElementById('members-tbody');
+    if (!data.length) { tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;color:#bbb;padding:2rem;">No members yet</td></tr>'; return; }
+    tbody.innerHTML = data.map(m => `
+      <tr id="member-row-${m.id}">
+        <td id="member-name-${m.id}"><strong>${escHtml(m.name)}</strong></td>
+        <td><span class="badge ${m.is_active ? 'active' : 'inactive'}">${m.is_active ? 'Active' : 'Inactive'}</span></td>
+        <td>
+          <div style="display:flex;gap:0.4rem;">
+            <button class="btn-sm edit" onclick="renameMember(${m.id}, '${escHtml(m.name)}')">Rename</button>
+            <button class="btn-sm ${m.is_active ? 'deactivate' : 'activate'}" onclick="toggleMember(${m.id}, ${!m.is_active})">
+              ${m.is_active ? 'Deactivate' : 'Reactivate'}
+            </button>
+          </div>
+        </td>
+      </tr>`).join('');
+  }
+
+  document.getElementById('btn-add-member').addEventListener('click', () => {
+    document.getElementById('add-member-form').style.display = 'flex';
+    document.getElementById('new-member-name').focus();
+  });
+  document.getElementById('btn-cancel-member').addEventListener('click', () => {
+    document.getElementById('add-member-form').style.display = 'none';
+    document.getElementById('new-member-name').value = '';
+    document.getElementById('member-add-status').textContent = '';
+  });
+  document.getElementById('btn-save-member').addEventListener('click', async () => {
+    const name = document.getElementById('new-member-name').value.trim();
+    const status = document.getElementById('member-add-status');
+    if (!name) { status.textContent = 'Name is required'; status.className = 'form-status err'; return; }
+    try {
+      const res = await fetch('/api/dss/settings/members', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({name}) });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      status.textContent = 'Added ✓'; status.className = 'form-status ok';
+      document.getElementById('new-member-name').value = '';
+      setTimeout(() => { status.textContent = ''; }, 2000);
+      loadMembers();
+    } catch(e) { status.textContent = e.message; status.className = 'form-status err'; }
+  });
+
+  async function renameMember(id, currentName) {
+    const newName = prompt('Rename member:', currentName);
+    if (!newName || newName.trim() === currentName) return;
+    try {
+      const res = await fetch(`/api/dss/settings/members/${id}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({name: newName.trim()}) });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      loadMembers();
+    } catch(e) { alert('Error: ' + e.message); }
+  }
+
+  async function toggleMember(id, newActive) {
+    try {
+      const res = await fetch(`/api/dss/settings/members/${id}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({is_active: newActive}) });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      loadMembers();
+    } catch(e) { alert('Error: ' + e.message); }
+  }
+
+  // ── Task types ───────────────────────────────────────────────────────
+  async function loadTaskTypes() {
+    const res = await fetch('/api/dss/settings/task-types');
+    const data = await res.json();
+    const tbody = document.getElementById('tt-tbody');
+    if (!data.length) { tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#bbb;padding:2rem;">No task types yet</td></tr>'; return; }
+    let html = '';
+    data.forEach(tt => {
+      const subs = tt.sub_types || [];
+      html += `<tr id="tt-row-${tt.id}">
+        <td><button class="expand-btn" onclick="toggleExpand(${tt.id})" id="exp-btn-${tt.id}">▶</button></td>
+        <td><strong>${escHtml(tt.name)}</strong></td>
+        <td>£${tt.rate_per_hour.toFixed(2)}</td>
+        <td>${tt.is_base ? '<span class="badge base">Base</span>' : '—'}</td>
+        <td>${tt.display_order}</td>
+        <td><span class="badge ${tt.is_active ? 'active' : 'inactive'}">${tt.is_active ? 'Active' : 'Inactive'}</span></td>
+        <td>
+          <div style="display:flex;gap:0.4rem;flex-wrap:wrap;">
+            <button class="btn-sm edit" onclick="editTaskType(${tt.id})">Edit</button>
+            ${!tt.is_base ? `<button class="btn-sm edit" onclick="setBase(${tt.id})">Set Base</button>` : ''}
+            <button class="btn-sm ${tt.is_active ? 'deactivate' : 'activate'}" onclick="toggleTT(${tt.id}, ${!tt.is_active})">${tt.is_active ? 'Deactivate' : 'Activate'}</button>
+          </div>
+        </td>
+      </tr>`;
+      // Expanded row for sub-types
+      html += `<tr class="expanded-row" id="exp-row-${tt.id}">
+        <td class="expanded-cell" colspan="7">
+          <div class="sub-types-section">
+            <div class="sub-title">Sub-types</div>
+            <div class="sub-type-list" id="sub-list-${tt.id}">
+              ${subs.length ? subs.map(s => `<span class="sub-type-chip ${s.is_active ? '' : 'inactive'}">${escHtml(s.name)}${s.is_active ? '' : ' (inactive)'}
+                <button onclick="toggleSubType(${s.id}, ${!s.is_active})" style="background:none;border:none;cursor:pointer;font-size:0.7rem;color:#888;">✕</button>
+              </span>`).join('') : '<span style="color:#bbb;font-size:0.8rem;">None yet</span>'}
+            </div>
+            <div style="display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap;">
+              <input type="text" id="new-sub-name-${tt.id}" placeholder="Sub-type name" style="border:1.5px solid #d0d5dd;border-radius:6px;padding:0.3rem 0.6rem;font-size:0.82rem;font-family:inherit;width:180px;" />
+              <button class="btn-sm edit" onclick="addSubType(${tt.id})">+ Add</button>
+              <span id="sub-status-${tt.id}" class="form-status"></span>
+            </div>
+          </div>
+        </td>
+      </tr>`;
+    });
+    tbody.innerHTML = html;
+  }
+
+  function toggleExpand(id) {
+    const row = document.getElementById(`exp-row-${id}`);
+    const btn = document.getElementById(`exp-btn-${id}`);
+    row.classList.toggle('open');
+    btn.textContent = row.classList.contains('open') ? '▼' : '▶';
+  }
+
+  async function editTaskType(id) {
+    const nameEl = document.querySelector(`#tt-row-${id} td:nth-child(2)`);
+    const rateEl = document.querySelector(`#tt-row-${id} td:nth-child(3)`);
+    const orderEl = document.querySelector(`#tt-row-${id} td:nth-child(5)`);
+    const currentName = nameEl ? nameEl.innerText.trim() : '';
+    const currentRate = rateEl ? rateEl.innerText.replace('£','').trim() : '';
+    const currentOrder = orderEl ? orderEl.innerText.trim() : '0';
+    const newName = prompt('Name:', currentName);
+    if (newName === null) return;
+    const newRate = prompt('Rate/hr:', currentRate);
+    if (newRate === null) return;
+    const newOrder = prompt('Display order:', currentOrder);
+    if (newOrder === null) return;
+    try {
+      const res = await fetch(`/api/dss/settings/task-types/${id}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({name: newName.trim(), rate_per_hour: parseFloat(newRate), display_order: parseInt(newOrder)}) });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      loadTaskTypes();
+    } catch(e) { alert('Error: ' + e.message); }
+  }
+
+  async function setBase(id) {
+    if (!confirm('Set this as the base task type? All others will be unset.')) return;
+    try {
+      const res = await fetch(`/api/dss/settings/task-types/${id}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({is_base: true}) });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      loadTaskTypes();
+    } catch(e) { alert('Error: ' + e.message); }
+  }
+
+  async function toggleTT(id, newActive) {
+    try {
+      const res = await fetch(`/api/dss/settings/task-types/${id}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({is_active: newActive}) });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      loadTaskTypes();
+    } catch(e) { alert('Error: ' + e.message); }
+  }
+
+  async function addSubType(ttId) {
+    const nameEl = document.getElementById(`new-sub-name-${ttId}`);
+    const statusEl = document.getElementById(`sub-status-${ttId}`);
+    const name = nameEl.value.trim();
+    if (!name) { statusEl.textContent = 'Name required'; statusEl.className = 'form-status err'; return; }
+    try {
+      const res = await fetch(`/api/dss/settings/task-types/${ttId}/sub-types`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({name}) });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      nameEl.value = '';
+      statusEl.textContent = 'Added ✓'; statusEl.className = 'form-status ok';
+      setTimeout(() => { statusEl.textContent = ''; }, 2000);
+      loadTaskTypes();
+    } catch(e) { statusEl.textContent = e.message; statusEl.className = 'form-status err'; }
+  }
+
+  async function toggleSubType(id, newActive) {
+    try {
+      const res = await fetch(`/api/dss/settings/sub-types/${id}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({is_active: newActive}) });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      loadTaskTypes();
+    } catch(e) { alert('Error: ' + e.message); }
+  }
+
+  document.getElementById('btn-add-tt').addEventListener('click', () => {
+    document.getElementById('add-tt-form').style.display = 'flex';
+    document.getElementById('new-tt-name').focus();
+  });
+  document.getElementById('btn-cancel-tt').addEventListener('click', () => {
+    document.getElementById('add-tt-form').style.display = 'none';
+    document.getElementById('tt-add-status').textContent = '';
+  });
+  document.getElementById('btn-save-tt').addEventListener('click', async () => {
+    const name = document.getElementById('new-tt-name').value.trim();
+    const rate = parseFloat(document.getElementById('new-tt-rate').value || 0);
+    const order = parseInt(document.getElementById('new-tt-order').value || 0);
+    const status = document.getElementById('tt-add-status');
+    if (!name || rate <= 0) { status.textContent = 'Name and valid rate required'; status.className = 'form-status err'; return; }
+    try {
+      const res = await fetch('/api/dss/settings/task-types', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({name, rate_per_hour: rate, display_order: order}) });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      status.textContent = 'Added ✓'; status.className = 'form-status ok';
+      document.getElementById('new-tt-name').value = '';
+      document.getElementById('new-tt-rate').value = '';
+      document.getElementById('new-tt-order').value = '';
+      setTimeout(() => { status.textContent = ''; }, 2000);
+      loadTaskTypes();
+    } catch(e) { status.textContent = e.message; status.className = 'form-status err'; }
+  });
+
+  // ── Team settings ────────────────────────────────────────────────────
+  async function loadTeamSettings() {
+    const res = await fetch('/api/dss/settings/team');
+    const data = await res.json();
+    if (data.error) return;
+    document.getElementById('starting-backlog').value = data.starting_backlog_units || 0;
+    document.getElementById('sla-threshold').value = data.sla_breach_threshold_days || 3;
+  }
+
+  document.getElementById('btn-save-team-settings').addEventListener('click', async () => {
+    const backlog = parseFloat(document.getElementById('starting-backlog').value || 0);
+    const threshold = parseInt(document.getElementById('sla-threshold').value || 3);
+    const status = document.getElementById('team-settings-status');
+    try {
+      const res = await fetch('/api/dss/settings/team', { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({starting_backlog_units: backlog, sla_breach_threshold_days: threshold}) });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      status.textContent = 'Saved ✓'; status.className = 'form-status ok';
+      setTimeout(() => { status.textContent = ''; }, 2000);
+    } catch(e) { status.textContent = e.message; status.className = 'form-status err'; }
+  });
+
+  // Admin dropdown
+  const adminBtn = document.getElementById('admin-menu-btn');
+  if (adminBtn) {
+    adminBtn.addEventListener('click', () => {
+      adminBtn.classList.toggle('open');
+      document.getElementById('admin-dropdown').classList.toggle('open');
+    });
+    document.addEventListener('click', e => {
+      if (!adminBtn.closest('.admin-menu-wrap').contains(e.target)) {
+        adminBtn.classList.remove('open');
+        document.getElementById('admin-dropdown').classList.remove('open');
+      }
+    });
+  }
+
+  loadMembers();
+  loadTaskTypes();
+  loadTeamSettings();
+</script>
+</body>
+</html>

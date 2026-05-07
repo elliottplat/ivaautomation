@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DSS Entry – Omni Group</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, -apple-system, sans-serif; background: #f0f2f5; color: #1a1a2e; min-height: 100vh; }
+
+    /* ── Top bar ── */
+    .topbar { background: #fff; border-bottom: 1px solid #e5e7eb; padding: 0.75rem 1.5rem; display: flex; align-items: center; gap: 1rem; position: sticky; top: 0; z-index: 10; }
+    .topbar a.back { text-decoration: none; color: #6366f1; font-size: 0.88rem; font-weight: 600; display: flex; align-items: center; gap: 0.3rem; }
+    .topbar a.back:hover { color: #4f46e5; }
+    .topbar h1 { font-size: 1.05rem; font-weight: 700; }
+    .topbar-nav { display: flex; gap: 0.25rem; }
+    .topbar-nav a { font-size: 0.82rem; font-weight: 600; color: #555; text-decoration: none; padding: 0.3rem 0.75rem; border-radius: 7px; transition: background 0.1s, color 0.1s; }
+    .topbar-nav a:hover { background: #f5f5ff; color: #4f46e5; }
+    .topbar-nav a.active { background: #e0e7ff; color: #4f46e5; }
+    .topbar-spacer { flex: 1; }
+    .topbar-right { display: flex; align-items: center; gap: 0.85rem; }
+    .topbar-user { font-size: 0.82rem; color: #777; }
+    .topbar-user strong { color: #333; }
+    .topbar-link { font-size: 0.82rem; font-weight: 600; color: #6366f1; text-decoration: none; }
+    .topbar-link:hover { color: #4f46e5; }
+    .admin-menu-wrap { position: relative; }
+    .admin-menu-btn { display: flex; align-items: center; gap: 0.3rem; font-size: 0.82rem; font-weight: 600; color: #6366f1; background: none; border: 1.5px solid #e0e7ff; border-radius: 7px; padding: 0.3rem 0.75rem; cursor: pointer; }
+    .admin-menu-btn:hover { background: #f5f5ff; }
+    .admin-menu-btn .chevron { font-size: 0.6rem; transition: transform 0.15s; }
+    .admin-menu-btn.open .chevron { transform: rotate(180deg); }
+    .admin-dropdown { position: absolute; top: calc(100% + 6px); right: 0; background: #fff; border-radius: 10px; box-shadow: 0 8px 28px rgba(0,0,0,0.13); border: 1px solid #e5e7eb; min-width: 180px; padding: 0.35rem 0; display: none; z-index: 300; }
+    .admin-dropdown.open { display: block; }
+    .admin-dropdown a { display: flex; align-items: center; gap: 0.5rem; width: 100%; padding: 0.6rem 1rem; font-size: 0.84rem; font-weight: 500; color: #333; text-decoration: none; }
+    .admin-dropdown a:hover { background: #f5f5ff; color: #4f46e5; }
+    .admin-dropdown .divider { height: 1px; background: #f0f0f0; margin: 0.25rem 0; }
+    .admin-dropdown .danger { color: #ef4444; }
+    .admin-dropdown .danger:hover { background: #fef2f2; color: #dc2626; }
+
+    /* ── Main ── */
+    .main { padding: 1.5rem; display: flex; flex-direction: column; gap: 1.25rem; }
+
+    /* ── Date bar ── */
+    .date-bar { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
+    .date-bar button { padding: 0.4rem 0.85rem; border: 1.5px solid #d0d5dd; border-radius: 8px; background: #fff; font-size: 0.85rem; font-weight: 600; color: #444; cursor: pointer; transition: all 0.15s; }
+    .date-bar button:hover { border-color: #6366f1; color: #4f46e5; }
+    .date-bar input[type="date"] { border: 1.5px solid #d0d5dd; border-radius: 8px; padding: 0.4rem 0.75rem; font-size: 0.85rem; font-family: inherit; background: #fff; color: #1a1a2e; }
+    .date-bar input[type="date"]:focus { outline: none; border-color: #6366f1; }
+    .btn-today { background: #6366f1 !important; color: #fff !important; border-color: #6366f1 !important; }
+    .btn-today:hover { background: #4f46e5 !important; }
+
+    /* ── Readonly notice ── */
+    .readonly-notice { display: none; background: #fef3c7; border: 1.5px solid #f59e0b; border-radius: 10px; padding: 0.75rem 1.25rem; font-size: 0.85rem; font-weight: 600; color: #92400e; align-items: center; gap: 0.5rem; }
+    .readonly-notice.visible { display: flex; }
+
+    /* ── Card ── */
+    .card { background: #fff; border-radius: 12px; box-shadow: 0 1px 6px rgba(0,0,0,0.07); padding: 1.1rem 1.25rem; }
+    .card-title { font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #999; margin-bottom: 0.9rem; }
+
+    /* ── Grid ── */
+    .grid-wrap { overflow-x: auto; }
+    .grid-table { border-collapse: collapse; font-size: 0.82rem; min-width: 100%; }
+    .grid-table th { padding: 0.5rem 0.6rem; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; color: #999; border-bottom: 1.5px solid #f0f0f0; white-space: nowrap; text-align: center; background: #fafafa; }
+    .grid-table th.col-agent { text-align: left; position: sticky; left: 0; z-index: 2; background: #fafafa; min-width: 120px; }
+    .grid-table td { padding: 0.55rem 0.6rem; border-bottom: 1px solid #f7f7f7; vertical-align: middle; text-align: center; }
+    .grid-table td.col-agent { text-align: left; position: sticky; left: 0; background: #fff; z-index: 1; font-weight: 600; font-size: 0.85rem; min-width: 120px; }
+    .grid-table tr:last-child td { border-bottom: none; }
+    .grid-table tr.landings-row td { background: #f5f5ff; font-weight: 600; border-top: 2px solid #e0e7ff; }
+    .grid-table tr.landings-row td.col-agent { background: #f5f5ff; }
+    .grid-table tr.metrics-row td { background: #f8fffe; font-size: 0.75rem; color: #555; }
+    .grid-table tr.metrics-row td.col-agent { background: #f8fffe; font-size: 0.75rem; }
+
+    /* ── Inputs ── */
+    .num-input { width: 70px; border: 1.5px solid #d0d5dd; border-radius: 6px; padding: 0.3rem 0.4rem; font-size: 0.82rem; font-family: inherit; text-align: center; }
+    .num-input:focus { outline: none; border-color: #6366f1; }
+    .num-input:disabled { background: #f3f4f6; color: #aaa; cursor: not-allowed; }
+    .hours-input { width: 80px; }
+    .task-group-header { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px; color: #6366f1; padding: 0.3rem 0.5rem; background: #eef2ff; border-radius: 4px; text-align: center; }
+
+    /* ── Actions ── */
+    .actions-bar { display: flex; align-items: center; gap: 1rem; justify-content: flex-end; padding-top: 0.5rem; }
+    .btn-save { padding: 0.55rem 1.5rem; background: #6366f1; color: #fff; border: none; border-radius: 8px; font-size: 0.88rem; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 0.5rem; transition: background 0.15s; }
+    .btn-save:hover { background: #4f46e5; }
+    .btn-save:disabled { background: #a5b4fc; cursor: not-allowed; }
+    .save-status { font-size: 0.82rem; font-weight: 600; }
+    .save-status.ok { color: #15803d; }
+    .save-status.err { color: #b91c1c; }
+
+    .spinner { width: 16px; height: 16px; border: 2.5px solid rgba(255,255,255,0.4); border-top-color: #fff; border-radius: 50%; animation: spin 0.6s linear infinite; display: none; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+
+<div class="topbar">
+  <a href="/" class="back">← Home</a>
+  <h1>DSS Workload</h1>
+  <nav class="topbar-nav">
+    <a href="/dss/dashboard">Dashboard</a>
+    <a href="/dss/entry" class="active">Entry</a>
+    <a href="/dss/history">History</a>
+    {% if current_user.role == 'admin' %}
+    <a href="/dss/settings">Settings</a>
+    {% endif %}
+  </nav>
+  <div class="topbar-spacer"></div>
+  <div class="topbar-right">
+    <span class="topbar-user">Signed in as <strong>{{ current_user.username }}</strong></span>
+    {% if current_user.role == 'admin' %}
+    <div class="admin-menu-wrap">
+      <button class="admin-menu-btn" id="admin-menu-btn">⚙ Admin <span class="chevron">▼</span></button>
+      <div class="admin-dropdown" id="admin-dropdown">
+        <a href="/completions">✅ Completions</a>
+        <a href="/admin/corrections">📋 Review Log</a>
+        <a href="/admin/users">👥 Users</a>
+        <a href="/admin/projects">🏢 Projects</a>
+        <div class="divider"></div>
+        <a href="/logout" class="danger">Sign out</a>
+      </div>
+    </div>
+    {% else %}
+    <a href="/logout" class="topbar-link">Sign out</a>
+    {% endif %}
+  </div>
+</div>
+
+<div class="main">
+  <div class="date-bar">
+    <button id="btn-prev">← Prev</button>
+    <input type="date" id="date-picker" />
+    <button id="btn-next">Next →</button>
+    <button class="btn-today" id="btn-today">Today</button>
+  </div>
+
+  <div class="readonly-notice" id="readonly-notice">
+    🔒 Past date — view only. Only admins can edit past entries.
+  </div>
+
+  <div class="card">
+    <div class="card-title">Daily Entry</div>
+    <div class="grid-wrap">
+      <div id="grid-container">
+        <p style="color:#bbb;text-align:center;padding:2rem;">Loading…</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="actions-bar">
+    <span class="save-status" id="save-status"></span>
+    <button class="btn-save" id="btn-save">
+      <span class="spinner" id="spinner"></span>
+      Save
+    </button>
+  </div>
+</div>
+
+<script>
+  const IS_ADMIN = {{ 'true' if current_user.role == 'admin' else 'false' }};
+  let currentDate = new Date().toISOString().split('T')[0];
+  let entryData = null;
+
+  const datePicker = document.getElementById('date-picker');
+  datePicker.value = currentDate;
+
+  // Check if date is today
+  function isToday(d) { return d === new Date().toISOString().split('T')[0]; }
+  function isPast(d) { return d < new Date().toISOString().split('T')[0]; }
+  function isReadOnly() { return !IS_ADMIN && isPast(currentDate); }
+
+  datePicker.addEventListener('change', () => { currentDate = datePicker.value; loadEntry(); });
+  document.getElementById('btn-prev').addEventListener('click', () => { currentDate = offsetDate(currentDate, -1); datePicker.value = currentDate; loadEntry(); });
+  document.getElementById('btn-next').addEventListener('click', () => { currentDate = offsetDate(currentDate, 1); datePicker.value = currentDate; loadEntry(); });
+  document.getElementById('btn-today').addEventListener('click', () => { currentDate = new Date().toISOString().split('T')[0]; datePicker.value = currentDate; loadEntry(); });
+
+  function offsetDate(d, days) {
+    const dt = new Date(d + 'T12:00:00');
+    dt.setDate(dt.getDate() + days);
+    return dt.toISOString().split('T')[0];
+  }
+
+  async function loadEntry() {
+    document.getElementById('grid-container').innerHTML = '<p style="color:#bbb;text-align:center;padding:2rem;">Loading…</p>';
+    const notice = document.getElementById('readonly-notice');
+    notice.classList.toggle('visible', isReadOnly());
+    document.getElementById('btn-save').disabled = isReadOnly();
+
+    try {
+      const res = await fetch(`/api/dss/entry?date=${currentDate}`);
+      entryData = await res.json();
+      if (entryData.error) { document.getElementById('grid-container').innerHTML = `<p style="color:#b91c1c;padding:1rem;">${entryData.error}</p>`; return; }
+      renderGrid(entryData);
+    } catch(e) {
+      document.getElementById('grid-container').innerHTML = `<p style="color:#b91c1c;padding:1rem;">Failed to load: ${e.message}</p>`;
+    }
+  }
+
+  function renderGrid(data) {
+    const members = data.members || [];
+    const taskTypes = data.task_types || [];
+    const shifts = data.shifts || {};
+    const landings = data.landings || {};
+    const ro = isReadOnly();
+
+    if (!members.length) {
+      document.getElementById('grid-container').innerHTML = '<p style="color:#bbb;text-align:center;padding:2rem;">No active team members configured.</p>';
+      return;
+    }
+
+    // Build header rows
+    // Row 1: Agent | Hours | TaskType1 (colspan N) | TaskType2 ...
+    // Row 2: (empty) | (empty) | SubType1 | SubType2 | ... | (if no subtypes: task name again)
+
+    let headerRow1 = `<th class="col-agent" rowspan="2">Agent</th><th rowspan="2" style="min-width:90px;">Hours</th>`;
+    let headerRow2 = '';
+
+    taskTypes.forEach(tt => {
+      const subs = tt.sub_types || [];
+      const span = subs.length > 0 ? subs.length : 1;
+      headerRow1 += `<th colspan="${span}" style="text-align:center;border-left:2px solid #e0e7ff;">${escHtml(tt.name)}</th>`;
+      if (subs.length > 0) {
+        subs.forEach(st => {
+          headerRow2 += `<th style="border-left:1px solid #f0f0f0;">${escHtml(st.name)}</th>`;
+        });
+      } else {
+        headerRow2 += `<th style="border-left:2px solid #e0e7ff;">Count</th>`;
+      }
+    });
+    headerRow1 += `<th rowspan="2" style="min-width:80px;">Notes</th><th rowspan="2" style="min-width:90px;color:#15803d;">Actual</th><th rowspan="2" style="min-width:90px;color:#6366f1;">Target</th><th rowspan="2" style="min-width:90px;">%</th>`;
+
+    let tableHtml = `<table class="grid-table">
+      <thead>
+        <tr>${headerRow1}</tr>
+        <tr>${headerRow2}</tr>
+      </thead>
+      <tbody>`;
+
+    // Landings row
+    let landingsRow = `<tr class="landings-row">
+      <td class="col-agent">Landings</td>
+      <td>—</td>`;
+    taskTypes.forEach(tt => {
+      const subs = tt.sub_types || [];
+      const count = landings[tt.id] || 0;
+      if (subs.length > 0) {
+        // Landings span all sub-cols; put in first sub, empty in rest
+        landingsRow += `<td style="border-left:2px solid #e0e7ff;"><input type="number" class="num-input landing-input" data-tt="${tt.id}" value="${count}" min="0" step="1" ${ro ? 'disabled' : ''}></td>`;
+        for (let i = 1; i < subs.length; i++) landingsRow += '<td></td>';
+      } else {
+        landingsRow += `<td style="border-left:2px solid #e0e7ff;"><input type="number" class="num-input landing-input" data-tt="${tt.id}" value="${count}" min="0" step="1" ${ro ? 'disabled' : ''}></td>`;
+      }
+    });
+    landingsRow += `<td></td><td></td><td></td><td></td></tr>`;
+
+    // Agent rows
+    members.forEach(m => {
+      const shift = shifts[m.id] || {};
+      const hours = shift.hours_worked != null ? shift.hours_worked : '';
+      const notes = shift.notes || '';
+      const comps = shift.completions || {};
+
+      let row = `<tr data-member="${m.id}">
+        <td class="col-agent">${escHtml(m.name)}</td>
+        <td><input type="number" class="num-input hours-input" data-member="${m.id}" data-field="hours" value="${hours}" min="0" max="24" step="0.5" ${ro ? 'disabled' : ''}></td>`;
+
+      taskTypes.forEach(tt => {
+        const subs = tt.sub_types || [];
+        if (subs.length > 0) {
+          subs.forEach(st => {
+            const key = `${tt.id}_${st.id}`;
+            const val = (comps[key] && comps[key].count) ? comps[key].count : '';
+            row += `<td style="border-left:${st === subs[0] ? '2px solid #e0e7ff' : '1px solid #f0f0f0'}"><input type="number" class="num-input comp-input" data-member="${m.id}" data-tt="${tt.id}" data-st="${st.id}" value="${val}" min="0" step="1" ${ro ? 'disabled' : ''}></td>`;
+          });
+        } else {
+          const key = `${tt.id}_null`;
+          const val = (comps[key] && comps[key].count) ? comps[key].count : '';
+          row += `<td style="border-left:2px solid #e0e7ff"><input type="number" class="num-input comp-input" data-member="${m.id}" data-tt="${tt.id}" data-st="" value="${val}" min="0" step="1" ${ro ? 'disabled' : ''}></td>`;
+        }
+      });
+
+      // Metrics cells (populated after save)
+      const actual = shift.actual_units != null ? shift.actual_units.toFixed(1) : '—';
+      const target = shift.target_units != null ? shift.target_units.toFixed(1) : '—';
+      const pct = shift.pct_target_hit != null ? (shift.pct_target_hit * 100).toFixed(1) + '%' : '—';
+      row += `<td><input type="text" class="num-input notes-input" data-member="${m.id}" value="${escHtml(notes)}" style="width:140px;" ${ro ? 'disabled' : ''}></td>`;
+      row += `<td class="actual-cell" data-member="${m.id}">${actual}</td>`;
+      row += `<td class="target-cell" data-member="${m.id}">${target}</td>`;
+      row += `<td class="pct-cell" data-member="${m.id}">${pct}</td>`;
+      row += '</tr>';
+
+      tableHtml += row;
+    });
+
+    tableHtml += landingsRow;
+    tableHtml += '</tbody></table>';
+    document.getElementById('grid-container').innerHTML = tableHtml;
+  }
+
+  function escHtml(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+  document.getElementById('btn-save').addEventListener('click', async () => {
+    if (isReadOnly()) return;
+    const btn = document.getElementById('btn-save');
+    const spinner = document.getElementById('spinner');
+    const status = document.getElementById('save-status');
+    btn.disabled = true;
+    spinner.style.display = 'inline-block';
+    status.textContent = '';
+
+    try {
+      const agents = buildAgentsPayload();
+      const landings = buildLandingsPayload();
+      const res = await fetch('/api/dss/entry', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ date: currentDate, agents, landings }),
+      });
+      const result = await res.json();
+      if (result.error) throw new Error(result.error);
+      entryData = result;
+      // Refresh metrics from returned data
+      updateMetrics(result);
+      status.textContent = 'Saved ✓';
+      status.className = 'save-status ok';
+      setTimeout(() => { status.textContent = ''; }, 3000);
+    } catch(e) {
+      status.textContent = 'Error: ' + e.message;
+      status.className = 'save-status err';
+    } finally {
+      btn.disabled = false;
+      spinner.style.display = 'none';
+    }
+  });
+
+  function buildAgentsPayload() {
+    const agents = [];
+    document.querySelectorAll('[data-member]').forEach(el => {
+      if (!el.closest('tr')) return;
+    });
+    // Collect by member
+    const memberSet = new Set();
+    document.querySelectorAll('.hours-input').forEach(el => memberSet.add(el.dataset.member));
+    memberSet.forEach(memberId => {
+      const hoursEl = document.querySelector(`.hours-input[data-member="${memberId}"]`);
+      const notesEl = document.querySelector(`.notes-input[data-member="${memberId}"]`);
+      const hours = hoursEl ? parseFloat(hoursEl.value || 0) : 0;
+      const notes = notesEl ? notesEl.value : '';
+      const completions = [];
+      document.querySelectorAll(`.comp-input[data-member="${memberId}"]`).forEach(inp => {
+        const count = parseInt(inp.value || 0);
+        if (count > 0) {
+          completions.push({
+            task_type_id: parseInt(inp.dataset.tt),
+            sub_type_id: inp.dataset.st ? parseInt(inp.dataset.st) : null,
+            count,
+          });
+        }
+      });
+      agents.push({ member_id: parseInt(memberId), hours_worked: hours, notes, completions });
+    });
+    return agents;
+  }
+
+  function buildLandingsPayload() {
+    const landings = [];
+    document.querySelectorAll('.landing-input').forEach(inp => {
+      const count = parseInt(inp.value || 0);
+      landings.push({ task_type_id: parseInt(inp.dataset.tt), count });
+    });
+    return landings;
+  }
+
+  function updateMetrics(data) {
+    const shifts = data.shifts || {};
+    const taskTypes = data.task_types || [];
+    const baseRate = data.base_rate || 15;
+
+    Object.entries(shifts).forEach(([memberId, shift]) => {
+      // Compute metrics client-side from shift data
+      const hours = shift.hours_worked || 0;
+      const target = hours * baseRate;
+      let actual = 0;
+      Object.values(shift.completions || {}).forEach(c => {
+        actual += (c.count || 0) * (c.conversion_factor || 1);
+      });
+      const pct = target > 0 ? actual / target : null;
+
+      const actualCell = document.querySelector(`.actual-cell[data-member="${memberId}"]`);
+      const targetCell = document.querySelector(`.target-cell[data-member="${memberId}"]`);
+      const pctCell = document.querySelector(`.pct-cell[data-member="${memberId}"]`);
+      if (actualCell) actualCell.textContent = actual.toFixed(1);
+      if (targetCell) targetCell.textContent = target.toFixed(1);
+      if (pctCell) pctCell.textContent = pct != null ? (pct * 100).toFixed(1) + '%' : '—';
+    });
+  }
+
+  // URL date param support
+  const urlDate = new URLSearchParams(window.location.search).get('date');
+  if (urlDate) { currentDate = urlDate; datePicker.value = currentDate; }
+
+  const adminBtn = document.getElementById('admin-menu-btn');
+  if (adminBtn) {
+    adminBtn.addEventListener('click', () => {
+      adminBtn.classList.toggle('open');
+      document.getElementById('admin-dropdown').classList.toggle('open');
+    });
+    document.addEventListener('click', e => {
+      if (!adminBtn.closest('.admin-menu-wrap').contains(e.target)) {
+        adminBtn.classList.remove('open');
+        document.getElementById('admin-dropdown').classList.remove('open');
+      }
+    });
+  }
+
+  loadEntry();
+</script>
+</body>
+</html>

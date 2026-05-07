@@ -12,6 +12,7 @@ from flask_login import LoginManager, UserMixin, login_user, logout_user, login_
 from werkzeug.security import generate_password_hash, check_password_hash
 from functools import wraps
 from dotenv import load_dotenv
+import dss_calculations as dss_calc
 
 load_dotenv()
 
@@ -1426,6 +1427,154 @@ def init_db():
                 )
             """)
             cur.execute("CREATE INDEX IF NOT EXISTS idx_pp_notes_ref ON pp_case_notes(reference, created_at DESC)")
+
+            # ── DSS Workload Management tables ──────────────────────────────
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS dss_teams (
+                    id SERIAL PRIMARY KEY,
+                    name VARCHAR(200) NOT NULL,
+                    timezone VARCHAR(100) DEFAULT 'Asia/Dubai',
+                    created_at TIMESTAMP DEFAULT NOW(),
+                    updated_at TIMESTAMP DEFAULT NOW()
+                )
+            """)
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS dss_team_members (
+                    id SERIAL PRIMARY KEY,
+                    team_id INTEGER REFERENCES dss_teams(id) ON DELETE CASCADE,
+                    name VARCHAR(200) NOT NULL,
+                    is_active BOOLEAN DEFAULT TRUE,
+                    created_at TIMESTAMP DEFAULT NOW(),
+                    updated_at TIMESTAMP DEFAULT NOW()
+                )
+            """)
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS dss_task_types (
+                    id SERIAL PRIMARY KEY,
+                    team_id INTEGER REFERENCES dss_teams(id) ON DELETE CASCADE,
+                    name VARCHAR(200) NOT NULL,
+                    rate_per_hour NUMERIC(10,2) NOT NULL,
+                    is_base BOOLEAN DEFAULT FALSE,
+                    display_order INTEGER DEFAULT 0,
+                    is_active BOOLEAN DEFAULT TRUE,
+                    created_at TIMESTAMP DEFAULT NOW(),
+                    updated_at TIMESTAMP DEFAULT NOW()
+                )
+            """)
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS dss_task_sub_types (
+                    id SERIAL PRIMARY KEY,
+                    task_type_id INTEGER REFERENCES dss_task_types(id) ON DELETE CASCADE,
+                    name VARCHAR(200) NOT NULL,
+                    display_order INTEGER DEFAULT 0,
+                    is_active BOOLEAN DEFAULT TRUE,
+                    created_at TIMESTAMP DEFAULT NOW(),
+                    updated_at TIMESTAMP DEFAULT NOW()
+                )
+            """)
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS dss_daily_shifts (
+                    id SERIAL PRIMARY KEY,
+                    team_id INTEGER REFERENCES dss_teams(id) ON DELETE CASCADE,
+                    team_member_id INTEGER REFERENCES dss_team_members(id) ON DELETE CASCADE,
+                    work_date DATE NOT NULL,
+                    hours_worked NUMERIC(5,2) DEFAULT 0,
+                    notes TEXT,
+                    created_at TIMESTAMP DEFAULT NOW(),
+                    updated_at TIMESTAMP DEFAULT NOW(),
+                    UNIQUE (team_member_id, work_date)
+                )
+            """)
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS dss_daily_completions (
+                    id SERIAL PRIMARY KEY,
+                    daily_shift_id INTEGER REFERENCES dss_daily_shifts(id) ON DELETE CASCADE,
+                    task_type_id INTEGER REFERENCES dss_task_types(id),
+                    task_sub_type_id INTEGER REFERENCES dss_task_sub_types(id),
+                    count INTEGER DEFAULT 0,
+                    conversion_factor NUMERIC(10,6) NOT NULL,
+                    created_at TIMESTAMP DEFAULT NOW(),
+                    updated_at TIMESTAMP DEFAULT NOW()
+                )
+            """)
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS dss_daily_landings (
+                    id SERIAL PRIMARY KEY,
+                    team_id INTEGER REFERENCES dss_teams(id) ON DELETE CASCADE,
+                    work_date DATE NOT NULL,
+                    task_type_id INTEGER REFERENCES dss_task_types(id),
+                    count INTEGER DEFAULT 0,
+                    created_at TIMESTAMP DEFAULT NOW(),
+                    updated_at TIMESTAMP DEFAULT NOW(),
+                    UNIQUE (team_id, work_date, task_type_id)
+                )
+            """)
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS dss_team_settings (
+                    id SERIAL PRIMARY KEY,
+                    team_id INTEGER REFERENCES dss_teams(id) ON DELETE CASCADE UNIQUE,
+                    starting_backlog_units NUMERIC(12,2) DEFAULT 0,
+                    sla_breach_threshold_days INTEGER DEFAULT 3,
+                    created_at TIMESTAMP DEFAULT NOW(),
+                    updated_at TIMESTAMP DEFAULT NOW()
+                )
+            """)
+
+            # ── DSS Seed data (idempotent) ──────────────────────────────────
+            cur.execute("SELECT COUNT(*) FROM dss_teams WHERE name = 'Dubai'")
+            if cur.fetchone()[0] == 0:
+                # Team
+                cur.execute(
+                    "INSERT INTO dss_teams (name, timezone) VALUES ('Dubai', 'Asia/Dubai') RETURNING id"
+                )
+                team_id = cur.fetchone()[0]
+
+                # Members
+                members = [
+                    "Jandra", "Aafreen", "Shareef", "Luke", "Nayana",
+                    "Anugraha", "Aneek", "Sree", "Vishal", "Edward",
+                    "Shabari", "Piriyankan", "Jordan",
+                ]
+                for m in members:
+                    cur.execute(
+                        "INSERT INTO dss_team_members (team_id, name, is_active) VALUES (%s, %s, TRUE)",
+                        (team_id, m),
+                    )
+
+                # Task types
+                task_types = [
+                    ("DocuWare",         15, True,  1),
+                    ("Spreadsheet",      30, False, 2),
+                    ("Reviews",          11, False, 3),
+                    ("Creditor Emails",  30, False, 4),
+                    ("Packs/POI",        10, False, 5),
+                    ("I&E Review Appts", 11, False, 6),
+                ]
+                for name, rate, is_base, order in task_types:
+                    cur.execute(
+                        """INSERT INTO dss_task_types
+                           (team_id, name, rate_per_hour, is_base, display_order, is_active)
+                           VALUES (%s, %s, %s, %s, %s, TRUE) RETURNING id""",
+                        (team_id, name, rate, is_base, order),
+                    )
+                    tt_id = cur.fetchone()[0]
+                    if name == "DocuWare":
+                        for sub_name, sub_order in [("Balances", 1), ("Offers", 2), ("DBT", 3)]:
+                            cur.execute(
+                                """INSERT INTO dss_task_sub_types
+                                   (task_type_id, name, display_order, is_active)
+                                   VALUES (%s, %s, %s, TRUE)""",
+                                (tt_id, sub_name, sub_order),
+                            )
+
+                # Team settings
+                cur.execute(
+                    """INSERT INTO dss_team_settings
+                       (team_id, starting_backlog_units, sla_breach_threshold_days)
+                       VALUES (%s, 0, 3)""",
+                    (team_id,),
+                )
+
         conn.commit()
     finally:
         conn.close()
@@ -2345,7 +2494,7 @@ def create_user():
     password = data.get("password") or ""
     role = data.get("role", "uploader")
     display_name = (data.get("display_name") or "").strip() or None
-    if not username or not password or role not in ("admin", "reviewer", "uploader"):
+    if not username or not password or role not in ("admin", "reviewer", "uploader", "team_leader"):
         return jsonify({"error": "Invalid input"}), 400
     try:
         conn = get_db_conn()
@@ -4033,6 +4182,914 @@ def pp_snapshots_list():
                 d["total_arrears_value"] = float(d["total_arrears_value"])
             result.append(d)
         return jsonify(result)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+# ===========================================================================
+# DSS Workload Management
+# ===========================================================================
+
+# ---------------------------------------------------------------------------
+# Page routes
+# ---------------------------------------------------------------------------
+@app.route("/dss")
+@login_required
+def dss_index():
+    if current_user.role not in ("admin", "team_leader"):
+        return redirect(url_for("home"))
+    return redirect(url_for("dss_dashboard"))
+
+
+@app.route("/dss/dashboard")
+@login_required
+def dss_dashboard():
+    if current_user.role not in ("admin", "team_leader"):
+        return redirect(url_for("home"))
+    return render_template("dss_dashboard.html")
+
+
+@app.route("/dss/entry")
+@login_required
+def dss_entry():
+    if current_user.role not in ("admin", "team_leader"):
+        return redirect(url_for("home"))
+    return render_template("dss_entry.html")
+
+
+@app.route("/dss/history")
+@login_required
+def dss_history():
+    if current_user.role not in ("admin", "team_leader"):
+        return redirect(url_for("home"))
+    return render_template("dss_history.html")
+
+
+@app.route("/dss/settings")
+@login_required
+def dss_settings():
+    if current_user.role != "admin":
+        return redirect(url_for("home"))
+    return render_template("dss_settings.html")
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+def _dss_get_team(cur):
+    """Return the first dss_team row as a dict."""
+    cur.execute("SELECT * FROM dss_teams ORDER BY id LIMIT 1")
+    return cur.fetchone()
+
+
+def _dss_get_base_rate(cur, team_id):
+    """Return the rate_per_hour of the base task type for the team."""
+    cur.execute(
+        "SELECT rate_per_hour FROM dss_task_types WHERE team_id = %s AND is_base = TRUE AND is_active = TRUE LIMIT 1",
+        (team_id,),
+    )
+    row = cur.fetchone()
+    return float(row["rate_per_hour"]) if row else 15.0
+
+
+def _dss_compute_shift_metrics(cur, shift_id, hours_worked, base_rate):
+    """Fetch completions for a shift and run shift_metrics."""
+    cur.execute(
+        "SELECT count, conversion_factor FROM dss_daily_completions WHERE daily_shift_id = %s",
+        (shift_id,),
+    )
+    completions = [{"count": r["count"], "conversion_factor": float(r["conversion_factor"])} for r in cur.fetchall()]
+    return dss_calc.shift_metrics(float(hours_worked), completions, base_rate)
+
+
+def _dss_accumulate_backlog(cur, team_id, base_rate, up_to_date_exclusive):
+    """
+    Sum all backlog_changes from earliest shift date up to (not including) up_to_date_exclusive.
+    Returns prior_backlog (starting_backlog + accumulated changes).
+    """
+    cur.execute("SELECT starting_backlog_units FROM dss_team_settings WHERE team_id = %s", (team_id,))
+    row = cur.fetchone()
+    starting = float(row["starting_backlog_units"]) if row else 0.0
+
+    # All distinct dates with data before the given date
+    cur.execute(
+        """SELECT DISTINCT work_date FROM dss_daily_shifts
+           WHERE team_id = %s AND work_date < %s
+           UNION
+           SELECT DISTINCT work_date FROM dss_daily_landings
+           WHERE team_id = %s AND work_date < %s
+           ORDER BY work_date""",
+        (team_id, up_to_date_exclusive, team_id, up_to_date_exclusive),
+    )
+    dates = [r["work_date"] for r in cur.fetchall()]
+
+    running = starting
+    for d in dates:
+        landed = _dss_landed_units_for_date(cur, team_id, d)
+        completed = _dss_completed_units_for_date(cur, team_id, base_rate, d)
+        rollup = dss_calc.daily_team_rollup(landed, completed, 0, running)
+        running = rollup["running_backlog"]
+    return running
+
+
+def _dss_landed_units_for_date(cur, team_id, work_date):
+    """Sum of landing.count * conversion_factor(task_type) for a date."""
+    cur.execute(
+        """SELECT dl.count, tt.rate_per_hour,
+                  (SELECT rate_per_hour FROM dss_task_types WHERE team_id = %s AND is_base = TRUE AND is_active = TRUE LIMIT 1) AS base_rate
+           FROM dss_daily_landings dl
+           JOIN dss_task_types tt ON tt.id = dl.task_type_id
+           WHERE dl.team_id = %s AND dl.work_date = %s""",
+        (team_id, team_id, work_date),
+    )
+    total = 0.0
+    for r in cur.fetchall():
+        if r["rate_per_hour"] and float(r["rate_per_hour"]) > 0:
+            cf = float(r["base_rate"]) / float(r["rate_per_hour"])
+            total += r["count"] * cf
+    return total
+
+
+def _dss_completed_units_for_date(cur, team_id, base_rate, work_date):
+    """Sum of actual_units across all shifts on a date."""
+    cur.execute(
+        """SELECT ds.id, ds.hours_worked FROM dss_daily_shifts ds
+           WHERE ds.team_id = %s AND ds.work_date = %s""",
+        (team_id, work_date),
+    )
+    shifts = cur.fetchall()
+    total = 0.0
+    for s in shifts:
+        metrics = _dss_compute_shift_metrics(cur, s["id"], s["hours_worked"], base_rate)
+        total += metrics["actual_units"]
+    return total
+
+
+# ---------------------------------------------------------------------------
+# GET /api/dss/dashboard
+# ---------------------------------------------------------------------------
+@app.route("/api/dss/dashboard")
+@login_required
+def dss_api_dashboard():
+    if current_user.role not in ("admin", "team_leader"):
+        return jsonify({"error": "Forbidden"}), 403
+
+    date_str = request.args.get("date")
+    try:
+        from datetime import date as date_type
+        work_date = date_type.fromisoformat(date_str) if date_str else date_type.today()
+    except ValueError:
+        return jsonify({"error": "Invalid date"}), 400
+
+    try:
+        conn = get_db_conn()
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            team = _dss_get_team(cur)
+            if not team:
+                conn.close()
+                return jsonify({"error": "No team configured"}), 404
+            team_id = team["id"]
+            base_rate = _dss_get_base_rate(cur, team_id)
+
+            # Shifts for this date
+            cur.execute(
+                """SELECT ds.id, ds.team_member_id, ds.hours_worked, ds.notes,
+                          tm.name AS member_name
+                   FROM dss_daily_shifts ds
+                   JOIN dss_team_members tm ON tm.id = ds.team_member_id
+                   WHERE ds.team_id = %s AND ds.work_date = %s
+                   ORDER BY tm.name""",
+                (team_id, work_date),
+            )
+            shifts = cur.fetchall()
+
+            agents = []
+            for s in shifts:
+                metrics = _dss_compute_shift_metrics(cur, s["id"], s["hours_worked"], base_rate)
+
+                # Rolling avg: last 30 shifts where hours_worked > 0, newest first
+                cur.execute(
+                    """SELECT ds2.work_date,
+                              ds2.hours_worked
+                       FROM dss_daily_shifts ds2
+                       WHERE ds2.team_member_id = %s AND ds2.hours_worked > 0
+                         AND ds2.work_date <= %s
+                       ORDER BY ds2.work_date DESC
+                       LIMIT 30""",
+                    (s["team_member_id"], work_date),
+                )
+                history_shifts = cur.fetchall()
+                history = []
+                for hs in history_shifts:
+                    cur.execute(
+                        "SELECT count, conversion_factor FROM dss_daily_completions WHERE daily_shift_id = (SELECT id FROM dss_daily_shifts WHERE team_member_id = %s AND work_date = %s LIMIT 1)",
+                        (s["team_member_id"], hs["work_date"]),
+                    )
+                    hc = [{"count": r["count"], "conversion_factor": float(r["conversion_factor"])} for r in cur.fetchall()]
+                    hm = dss_calc.shift_metrics(float(hs["hours_worked"]), hc, base_rate)
+                    history.append({"work_date": str(hs["work_date"]), "pct_target_hit": hm["pct_target_hit"]})
+
+                avg_pct = dss_calc.rolling_avg_pct(history, 7)
+                agents.append({
+                    "member_id": s["team_member_id"],
+                    "member_name": s["member_name"],
+                    "hours_worked": float(s["hours_worked"]),
+                    "target_units": metrics["target_units"],
+                    "actual_units": metrics["actual_units"],
+                    "pct_target_hit": metrics["pct_target_hit"],
+                    "status": metrics["status"],
+                    "rolling_avg_pct": avg_pct,
+                })
+
+            # Team totals for today
+            completed_units = sum(a["actual_units"] for a in agents)
+            team_capacity = sum(float(s["hours_worked"]) * base_rate for s in shifts)
+            landed_units = _dss_landed_units_for_date(cur, team_id, work_date)
+            prior_backlog = _dss_accumulate_backlog(cur, team_id, base_rate, work_date)
+            rollup = dss_calc.daily_team_rollup(landed_units, completed_units, team_capacity, prior_backlog)
+
+            # Avg daily capacity: last 7 dates with capacity > 0
+            cur.execute(
+                """SELECT work_date, SUM(hours_worked) AS total_hours
+                   FROM dss_daily_shifts
+                   WHERE team_id = %s AND work_date <= %s AND hours_worked > 0
+                   GROUP BY work_date
+                   HAVING SUM(hours_worked) > 0
+                   ORDER BY work_date DESC
+                   LIMIT 7""",
+                (team_id, work_date),
+            )
+            cap_rows = cur.fetchall()
+            avg_daily_cap = (sum(float(r["total_hours"]) * base_rate for r in cap_rows) / len(cap_rows)) if cap_rows else 0
+
+            # Team settings
+            cur.execute("SELECT sla_breach_threshold_days FROM dss_team_settings WHERE team_id = %s", (team_id,))
+            settings_row = cur.fetchone()
+            threshold = settings_row["sla_breach_threshold_days"] if settings_row else 3
+
+            dow = dss_calc.days_of_work(rollup["running_backlog"], avg_daily_cap)
+            sla = dss_calc.sla_status(dow, threshold)
+
+            # Hiring trigger: SLA for last threshold consecutive days
+            cur.execute(
+                """SELECT DISTINCT work_date FROM dss_daily_shifts
+                   WHERE team_id = %s AND work_date < %s
+                   UNION
+                   SELECT DISTINCT work_date FROM dss_daily_landings
+                   WHERE team_id = %s AND work_date < %s
+                   ORDER BY work_date DESC
+                   LIMIT %s""",
+                (team_id, work_date, team_id, work_date, threshold),
+            )
+            prev_dates = [r["work_date"] for r in cur.fetchall()]
+            sla_history = []
+            running_bl = float((cur.execute("SELECT starting_backlog_units FROM dss_team_settings WHERE team_id = %s", (team_id,)) or 0) or 0)
+            cur.execute("SELECT starting_backlog_units FROM dss_team_settings WHERE team_id = %s", (team_id,))
+            sr = cur.fetchone()
+            running_bl_hist = float(sr["starting_backlog_units"]) if sr else 0.0
+            # Re-accumulate for each prev date
+            for pd in reversed(prev_dates):
+                l_u = _dss_landed_units_for_date(cur, team_id, pd)
+                c_u = _dss_completed_units_for_date(cur, team_id, base_rate, pd)
+                prior_bl_pd = _dss_accumulate_backlog(cur, team_id, base_rate, pd)
+                r2 = dss_calc.daily_team_rollup(l_u, c_u, 0, prior_bl_pd)
+                d_w = dss_calc.days_of_work(r2["running_backlog"], avg_daily_cap)
+                sla_history.append(dss_calc.sla_status(d_w, threshold))
+
+            trigger = dss_calc.hiring_trigger(sla_history, threshold)
+
+        conn.close()
+        return jsonify({
+            "date": str(work_date),
+            "team": {"id": team_id, "name": team["name"]},
+            "base_rate": base_rate,
+            "agents": agents,
+            "rollup": rollup,
+            "avg_daily_capacity": round(avg_daily_cap, 2),
+            "days_of_work": dow,
+            "sla_status": sla,
+            "sla_breach_threshold_days": threshold,
+            "hiring_trigger": trigger,
+            "hiring_trigger_days": len([s for s in sla_history if s == "❌ SLA Breached"]),
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+# ---------------------------------------------------------------------------
+# GET /api/dss/entry
+# ---------------------------------------------------------------------------
+@app.route("/api/dss/entry")
+@login_required
+def dss_api_entry_get():
+    if current_user.role not in ("admin", "team_leader"):
+        return jsonify({"error": "Forbidden"}), 403
+
+    date_str = request.args.get("date")
+    try:
+        from datetime import date as date_type
+        work_date = date_type.fromisoformat(date_str) if date_str else date_type.today()
+    except ValueError:
+        return jsonify({"error": "Invalid date"}), 400
+
+    try:
+        conn = get_db_conn()
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            team = _dss_get_team(cur)
+            if not team:
+                conn.close()
+                return jsonify({"error": "No team configured"}), 404
+            team_id = team["id"]
+            base_rate = _dss_get_base_rate(cur, team_id)
+
+            # Task types + sub-types
+            cur.execute(
+                """SELECT id, name, rate_per_hour, is_base, display_order
+                   FROM dss_task_types WHERE team_id = %s AND is_active = TRUE
+                   ORDER BY display_order""",
+                (team_id,),
+            )
+            task_types = []
+            for tt in cur.fetchall():
+                cur.execute(
+                    "SELECT id, name, display_order FROM dss_task_sub_types WHERE task_type_id = %s AND is_active = TRUE ORDER BY display_order",
+                    (tt["id"],),
+                )
+                sub_types = [dict(s) for s in cur.fetchall()]
+                tt_dict = dict(tt)
+                tt_dict["rate_per_hour"] = float(tt_dict["rate_per_hour"])
+                tt_dict["sub_types"] = sub_types
+                task_types.append(tt_dict)
+
+            # Active members
+            cur.execute(
+                "SELECT id, name FROM dss_team_members WHERE team_id = %s AND is_active = TRUE ORDER BY name",
+                (team_id,),
+            )
+            members = [dict(m) for m in cur.fetchall()]
+
+            # Existing shifts + completions
+            cur.execute(
+                "SELECT id, team_member_id, hours_worked, notes FROM dss_daily_shifts WHERE team_id = %s AND work_date = %s",
+                (team_id, work_date),
+            )
+            shifts_raw = cur.fetchall()
+            shifts_by_member = {}
+            for s in shifts_raw:
+                cur.execute(
+                    """SELECT task_type_id, task_sub_type_id, count, conversion_factor
+                       FROM dss_daily_completions WHERE daily_shift_id = %s""",
+                    (s["id"],),
+                )
+                completions = {}
+                for c in cur.fetchall():
+                    key = f"{c['task_type_id']}_{c['task_sub_type_id'] or 'null'}"
+                    completions[key] = {"count": c["count"], "conversion_factor": float(c["conversion_factor"])}
+                shifts_by_member[s["team_member_id"]] = {
+                    "shift_id": s["id"],
+                    "hours_worked": float(s["hours_worked"]),
+                    "notes": s["notes"] or "",
+                    "completions": completions,
+                }
+
+            # Landings for this date
+            cur.execute(
+                "SELECT task_type_id, count FROM dss_daily_landings WHERE team_id = %s AND work_date = %s",
+                (team_id, work_date),
+            )
+            landings = {r["task_type_id"]: r["count"] for r in cur.fetchall()}
+
+        conn.close()
+        return jsonify({
+            "date": str(work_date),
+            "team_id": team_id,
+            "base_rate": base_rate,
+            "task_types": task_types,
+            "members": members,
+            "shifts": shifts_by_member,
+            "landings": landings,
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+# ---------------------------------------------------------------------------
+# POST /api/dss/entry
+# ---------------------------------------------------------------------------
+@app.route("/api/dss/entry", methods=["POST"])
+@login_required
+def dss_api_entry_post():
+    if current_user.role not in ("admin", "team_leader"):
+        return jsonify({"error": "Forbidden"}), 403
+
+    data = request.get_json() or {}
+    date_str = data.get("date")
+    agents = data.get("agents", [])
+    landings_input = data.get("landings", [])
+
+    try:
+        from datetime import date as date_type
+        work_date = date_type.fromisoformat(date_str) if date_str else date_type.today()
+    except (ValueError, TypeError):
+        return jsonify({"error": "Invalid date"}), 400
+
+    conn = None
+    try:
+        conn = get_db_conn()
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            team = _dss_get_team(cur)
+            if not team:
+                conn.close()
+                return jsonify({"error": "No team configured"}), 404
+            team_id = team["id"]
+            base_rate = _dss_get_base_rate(cur, team_id)
+
+            # Upsert shifts + completions in a single transaction
+            for agent in agents:
+                member_id = agent.get("member_id")
+                hours_worked = float(agent.get("hours_worked", 0))
+                notes = agent.get("notes", "") or ""
+                completions = agent.get("completions", [])
+
+                # UPSERT shift
+                cur.execute(
+                    """INSERT INTO dss_daily_shifts
+                       (team_id, team_member_id, work_date, hours_worked, notes, updated_at)
+                       VALUES (%s, %s, %s, %s, %s, NOW())
+                       ON CONFLICT (team_member_id, work_date)
+                       DO UPDATE SET hours_worked = EXCLUDED.hours_worked,
+                                     notes = EXCLUDED.notes,
+                                     updated_at = NOW()
+                       RETURNING id""",
+                    (team_id, member_id, work_date, hours_worked, notes),
+                )
+                shift_id = cur.fetchone()["id"]
+
+                # Delete old completions
+                cur.execute("DELETE FROM dss_daily_completions WHERE daily_shift_id = %s", (shift_id,))
+
+                # Insert new completions with snapshotted conversion_factor
+                for comp in completions:
+                    task_type_id = comp.get("task_type_id")
+                    sub_type_id = comp.get("sub_type_id") or None
+                    count = int(comp.get("count", 0))
+                    if count <= 0:
+                        continue
+
+                    # Look up current task rate to snapshot conversion_factor
+                    cur.execute(
+                        "SELECT rate_per_hour FROM dss_task_types WHERE id = %s",
+                        (task_type_id,),
+                    )
+                    tt_row = cur.fetchone()
+                    if not tt_row:
+                        continue
+                    task_rate = float(tt_row["rate_per_hour"])
+                    cf = dss_calc.conversion_factor(task_rate, base_rate)
+
+                    cur.execute(
+                        """INSERT INTO dss_daily_completions
+                           (daily_shift_id, task_type_id, task_sub_type_id, count, conversion_factor)
+                           VALUES (%s, %s, %s, %s, %s)""",
+                        (shift_id, task_type_id, sub_type_id, count, cf),
+                    )
+
+            # UPSERT landings
+            for landing in landings_input:
+                task_type_id = landing.get("task_type_id")
+                count = int(landing.get("count", 0))
+                cur.execute(
+                    """INSERT INTO dss_daily_landings (team_id, work_date, task_type_id, count, updated_at)
+                       VALUES (%s, %s, %s, %s, NOW())
+                       ON CONFLICT (team_id, work_date, task_type_id)
+                       DO UPDATE SET count = EXCLUDED.count, updated_at = NOW()""",
+                    (team_id, work_date, task_type_id, count),
+                )
+
+        conn.commit()
+        conn.close()
+        # Return updated grid data
+        return dss_api_entry_get()
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        return jsonify({"error": str(e)}), 500
+
+
+# ---------------------------------------------------------------------------
+# GET /api/dss/history
+# ---------------------------------------------------------------------------
+@app.route("/api/dss/history")
+@login_required
+def dss_api_history():
+    if current_user.role not in ("admin", "team_leader"):
+        return jsonify({"error": "Forbidden"}), 403
+
+    try:
+        page = int(request.args.get("page", 1))
+        per_page = int(request.args.get("per_page", 30))
+    except ValueError:
+        page, per_page = 1, 30
+
+    offset = (page - 1) * per_page
+
+    try:
+        conn = get_db_conn()
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            team = _dss_get_team(cur)
+            if not team:
+                conn.close()
+                return jsonify({"error": "No team configured"}), 404
+            team_id = team["id"]
+            base_rate = _dss_get_base_rate(cur, team_id)
+
+            cur.execute(
+                """SELECT DISTINCT work_date FROM dss_daily_shifts WHERE team_id = %s
+                   UNION
+                   SELECT DISTINCT work_date FROM dss_daily_landings WHERE team_id = %s
+                   ORDER BY work_date DESC""",
+                (team_id, team_id),
+            )
+            all_dates = [r["work_date"] for r in cur.fetchall()]
+            total = len(all_dates)
+            page_dates = all_dates[offset:offset + per_page]
+
+            cur.execute("SELECT sla_breach_threshold_days FROM dss_team_settings WHERE team_id = %s", (team_id,))
+            settings_row = cur.fetchone()
+            threshold = settings_row["sla_breach_threshold_days"] if settings_row else 3
+
+            # Avg daily capacity (last 7 dates with hours > 0, from all data)
+            cur.execute(
+                """SELECT work_date, SUM(hours_worked) AS total_hours
+                   FROM dss_daily_shifts WHERE team_id = %s AND hours_worked > 0
+                   GROUP BY work_date HAVING SUM(hours_worked) > 0
+                   ORDER BY work_date DESC LIMIT 7""",
+                (team_id,),
+            )
+            cap_rows = cur.fetchall()
+            avg_daily_cap = (sum(float(r["total_hours"]) * base_rate for r in cap_rows) / len(cap_rows)) if cap_rows else 0
+
+            rows = []
+            for d in page_dates:
+                cur.execute(
+                    "SELECT COUNT(*) AS cnt, SUM(hours_worked) AS total_hours FROM dss_daily_shifts WHERE team_id = %s AND work_date = %s",
+                    (team_id, d),
+                )
+                shift_summary = cur.fetchone()
+                agent_count = shift_summary["cnt"] or 0
+                total_hours = float(shift_summary["total_hours"] or 0)
+
+                completed_units = _dss_completed_units_for_date(cur, team_id, base_rate, d)
+                landed_units = _dss_landed_units_for_date(cur, team_id, d)
+                prior_backlog = _dss_accumulate_backlog(cur, team_id, base_rate, d)
+                rollup = dss_calc.daily_team_rollup(landed_units, completed_units, total_hours * base_rate, prior_backlog)
+
+                dow = dss_calc.days_of_work(rollup["running_backlog"], avg_daily_cap)
+                sla = dss_calc.sla_status(dow, threshold)
+
+                rows.append({
+                    "work_date": str(d),
+                    "agent_count": agent_count,
+                    "total_hours": total_hours,
+                    "completed_units": rollup["completed_units"],
+                    "landed_units": rollup["landed_units"],
+                    "backlog_change": rollup["backlog_change"],
+                    "running_backlog": rollup["running_backlog"],
+                    "sla_status": sla,
+                    "days_of_work": dow,
+                })
+
+        conn.close()
+        return jsonify({
+            "dates": rows,
+            "total": total,
+            "page": page,
+            "per_page": per_page,
+            "total_pages": (total + per_page - 1) // per_page if per_page else 1,
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+# ---------------------------------------------------------------------------
+# GET /api/dss/settings/members
+# ---------------------------------------------------------------------------
+@app.route("/api/dss/settings/members")
+@login_required
+def dss_settings_members_get():
+    if current_user.role not in ("admin", "team_leader"):
+        return jsonify({"error": "Forbidden"}), 403
+    try:
+        conn = get_db_conn()
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            team = _dss_get_team(cur)
+            if not team:
+                conn.close()
+                return jsonify([])
+            cur.execute(
+                "SELECT id, name, is_active, created_at FROM dss_team_members WHERE team_id = %s ORDER BY name",
+                (team["id"],),
+            )
+            rows = cur.fetchall()
+        conn.close()
+        result = []
+        for r in rows:
+            d = dict(r)
+            d["created_at"] = d["created_at"].isoformat() if d.get("created_at") else None
+            result.append(d)
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+# ---------------------------------------------------------------------------
+# POST /api/dss/settings/members
+# ---------------------------------------------------------------------------
+@app.route("/api/dss/settings/members", methods=["POST"])
+@login_required
+def dss_settings_members_post():
+    if current_user.role != "admin":
+        return jsonify({"error": "Forbidden"}), 403
+    data = request.get_json() or {}
+    name = (data.get("name") or "").strip()
+    if not name:
+        return jsonify({"error": "name is required"}), 400
+    try:
+        conn = get_db_conn()
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            team = _dss_get_team(cur)
+            if not team:
+                conn.close()
+                return jsonify({"error": "No team configured"}), 404
+            cur.execute(
+                "INSERT INTO dss_team_members (team_id, name) VALUES (%s, %s) RETURNING id, name, is_active",
+                (team["id"], name),
+            )
+            row = cur.fetchone()
+        conn.commit()
+        conn.close()
+        return jsonify(dict(row)), 201
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+# ---------------------------------------------------------------------------
+# PUT /api/dss/settings/members/<id>
+# ---------------------------------------------------------------------------
+@app.route("/api/dss/settings/members/<int:member_id>", methods=["PUT"])
+@login_required
+def dss_settings_members_put(member_id):
+    if current_user.role != "admin":
+        return jsonify({"error": "Forbidden"}), 403
+    data = request.get_json() or {}
+    try:
+        conn = get_db_conn()
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            if "name" in data:
+                cur.execute("UPDATE dss_team_members SET name = %s, updated_at = NOW() WHERE id = %s", (data["name"], member_id))
+            if "is_active" in data:
+                cur.execute("UPDATE dss_team_members SET is_active = %s, updated_at = NOW() WHERE id = %s", (data["is_active"], member_id))
+            cur.execute("SELECT id, name, is_active FROM dss_team_members WHERE id = %s", (member_id,))
+            row = cur.fetchone()
+        conn.commit()
+        conn.close()
+        return jsonify(dict(row)) if row else (jsonify({"error": "Not found"}), 404)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+# ---------------------------------------------------------------------------
+# GET /api/dss/settings/task-types
+# ---------------------------------------------------------------------------
+@app.route("/api/dss/settings/task-types")
+@login_required
+def dss_settings_task_types_get():
+    if current_user.role not in ("admin", "team_leader"):
+        return jsonify({"error": "Forbidden"}), 403
+    try:
+        conn = get_db_conn()
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            team = _dss_get_team(cur)
+            if not team:
+                conn.close()
+                return jsonify([])
+            cur.execute(
+                "SELECT id, name, rate_per_hour, is_base, display_order, is_active FROM dss_task_types WHERE team_id = %s ORDER BY display_order",
+                (team["id"],),
+            )
+            task_types = []
+            for tt in cur.fetchall():
+                cur.execute(
+                    "SELECT id, name, display_order, is_active FROM dss_task_sub_types WHERE task_type_id = %s ORDER BY display_order",
+                    (tt["id"],),
+                )
+                tt_dict = dict(tt)
+                tt_dict["rate_per_hour"] = float(tt_dict["rate_per_hour"])
+                tt_dict["sub_types"] = [dict(s) for s in cur.fetchall()]
+                task_types.append(tt_dict)
+        conn.close()
+        return jsonify(task_types)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+# ---------------------------------------------------------------------------
+# POST /api/dss/settings/task-types
+# ---------------------------------------------------------------------------
+@app.route("/api/dss/settings/task-types", methods=["POST"])
+@login_required
+def dss_settings_task_types_post():
+    if current_user.role != "admin":
+        return jsonify({"error": "Forbidden"}), 403
+    data = request.get_json() or {}
+    name = (data.get("name") or "").strip()
+    try:
+        rate = float(data.get("rate_per_hour", 0))
+    except (ValueError, TypeError):
+        return jsonify({"error": "Invalid rate_per_hour"}), 400
+    display_order = int(data.get("display_order", 0))
+    if not name or rate <= 0:
+        return jsonify({"error": "name and rate_per_hour required"}), 400
+    try:
+        conn = get_db_conn()
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            team = _dss_get_team(cur)
+            if not team:
+                conn.close()
+                return jsonify({"error": "No team configured"}), 404
+            cur.execute(
+                """INSERT INTO dss_task_types (team_id, name, rate_per_hour, display_order)
+                   VALUES (%s, %s, %s, %s) RETURNING id, name, rate_per_hour, is_base, display_order, is_active""",
+                (team["id"], name, rate, display_order),
+            )
+            row = dict(cur.fetchone())
+            row["rate_per_hour"] = float(row["rate_per_hour"])
+            row["sub_types"] = []
+        conn.commit()
+        conn.close()
+        return jsonify(row), 201
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+# ---------------------------------------------------------------------------
+# PUT /api/dss/settings/task-types/<id>
+# ---------------------------------------------------------------------------
+@app.route("/api/dss/settings/task-types/<int:task_type_id>", methods=["PUT"])
+@login_required
+def dss_settings_task_types_put(task_type_id):
+    if current_user.role != "admin":
+        return jsonify({"error": "Forbidden"}), 403
+    data = request.get_json() or {}
+    try:
+        conn = get_db_conn()
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            if "name" in data:
+                cur.execute("UPDATE dss_task_types SET name = %s, updated_at = NOW() WHERE id = %s", (data["name"], task_type_id))
+            if "rate_per_hour" in data:
+                cur.execute("UPDATE dss_task_types SET rate_per_hour = %s, updated_at = NOW() WHERE id = %s", (float(data["rate_per_hour"]), task_type_id))
+            if "display_order" in data:
+                cur.execute("UPDATE dss_task_types SET display_order = %s, updated_at = NOW() WHERE id = %s", (int(data["display_order"]), task_type_id))
+            if "is_active" in data:
+                cur.execute("UPDATE dss_task_types SET is_active = %s, updated_at = NOW() WHERE id = %s", (bool(data["is_active"]), task_type_id))
+            if data.get("is_base"):
+                # Unset is_base on all others first
+                cur.execute("SELECT team_id FROM dss_task_types WHERE id = %s", (task_type_id,))
+                team_row = cur.fetchone()
+                if team_row:
+                    cur.execute("UPDATE dss_task_types SET is_base = FALSE WHERE team_id = %s AND id != %s", (team_row["team_id"], task_type_id))
+                cur.execute("UPDATE dss_task_types SET is_base = TRUE, updated_at = NOW() WHERE id = %s", (task_type_id,))
+            cur.execute(
+                "SELECT id, name, rate_per_hour, is_base, display_order, is_active FROM dss_task_types WHERE id = %s",
+                (task_type_id,),
+            )
+            row = cur.fetchone()
+        conn.commit()
+        conn.close()
+        if not row:
+            return jsonify({"error": "Not found"}), 404
+        d = dict(row)
+        d["rate_per_hour"] = float(d["rate_per_hour"])
+        return jsonify(d)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+# ---------------------------------------------------------------------------
+# POST /api/dss/settings/task-types/<id>/sub-types
+# ---------------------------------------------------------------------------
+@app.route("/api/dss/settings/task-types/<int:task_type_id>/sub-types", methods=["POST"])
+@login_required
+def dss_settings_sub_types_post(task_type_id):
+    if current_user.role != "admin":
+        return jsonify({"error": "Forbidden"}), 403
+    data = request.get_json() or {}
+    name = (data.get("name") or "").strip()
+    display_order = int(data.get("display_order", 0))
+    if not name:
+        return jsonify({"error": "name is required"}), 400
+    try:
+        conn = get_db_conn()
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute(
+                "INSERT INTO dss_task_sub_types (task_type_id, name, display_order) VALUES (%s, %s, %s) RETURNING id, name, display_order, is_active",
+                (task_type_id, name, display_order),
+            )
+            row = cur.fetchone()
+        conn.commit()
+        conn.close()
+        return jsonify(dict(row)), 201
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+# ---------------------------------------------------------------------------
+# PUT /api/dss/settings/sub-types/<id>
+# ---------------------------------------------------------------------------
+@app.route("/api/dss/settings/sub-types/<int:sub_type_id>", methods=["PUT"])
+@login_required
+def dss_settings_sub_types_put(sub_type_id):
+    if current_user.role != "admin":
+        return jsonify({"error": "Forbidden"}), 403
+    data = request.get_json() or {}
+    try:
+        conn = get_db_conn()
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            if "name" in data:
+                cur.execute("UPDATE dss_task_sub_types SET name = %s, updated_at = NOW() WHERE id = %s", (data["name"], sub_type_id))
+            if "display_order" in data:
+                cur.execute("UPDATE dss_task_sub_types SET display_order = %s, updated_at = NOW() WHERE id = %s", (int(data["display_order"]), sub_type_id))
+            if "is_active" in data:
+                cur.execute("UPDATE dss_task_sub_types SET is_active = %s, updated_at = NOW() WHERE id = %s", (bool(data["is_active"]), sub_type_id))
+            cur.execute("SELECT id, name, display_order, is_active FROM dss_task_sub_types WHERE id = %s", (sub_type_id,))
+            row = cur.fetchone()
+        conn.commit()
+        conn.close()
+        return jsonify(dict(row)) if row else (jsonify({"error": "Not found"}), 404)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+# ---------------------------------------------------------------------------
+# GET /api/dss/settings/team
+# ---------------------------------------------------------------------------
+@app.route("/api/dss/settings/team")
+@login_required
+def dss_settings_team_get():
+    if current_user.role not in ("admin", "team_leader"):
+        return jsonify({"error": "Forbidden"}), 403
+    try:
+        conn = get_db_conn()
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            team = _dss_get_team(cur)
+            if not team:
+                conn.close()
+                return jsonify({"error": "No team configured"}), 404
+            cur.execute("SELECT * FROM dss_team_settings WHERE team_id = %s", (team["id"],))
+            row = cur.fetchone()
+        conn.close()
+        if not row:
+            return jsonify({"team_id": team["id"], "starting_backlog_units": 0, "sla_breach_threshold_days": 3})
+        d = dict(row)
+        d["starting_backlog_units"] = float(d["starting_backlog_units"])
+        return jsonify(d)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+# ---------------------------------------------------------------------------
+# PUT /api/dss/settings/team
+# ---------------------------------------------------------------------------
+@app.route("/api/dss/settings/team", methods=["PUT"])
+@login_required
+def dss_settings_team_put():
+    if current_user.role != "admin":
+        return jsonify({"error": "Forbidden"}), 403
+    data = request.get_json() or {}
+    try:
+        conn = get_db_conn()
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            team = _dss_get_team(cur)
+            if not team:
+                conn.close()
+                return jsonify({"error": "No team configured"}), 404
+            team_id = team["id"]
+            cur.execute(
+                """INSERT INTO dss_team_settings (team_id, starting_backlog_units, sla_breach_threshold_days)
+                   VALUES (%s, %s, %s)
+                   ON CONFLICT (team_id) DO UPDATE
+                   SET starting_backlog_units = EXCLUDED.starting_backlog_units,
+                       sla_breach_threshold_days = EXCLUDED.sla_breach_threshold_days,
+                       updated_at = NOW()
+                   RETURNING *""",
+                (team_id, float(data.get("starting_backlog_units", 0)), int(data.get("sla_breach_threshold_days", 3))),
+            )
+            row = cur.fetchone()
+        conn.commit()
+        conn.close()
+        d = dict(row)
+        d["starting_backlog_units"] = float(d["starting_backlog_units"])
+        return jsonify(d)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 

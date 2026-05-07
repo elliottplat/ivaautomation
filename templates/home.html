@@ -244,6 +244,14 @@
         <p>Termination calculations &amp; cashier instructions</p>
         <a href="/terminations" class="tool-btn">Open</a>
       </div>
+      {% if current_user.role in ['admin', 'team_leader'] %}
+      <div class="tool-card active">
+        <div class="tool-icon" style="background:#e0f2fe;">📊</div>
+        <h3>DSS Workload</h3>
+        <p>Daily workload tracking and SLA monitoring</p>
+        <a href="/dss/dashboard" class="tool-btn">Open</a>
+      </div>
+      {% endif %}
     </div>
   </div>
 </div>
