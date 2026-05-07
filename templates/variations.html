@@ -399,6 +399,26 @@
     .eos-claims-alert .alert-title { font-weight: 700; font-size: 0.95rem; }
     .eos-claims-alert .alert-detail { font-size: 0.85rem; margin-top: 4px; opacity: 0.9; }
     .eos-claims-alert .alert-dismiss { background: none; border: none; color: white; cursor: pointer; font-size: 1.1rem; padding: 0; line-height: 1; }
+
+    /* ── Handoff Note Modal ── */
+    .handoff-modal-overlay { position: fixed; inset: 0; background: rgba(15,15,30,0.7); z-index: 600; display: none; align-items: center; justify-content: center; }
+    .handoff-modal-overlay.open { display: flex; }
+    .handoff-modal-box { background: #fff; width: 100%; max-width: 480px; border-radius: 14px; box-shadow: 0 16px 60px rgba(0,0,0,0.25); padding: 1.75rem 1.75rem 1.5rem; }
+    .handoff-modal-box h3 { font-size: 1rem; font-weight: 700; margin-bottom: 0.4rem; color: #1a1a2e; }
+    .handoff-modal-box p { font-size: 0.87rem; color: #555; margin-bottom: 1rem; line-height: 1.55; }
+    .handoff-modal-box label { display: block; font-size: 0.85rem; font-weight: 600; color: #333; margin-bottom: 0.35rem; }
+    .handoff-modal-box label .required { color: #ef4444; }
+    .handoff-modal-box textarea { width: 100%; border: 1.5px solid #d0d5dd; border-radius: 8px; padding: 0.65rem 0.85rem; font-size: 0.88rem; font-family: inherit; resize: vertical; min-height: 80px; line-height: 1.5; transition: border-color 0.2s; box-sizing: border-box; }
+    .handoff-modal-box textarea:focus { outline: none; border-color: #6366f1; }
+    .handoff-modal-error { color: #b91c1c; font-size: 0.82rem; margin-top: 0.4rem; display: none; }
+    .handoff-modal-actions { display: flex; gap: 0.65rem; justify-content: flex-end; margin-top: 1.1rem; }
+    .handoff-modal-cancel { background: #fff; color: #555; border: 1.5px solid #d0d5dd; border-radius: 8px; padding: 0.55rem 1.1rem; font-size: 0.87rem; font-weight: 600; cursor: pointer; }
+    .handoff-modal-cancel:hover { background: #f5f5f5; }
+    .handoff-modal-submit { background: #6366f1; color: #fff; border: none; border-radius: 8px; padding: 0.55rem 1.25rem; font-size: 0.87rem; font-weight: 700; cursor: pointer; transition: background 0.2s; }
+    .handoff-modal-submit:hover { background: #4f46e5; }
+
+    /* ── Handoff Note Callout (reviewer view) ── */
+    .handoff-note-callout { background: #fef9c3; border-left: 4px solid #ca8a04; padding: 10px 14px; border-radius: 4px; margin-bottom: 14px; font-size: 0.9rem; }
   </style>
 </head>
 <body>
@@ -729,6 +749,21 @@
   </div>
 
 </div><!-- /shell -->
+
+<!-- Handoff Note Modal -->
+<div class="handoff-modal-overlay" id="handoff-note-modal">
+  <div class="handoff-modal-box">
+    <h3>I&amp;E not completed</h3>
+    <p>This variation type usually requires an I&amp;E. If you're sending without one, please add a note explaining why so the reviewer has context.</p>
+    <label for="handoff-note-input">Reason for sending without I&amp;E <span class="required">*</span></label>
+    <textarea id="handoff-note-input" rows="3" placeholder="Minimum 10 characters…"></textarea>
+    <div class="handoff-modal-error" id="handoff-note-error">Please provide a reason (minimum 10 characters).</div>
+    <div class="handoff-modal-actions">
+      <button class="handoff-modal-cancel" id="handoff-note-cancel" type="button">Cancel</button>
+      <button class="handoff-modal-submit" id="handoff-note-submit" type="button">Send with note</button>
+    </div>
+  </div>
+</div>
 
 <!-- Review Modal -->
 <div class="review-overlay" id="review-overlay">
@@ -1349,8 +1384,8 @@
     }
   }
 
-  function sidebarAddStored(id, caseNumber, createdAt, reviewStatus, variationSubtype, customName) {
-    store[String(id)] = { caseNumber, rawJson: null, parsedResult: null, eosState: null, pending: false, usage: null, reviewStatus, variationSubtype, customVariationTypeName: customName || null };
+  function sidebarAddStored(id, caseNumber, createdAt, reviewStatus, variationSubtype, customName, reviewHandoffNote) {
+    store[String(id)] = { caseNumber, rawJson: null, parsedResult: null, eosState: null, pending: false, usage: null, reviewStatus, variationSubtype, customVariationTypeName: customName || null, reviewHandoffNote: reviewHandoffNote || null };
     const el = document.createElement('div');
     el.className = 'case-item';
     el.id = 'case-item-' + id;
@@ -1865,6 +1900,7 @@
         entry.reviewStatus = data.review_status;
         entry.variationSubtype = data.variation_subtype || null;
         entry.customVariationTypeName = data.custom_variation_type_name || null;
+        entry.reviewHandoffNote = data.review_handoff_note || null;
         caseReviewStatus = data.review_status;
         caseSubmittedBy = data.submitted_by;
         currentCaseId = key;
@@ -1944,17 +1980,11 @@
     statusText.textContent = labels[status] || status;
 
     if (status === 'pending' || status === 'draft') {
-      const allSaved = saved.eos && saved.ie && saved.reason;
-      if (allSaved) {
-        sendBtn.style.display = '';
-        hint.textContent = '';
-      } else {
-        const missing = [];
-        if (!saved.eos) missing.push('EOS');
-        if (!saved.ie) missing.push('I&E');
-        if (!saved.reason) missing.push('Reason');
-        hint.textContent = 'Save ' + missing.join(', ') + ' to unlock';
-      }
+      sendBtn.style.display = '';
+      const missing = [];
+      if (!saved.eos) missing.push('EOS');
+      if (!saved.reason) missing.push('Reason');
+      hint.textContent = missing.length ? 'Unsaved: ' + missing.join(', ') : '';
     } else if (status === 'under_review' && CAN_REVIEW) {
       approveBtn.style.display = '';
       rejectBtn.style.display = '';
@@ -2849,19 +2879,75 @@
     });
   }
 
-  document.getElementById('btn-send-review').addEventListener('click', async () => {
-    if (!currentCaseId) return;
+  // ── Send for Review logic ─────────────────────────────────────────────────
+  const IE_REQUIRED_TYPES = ['full_and_final', 'funds_paid_to_date', 'contributions_reduction'];
+  let handoffPendingCaseId = null;
+
+  function sendForReview(caseId, variationType, ieCompleted) {
+    const needsIE = IE_REQUIRED_TYPES.includes(variationType);
+    if (needsIE && !ieCompleted) {
+      openHandoffNoteModal(caseId);
+    } else {
+      submitSendForReview(caseId, null);
+    }
+  }
+
+  function openHandoffNoteModal(caseId) {
+    handoffPendingCaseId = caseId;
+    document.getElementById('handoff-note-input').value = '';
+    document.getElementById('handoff-note-error').style.display = 'none';
+    document.getElementById('handoff-note-modal').classList.add('open');
+  }
+
+  function closeHandoffNoteModal() {
+    document.getElementById('handoff-note-modal').classList.remove('open');
+    handoffPendingCaseId = null;
+  }
+
+  async function submitSendForReview(caseId, note) {
     const btn = document.getElementById('btn-send-review');
-    btn.disabled = true;
+    if (btn) btn.disabled = true;
     try {
-      const res = await fetch(`/api/cases/${currentCaseId}/send-for-review`, { method: 'POST' });
+      const res = await fetch(`/api/cases/${caseId}/send-for-review`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ handoff_note: note || null }),
+      });
       const data = await res.json();
       if (data.error) { alert(data.error); return; }
       caseReviewStatus = 'under_review';
-      updateSidebarStatus(String(currentCaseId), 'under_review');
+      updateSidebarStatus(String(caseId), 'under_review');
+      if (store[String(caseId)]) store[String(caseId)].reviewHandoffNote = note || null;
       updateWorkflowBar();
     } catch { alert('Request failed.'); }
-    finally { btn.disabled = false; }
+    finally { if (btn) btn.disabled = false; }
+  }
+
+  document.getElementById('btn-send-review').addEventListener('click', () => {
+    if (!currentCaseId) return;
+    const entry = store[String(currentCaseId)] || {};
+    const variationType = entry.variationSubtype || '';
+    const ieCompleted = saved.ie;
+    sendForReview(currentCaseId, variationType, ieCompleted);
+  });
+
+  document.getElementById('handoff-note-cancel').addEventListener('click', closeHandoffNoteModal);
+
+  document.getElementById('handoff-note-submit').addEventListener('click', () => {
+    const note = document.getElementById('handoff-note-input').value.trim();
+    const errEl = document.getElementById('handoff-note-error');
+    if (note.length < 10) {
+      errEl.style.display = '';
+      return;
+    }
+    errEl.style.display = 'none';
+    const caseId = handoffPendingCaseId;
+    closeHandoffNoteModal();
+    submitSendForReview(caseId, note);
+  });
+
+  document.getElementById('handoff-note-modal').addEventListener('click', e => {
+    if (e.target === document.getElementById('handoff-note-modal')) closeHandoffNoteModal();
   });
 
   document.getElementById('btn-wf-approve').addEventListener('click', async () => {
@@ -2929,6 +3015,11 @@
       const state = entry.eosState || entry.parsedResult.eos;
       let eosHtml = '';
 
+      // Handoff note callout
+      if (entry.reviewHandoffNote) {
+        eosHtml += `<div class="handoff-note-callout"><strong>Note from uploader:</strong> ${escHtml(entry.reviewHandoffNote)}</div>`;
+      }
+
       // §11 — Creditors' claims increase alert (>20%)
       const uc = state.unsecured_creditors || {};
       const ucCurrent = typeof uc.current === 'number' ? uc.current : null;
@@ -2952,7 +3043,12 @@
       eosHtml += renderEosTable(state, false);
       eosEl.innerHTML = eosHtml;
     } else {
-      eosEl.innerHTML = '<p style="color:#bbb;padding:1rem;">No EOS data available.</p>';
+      let noEosHtml = '';
+      if (entry.reviewHandoffNote) {
+        noEosHtml += `<div class="handoff-note-callout"><strong>Note from uploader:</strong> ${escHtml(entry.reviewHandoffNote)}</div>`;
+      }
+      noEosHtml += '<p style="color:#bbb;padding:1rem;">No EOS data available.</p>';
+      eosEl.innerHTML = noEosHtml;
     }
 
     // Populate reason tab
@@ -3084,7 +3180,7 @@
       const res = await fetch('/api/cases?task_type=variation');
       const cases = await res.json();
       if (Array.isArray(cases)) {
-        cases.reverse().forEach(c => sidebarAddStored(c.id, c.case_number, c.created_at, c.review_status, c.variation_subtype, c.custom_variation_type_name));
+        cases.reverse().forEach(c => sidebarAddStored(c.id, c.case_number, c.created_at, c.review_status, c.variation_subtype, c.custom_variation_type_name, c.review_handoff_note));
       }
     } catch {}
   }

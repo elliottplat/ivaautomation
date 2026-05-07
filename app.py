@@ -1381,6 +1381,7 @@ def init_db():
                   END IF;
                 END $$;
             """)
+            cur.execute("ALTER TABLE cases ADD COLUMN IF NOT EXISTS review_handoff_note TEXT;")
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS notifications (
                     id SERIAL PRIMARY KEY,
@@ -3400,23 +3401,23 @@ def list_cases():
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             if task_type_filter:
                 cur.execute(
-                    "SELECT id, case_number, created_at, review_status, variation_subtype, custom_variation_type_name FROM cases WHERE task_type = %s ORDER BY created_at DESC LIMIT 100",
+                    "SELECT id, case_number, created_at, review_status, variation_subtype, custom_variation_type_name, review_handoff_note FROM cases WHERE task_type = %s ORDER BY created_at DESC LIMIT 100",
                     (task_type_filter,),
                 )
             else:
                 # Filter to only task types the user can see
                 spec = getattr(current_user, "specialisms", "all") or "all"
                 if spec == "all":
-                    cur.execute("SELECT id, case_number, created_at, review_status, variation_subtype, custom_variation_type_name FROM cases ORDER BY created_at DESC LIMIT 100")
+                    cur.execute("SELECT id, case_number, created_at, review_status, variation_subtype, custom_variation_type_name, review_handoff_note FROM cases ORDER BY created_at DESC LIMIT 100")
                 else:
                     visible_types = [s.strip() for s in spec.split(",")]
                     cur.execute(
-                        "SELECT id, case_number, created_at, review_status, variation_subtype, custom_variation_type_name FROM cases WHERE task_type = ANY(%s) ORDER BY created_at DESC LIMIT 100",
+                        "SELECT id, case_number, created_at, review_status, variation_subtype, custom_variation_type_name, review_handoff_note FROM cases WHERE task_type = ANY(%s) ORDER BY created_at DESC LIMIT 100",
                         (visible_types,),
                     )
             rows = cur.fetchall()
         conn.close()
-        return jsonify([{"id": r["id"], "case_number": r["case_number"], "created_at": r["created_at"].isoformat(), "review_status": r["review_status"], "variation_subtype": r.get("variation_subtype"), "custom_variation_type_name": r.get("custom_variation_type_name")} for r in rows])
+        return jsonify([{"id": r["id"], "case_number": r["case_number"], "created_at": r["created_at"].isoformat(), "review_status": r["review_status"], "variation_subtype": r.get("variation_subtype"), "custom_variation_type_name": r.get("custom_variation_type_name"), "review_handoff_note": r.get("review_handoff_note")} for r in rows])
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -3478,6 +3479,7 @@ def get_case(case_id):
             "submitted_by": row.get("submitted_by"),
             "variation_subtype": row.get("variation_subtype"),
             "custom_variation_type_name": row.get("custom_variation_type_name"),
+            "review_handoff_note": row.get("review_handoff_note"),
         })
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -3524,16 +3526,28 @@ def send_for_review(case_id):
     if current_user.role not in ("uploader", "admin"):
         return jsonify({"error": "Forbidden"}), 403
     submitted_by = int(current_user.id)
+    data = request.get_json(silent=True) or {}
+    handoff_note = data.get("handoff_note") or None
     try:
         conn = get_db_conn()
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            cur.execute("SELECT case_number FROM cases WHERE id = %s", (case_id,))
+            cur.execute(
+                "SELECT id, case_number, submitted_by FROM cases WHERE id = %s",
+                (case_id,),
+            )
             row = cur.fetchone()
             if not row:
                 conn.close()
                 return jsonify({"error": "Not found"}), 404
+            # Verify ownership or admin
+            if current_user.role != "admin" and row.get("submitted_by") and row["submitted_by"] != submitted_by:
+                conn.close()
+                return jsonify({"error": "Forbidden"}), 403
             case_number = row["case_number"]
-            cur.execute("UPDATE cases SET review_status = 'under_review' WHERE id = %s", (case_id,))
+            cur.execute(
+                "UPDATE cases SET review_status = 'under_review', review_handoff_note = %s WHERE id = %s",
+                (handoff_note, case_id),
+            )
             cur.execute(
                 "SELECT id FROM users WHERE role IN ('reviewer', 'admin') AND active = TRUE AND id != %s",
                 (submitted_by,),
