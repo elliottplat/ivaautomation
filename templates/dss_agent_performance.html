@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Agent Performance – Omni Group</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, -apple-system, sans-serif; background: #f0f2f5; color: #1a1a2e; min-height: 100vh; }
+
+    /* ── Top bar ── */
+    .topbar { background: #fff; border-bottom: 1px solid #e5e7eb; padding: 0.75rem 1.5rem; display: flex; align-items: center; gap: 1rem; position: sticky; top: 0; z-index: 10; }
+    .topbar a.back { text-decoration: none; color: #6366f1; font-size: 0.88rem; font-weight: 600; display: flex; align-items: center; gap: 0.3rem; }
+    .topbar a.back:hover { color: #4f46e5; }
+    .topbar h1 { font-size: 1.05rem; font-weight: 700; }
+    .topbar-nav { display: flex; gap: 0.25rem; }
+    .topbar-nav a { font-size: 0.82rem; font-weight: 600; color: #555; text-decoration: none; padding: 0.3rem 0.75rem; border-radius: 7px; transition: background 0.1s, color 0.1s; }
+    .topbar-nav a:hover { background: #f5f5ff; color: #4f46e5; }
+    .topbar-nav a.active { background: #e0e7ff; color: #4f46e5; }
+    .topbar-spacer { flex: 1; }
+    .topbar-right { display: flex; align-items: center; gap: 0.85rem; }
+    .topbar-user { font-size: 0.82rem; color: #777; }
+    .topbar-user strong { color: #333; }
+    .topbar-link { font-size: 0.82rem; font-weight: 600; color: #6366f1; text-decoration: none; }
+    .topbar-link:hover { color: #4f46e5; }
+    .admin-menu-wrap { position: relative; }
+    .admin-menu-btn { display: flex; align-items: center; gap: 0.3rem; font-size: 0.82rem; font-weight: 600; color: #6366f1; background: none; border: 1.5px solid #e0e7ff; border-radius: 7px; padding: 0.3rem 0.75rem; cursor: pointer; }
+    .admin-menu-btn:hover { background: #f5f5ff; }
+    .admin-menu-btn .chevron { font-size: 0.6rem; transition: transform 0.15s; }
+    .admin-menu-btn.open .chevron { transform: rotate(180deg); }
+    .admin-dropdown { position: absolute; top: calc(100% + 6px); right: 0; background: #fff; border-radius: 10px; box-shadow: 0 8px 28px rgba(0,0,0,0.13); border: 1px solid #e5e7eb; min-width: 180px; padding: 0.35rem 0; display: none; z-index: 300; }
+    .admin-dropdown.open { display: block; }
+    .admin-dropdown a { display: flex; align-items: center; gap: 0.5rem; width: 100%; padding: 0.6rem 1rem; font-size: 0.84rem; font-weight: 500; color: #333; text-decoration: none; }
+    .admin-dropdown a:hover { background: #f5f5ff; color: #4f46e5; }
+    .admin-dropdown .divider { height: 1px; background: #f0f0f0; margin: 0.25rem 0; }
+    .admin-dropdown .danger { color: #ef4444; }
+    .admin-dropdown .danger:hover { background: #fef2f2; color: #dc2626; }
+
+    /* ── Main ── */
+    .main { padding: 1.5rem; display: flex; flex-direction: column; gap: 1.25rem; max-width: 1600px; margin: 0 auto; }
+
+    /* ── Date bar ── */
+    .date-bar { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
+    .date-bar label { font-size: 0.83rem; font-weight: 600; color: #555; }
+    .date-bar input[type="date"] { border: 1.5px solid #d0d5dd; border-radius: 8px; padding: 0.4rem 0.75rem; font-size: 0.85rem; font-family: inherit; background: #fff; color: #1a1a2e; }
+    .date-bar input[type="date"]:focus { outline: none; border-color: #6366f1; }
+    .btn-load { padding: 0.4rem 1rem; border: none; border-radius: 8px; background: #6366f1; color: #fff; font-size: 0.85rem; font-weight: 600; cursor: pointer; transition: background 0.15s; }
+    .btn-load:hover { background: #4f46e5; }
+
+    /* ── Card ── */
+    .card { background: #fff; border-radius: 12px; box-shadow: 0 1px 6px rgba(0,0,0,0.07); padding: 1.1rem 1.25rem; }
+    .card-title { font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #999; margin-bottom: 0.9rem; }
+
+    /* ── Table ── */
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.84rem; }
+    thead th {
+      text-align: left;
+      padding: 0.55rem 0.65rem;
+      font-size: 0.71rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      color: #999;
+      border-bottom: 1.5px solid #f0f0f0;
+      white-space: nowrap;
+      cursor: pointer;
+      user-select: none;
+    }
+    thead th:hover { color: #6366f1; }
+    thead th .sort-arrow { margin-left: 4px; opacity: 0.4; font-size: 0.65rem; }
+    thead th.sorted .sort-arrow { opacity: 1; color: #6366f1; }
+    thead th:first-child { cursor: default; }
+    thead th:first-child:hover { color: #999; }
+    tbody td { padding: 0.65rem 0.65rem; border-bottom: 1px solid #f7f7f7; vertical-align: middle; white-space: nowrap; }
+    tbody tr:last-child td { border-bottom: none; }
+    tbody tr:hover td { background: #fafafa; }
+    tfoot tr td { padding: 0.65rem 0.65rem; border-top: 2px solid #e5e7eb; font-weight: 700; white-space: nowrap; background: #f9f9ff; }
+
+    /* ── Status indicator ── */
+    .inactive-badge { font-size: 0.68rem; color: #aaa; margin-left: 0.4rem; }
+
+    /* ── Loading/error ── */
+    .status-msg { font-size: 0.88rem; color: #777; padding: 1rem 0; }
+    .error-msg { font-size: 0.88rem; color: #dc2626; padding: 1rem 0; }
+  </style>
+</head>
+<body>
+
+<div class="topbar">
+  <a href="/" class="back">← Home</a>
+  <h1>DSS Workload</h1>
+  <nav class="topbar-nav">
+    <a href="/dss/dashboard">Dashboard</a>
+    <a href="/dss/entry">Entry</a>
+    <a href="/dss/history">History</a>
+    <a href="/dss/agent-performance" class="active">Agent Performance</a>
+    {% if current_user.role == 'admin' %}
+    <a href="/dss/settings">Settings</a>
+    {% endif %}
+  </nav>
+  <div class="topbar-spacer"></div>
+  <div class="topbar-right">
+    <span class="topbar-user">Signed in as <strong>{{ current_user.username }}</strong></span>
+    {% if current_user.role == 'admin' %}
+    <div class="admin-menu-wrap">
+      <button class="admin-menu-btn" id="admin-menu-btn">&#9881; Admin <span class="chevron">&#9660;</span></button>
+      <div class="admin-dropdown" id="admin-dropdown">
+        <a href="/completions">&#10003; Completions</a>
+        <a href="/admin/corrections">&#128203; Review Log</a>
+        <a href="/admin/users">&#128101; Users</a>
+        <a href="/admin/projects">&#127970; Projects</a>
+        <div class="divider"></div>
+        <a href="/logout" class="danger">Sign out</a>
+      </div>
+    </div>
+    {% else %}
+    <a href="/logout" class="topbar-link">Sign out</a>
+    {% endif %}
+  </div>
+</div>
+
+<div class="main">
+  <!-- Date range controls -->
+  <div class="date-bar">
+    <label for="start-date">From</label>
+    <input type="date" id="start-date" />
+    <label for="end-date">To</label>
+    <input type="date" id="end-date" />
+    <button class="btn-load" id="btn-load">Load</button>
+  </div>
+
+  <!-- Performance table -->
+  <div class="card">
+    <div class="card-title">Agent Performance</div>
+    <div class="table-wrap">
+      <div id="table-status" class="status-msg">Loading...</div>
+      <table id="perf-table" style="display:none;">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th data-key="days">Days <span class="sort-arrow">&#8597;</span></th>
+            <th data-key="hours">Hours <span class="sort-arrow">&#8597;</span></th>
+            <th data-key="emails">Emails <span class="sort-arrow">&#8597;</span></th>
+            <th data-key="dnp">DNP <span class="sort-arrow">&#8597;</span></th>
+            <th data-key="offers">Offers <span class="sort-arrow">&#8597;</span></th>
+            <th data-key="transfer">Transfer <span class="sort-arrow">&#8597;</span></th>
+            <th data-key="bals">Bals <span class="sort-arrow">&#8597;</span></th>
+            <th data-key="rev_bals">Rev. Bals <span class="sort-arrow">&#8597;</span></th>
+            <th data-key="out">Out <span class="sort-arrow">&#8597;</span></th>
+            <th data-key="in_calls">In <span class="sort-arrow">&#8597;</span></th>
+            <th data-key="s_sheets">S/Sheets <span class="sort-arrow">&#8597;</span></th>
+            <th data-key="tac">TAC <span class="sort-arrow">&#8597;</span></th>
+            <th data-key="un_alloc">Un-alloc <span class="sort-arrow">&#8597;</span></th>
+            <th data-key="returns">Returns <span class="sort-arrow">&#8597;</span></th>
+            <th data-key="packs_poi">Packs/POI <span class="sort-arrow">&#8597;</span></th>
+            <th data-key="ie_review_appts">I&amp;E Review Appts <span class="sort-arrow">&#8597;</span></th>
+          </tr>
+        </thead>
+        <tbody id="perf-tbody"></tbody>
+        <tfoot id="perf-tfoot"></tfoot>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+  // ── Date helpers ─────────────────────────────────────────────────────────
+  function todayISO() {
+    const d = new Date();
+    return d.toISOString().slice(0, 10);
+  }
+  function firstOfMonthISO() {
+    const d = new Date();
+    return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().slice(0, 10);
+  }
+
+  // ── Init date inputs ─────────────────────────────────────────────────────
+  const startInput = document.getElementById('start-date');
+  const endInput   = document.getElementById('end-date');
+  startInput.value = firstOfMonthISO();
+  endInput.value   = todayISO();
+
+  // ── Sort state ───────────────────────────────────────────────────────────
+  let sortKey = null;
+  let sortAsc = true;
+  let currentAgents = [];
+  let currentTotals = {};
+
+  const NUMERIC_KEYS = ['days','hours','emails','dnp','offers','transfer','bals',
+                        'rev_bals','out','in_calls','s_sheets','tac','un_alloc',
+                        'returns','packs_poi','ie_review_appts'];
+
+  // ── Render table ─────────────────────────────────────────────────────────
+  function renderTable() {
+    const tbody = document.getElementById('perf-tbody');
+    const tfoot = document.getElementById('perf-tfoot');
+
+    let agents = currentAgents.slice();
+    if (sortKey) {
+      agents.sort((a, b) => {
+        let av = a[sortKey], bv = b[sortKey];
+        return sortAsc ? av - bv : bv - av;
+      });
+    }
+
+    tbody.innerHTML = '';
+    agents.forEach(agent => {
+      const tr = document.createElement('tr');
+      const nameTd = document.createElement('td');
+      nameTd.innerHTML = agent.member_name +
+        (agent.is_active ? '' : '<span class="inactive-badge">(inactive)</span>');
+      tr.appendChild(nameTd);
+
+      NUMERIC_KEYS.forEach(k => {
+        const td = document.createElement('td');
+        if (k === 'hours') {
+          td.textContent = agent[k].toFixed(1);
+        } else {
+          td.textContent = agent[k];
+        }
+        tr.appendChild(td);
+      });
+      tbody.appendChild(tr);
+    });
+
+    // Totals row
+    tfoot.innerHTML = '';
+    const tr = document.createElement('tr');
+    const td0 = document.createElement('td');
+    td0.textContent = 'Total';
+    tr.appendChild(td0);
+    NUMERIC_KEYS.forEach(k => {
+      const td = document.createElement('td');
+      if (k === 'hours') {
+        td.textContent = currentTotals[k].toFixed(1);
+      } else {
+        td.textContent = currentTotals[k] || 0;
+      }
+      tr.appendChild(td);
+    });
+    tfoot.appendChild(tr);
+  }
+
+  // ── Column sort handlers ─────────────────────────────────────────────────
+  document.querySelectorAll('thead th[data-key]').forEach(th => {
+    th.addEventListener('click', () => {
+      const key = th.dataset.key;
+      if (sortKey === key) {
+        sortAsc = !sortAsc;
+      } else {
+        sortKey = key;
+        sortAsc = false; // default descending for numeric
+      }
+      // Update header classes
+      document.querySelectorAll('thead th').forEach(h => h.classList.remove('sorted'));
+      th.classList.add('sorted');
+      renderTable();
+    });
+  });
+
+  // ── Load data ────────────────────────────────────────────────────────────
+  function loadData() {
+    const start = startInput.value;
+    const end   = endInput.value;
+    const statusEl = document.getElementById('table-status');
+    const tableEl  = document.getElementById('perf-table');
+
+    statusEl.className = 'status-msg';
+    statusEl.textContent = 'Loading...';
+    statusEl.style.display = 'block';
+    tableEl.style.display = 'none';
+
+    fetch('/api/dss/agent-performance?start_date=' + encodeURIComponent(start) + '&end_date=' + encodeURIComponent(end))
+      .then(r => r.json())
+      .then(data => {
+        if (data.error) {
+          statusEl.className = 'error-msg';
+          statusEl.textContent = 'Error: ' + data.error;
+          return;
+        }
+        currentAgents = data.agents || [];
+        currentTotals = data.totals || {};
+        renderTable();
+        statusEl.style.display = 'none';
+        tableEl.style.display = '';
+      })
+      .catch(err => {
+        statusEl.className = 'error-msg';
+        statusEl.textContent = 'Failed to load data: ' + err;
+      });
+  }
+
+  document.getElementById('btn-load').addEventListener('click', loadData);
+
+  // ── Admin dropdown ────────────────────────────────────────────────────────
+  const adminBtn  = document.getElementById('admin-menu-btn');
+  const adminDrop = document.getElementById('admin-dropdown');
+  if (adminBtn) {
+    adminBtn.addEventListener('click', () => {
+      adminBtn.classList.toggle('open');
+      adminDrop.classList.toggle('open');
+    });
+    document.addEventListener('click', e => {
+      if (!adminBtn.contains(e.target) && !adminDrop.contains(e.target)) {
+        adminBtn.classList.remove('open');
+        adminDrop.classList.remove('open');
+      }
+    });
+  }
+
+  // ── Auto-load on page open ────────────────────────────────────────────────
+  loadData();
+</script>
+</body>
+</html>
