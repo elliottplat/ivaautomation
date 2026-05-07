@@ -1128,6 +1128,7 @@ def init_db():
     conn = get_db_conn()
     try:
         with conn.cursor() as cur:
+            cur.execute('CREATE EXTENSION IF NOT EXISTS "pgcrypto"')
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS users (
                     id SERIAL PRIMARY KEY,
@@ -1360,6 +1361,71 @@ def init_db():
                     ('The Debt Resolution Service', 'tdrs')
                 ON CONFLICT (slug) DO NOTHING
             """)
+            # ── Parker Philips Arrears tables
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS pp_snapshots (
+                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    snapshot_date DATE NOT NULL,
+                    uploaded_at TIMESTAMP DEFAULT NOW(),
+                    uploaded_by INTEGER REFERENCES users(id),
+                    source VARCHAR(20) DEFAULT 'file_upload',
+                    pipeline_result JSONB,
+                    superseded BOOLEAN DEFAULT FALSE
+                )
+            """)
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS pp_case_snapshots (
+                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    snapshot_id UUID REFERENCES pp_snapshots(id) ON DELETE CASCADE,
+                    reference TEXT NOT NULL,
+                    client_name TEXT,
+                    mobile TEXT,
+                    case_type VARCHAR(10),
+                    payment_amount NUMERIC(12,2),
+                    arrears_amount NUMERIC(12,2),
+                    cycle VARCHAR(20),
+                    cycle_status TEXT DEFAULT '',
+                    months_in_arrears NUMERIC(8,2),
+                    last_payment_due_date DATE,
+                    days_since_last_payment_due INTEGER,
+                    payment_break BOOLEAN DEFAULT FALSE,
+                    catchup_agreed BOOLEAN DEFAULT FALSE,
+                    catchup_amount NUMERIC(12,2),
+                    vulnerable BOOLEAN DEFAULT FALSE,
+                    case_senior TEXT,
+                    last_contact_date TIMESTAMP,
+                    last_contact_notes TEXT,
+                    case_status TEXT,
+                    needs_manual_review BOOLEAN DEFAULT FALSE,
+                    review_reason TEXT,
+                    sources_present TEXT[],
+                    iva_fees_arrears NUMERIC(12,2),
+                    wf_arrears_amount NUMERIC(12,2),
+                    cases_in_arrears_amount NUMERIC(12,2),
+                    td_arrears_amount NUMERIC(12,2)
+                )
+            """)
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_pp_cs_snapshot ON pp_case_snapshots(snapshot_id)")
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_pp_cs_ref ON pp_case_snapshots(reference)")
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_pp_cs_type ON pp_case_snapshots(case_type)")
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_pp_cs_cycle ON pp_case_snapshots(cycle)")
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS pp_case_notes (
+                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    reference TEXT NOT NULL,
+                    note_text TEXT NOT NULL,
+                    note_category VARCHAR(50),
+                    created_at TIMESTAMP DEFAULT NOW(),
+                    created_by INTEGER REFERENCES users(id),
+                    removes_from_queue BOOLEAN DEFAULT TRUE,
+                    arrears_at_time NUMERIC(12,2),
+                    cycle_at_time TEXT,
+                    snapshot_id_at_time UUID,
+                    superseded_at TIMESTAMP,
+                    superseded_reason TEXT
+                )
+            """)
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_pp_notes_ref ON pp_case_notes(reference, created_at DESC)")
         conn.commit()
     finally:
         conn.close()
@@ -3380,6 +3446,593 @@ def save_arrears_config(project_id):
         conn.commit()
         conn.close()
         return jsonify({"ok": True})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+# ---------------------------------------------------------------------------
+# Parker Philips Arrears — Page route
+# ---------------------------------------------------------------------------
+@app.route("/pp-arrears")
+@login_required
+def pp_arrears():
+    return render_template("pp_arrears.html")
+
+
+# ---------------------------------------------------------------------------
+# Parker Philips Arrears — API helpers
+# ---------------------------------------------------------------------------
+def _pp_get_latest_snapshot_id(cur):
+    """Return the UUID of the latest non-superseded PP snapshot, or None."""
+    cur.execute(
+        "SELECT id FROM pp_snapshots WHERE superseded = FALSE ORDER BY snapshot_date DESC, uploaded_at DESC LIMIT 1"
+    )
+    row = cur.fetchone()
+    return row["id"] if row else None
+
+
+def _pp_case_to_dict(row) -> dict:
+    """Convert a pp_case_snapshots RealDictRow to a JSON-serialisable dict."""
+    d = dict(row)
+    for key in ("payment_amount", "arrears_amount", "months_in_arrears",
+                "catchup_amount", "iva_fees_arrears", "wf_arrears_amount",
+                "cases_in_arrears_amount", "td_arrears_amount"):
+        if d.get(key) is not None:
+            d[key] = float(d[key])
+    for key in ("last_payment_due_date",):
+        if d.get(key) is not None:
+            d[key] = d[key].isoformat()
+    for key in ("last_contact_date",):
+        if d.get(key) is not None:
+            d[key] = d[key].isoformat()
+    if d.get("id"):
+        d["id"] = str(d["id"])
+    if d.get("snapshot_id"):
+        d["snapshot_id"] = str(d["snapshot_id"])
+    return d
+
+
+# ---------------------------------------------------------------------------
+# POST /api/pp/upload  (admin / uploader only)
+# ---------------------------------------------------------------------------
+@app.route("/api/pp/upload", methods=["POST"])
+@login_required
+def pp_upload():
+    if current_user.role not in ("admin", "uploader"):
+        return jsonify({"error": "Forbidden"}), 403
+
+    import tempfile
+    from parker_philips_arrears import run_pipeline
+
+    required_files = ["iva_fees", "td_fees", "cases_in_arrears", "wf_arrears", "total_live_cases"]
+    missing = [k for k in required_files if k not in request.files]
+    if missing:
+        return jsonify({"error": f"Missing files: {', '.join(missing)}"}), 400
+
+    snapshot_date_raw = (request.form.get("snapshot_date") or "").strip()
+    confirm = request.form.get("confirm", "false").lower() in ("true", "1", "yes")
+
+    try:
+        from datetime import date as _date
+        snap_date = _date.fromisoformat(snapshot_date_raw) if snapshot_date_raw else _date.today()
+    except ValueError:
+        return jsonify({"error": "Invalid snapshot_date format (use YYYY-MM-DD)"}), 400
+
+    # Save uploaded files to temp dir
+    tmp_dir = tempfile.mkdtemp()
+    file_paths = {}
+    try:
+        for key in required_files:
+            f = request.files[key]
+            dest = os.path.join(tmp_dir, f.filename or key)
+            f.save(dest)
+            file_paths[key] = dest
+
+        # Run pipeline
+        try:
+            result = run_pipeline(
+                iva_fees=file_paths["iva_fees"],
+                td_fees=file_paths["td_fees"],
+                cases_in_arrears=file_paths["cases_in_arrears"],
+                wf_arrears=file_paths["wf_arrears"],
+                total_live_cases=file_paths["total_live_cases"],
+                snapshot_date=snap_date,
+            )
+        except ValueError as ve:
+            return jsonify({"error": str(ve)}), 400
+
+    finally:
+        # Clean up temp files
+        import shutil
+        shutil.rmtree(tmp_dir, ignore_errors=True)
+
+    try:
+        conn = get_db_conn()
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            # Check if snapshot exists for today
+            cur.execute(
+                "SELECT id FROM pp_snapshots WHERE snapshot_date = %s AND superseded = FALSE",
+                (snap_date,),
+            )
+            existing = cur.fetchone()
+            if existing and not confirm:
+                conn.close()
+                return jsonify({
+                    "needs_confirm": True,
+                    "message": f"A snapshot already exists for {snap_date}. Replace it?",
+                })
+
+            # If replacing, mark existing as superseded
+            if existing:
+                cur.execute(
+                    "UPDATE pp_snapshots SET superseded = TRUE WHERE snapshot_date = %s AND superseded = FALSE",
+                    (snap_date,),
+                )
+
+            # Get all historical references for cycle_status determination
+            cur.execute("SELECT DISTINCT reference FROM pp_case_snapshots")
+            historical_refs = {row["reference"] for row in cur.fetchall()}
+
+            # Insert snapshot
+            result_dict = result.to_dict()
+            # Remove cases from the stored pipeline_result to avoid bloat (cases go into pp_case_snapshots)
+            result_dict_meta = {k: v for k, v in result_dict.items() if k != "cases"}
+            cur.execute(
+                """INSERT INTO pp_snapshots (snapshot_date, uploaded_by, source, pipeline_result)
+                   VALUES (%s, %s, 'file_upload', %s) RETURNING id""",
+                (snap_date, int(current_user.id), json.dumps(result_dict_meta)),
+            )
+            snapshot_id = str(cur.fetchone()["id"])
+
+            # Insert case snapshots
+            for c in result.cases:
+                cycle_status = "History of arrears" if c.reference in historical_refs else "New"
+                cur.execute(
+                    """INSERT INTO pp_case_snapshots (
+                        snapshot_id, reference, client_name, mobile, case_type,
+                        payment_amount, arrears_amount, cycle, cycle_status,
+                        months_in_arrears, last_payment_due_date, days_since_last_payment_due,
+                        payment_break, catchup_agreed, catchup_amount, vulnerable,
+                        case_senior, last_contact_date, last_contact_notes, case_status,
+                        needs_manual_review, review_reason, sources_present,
+                        iva_fees_arrears, wf_arrears_amount, cases_in_arrears_amount, td_arrears_amount
+                    ) VALUES (
+                        %s, %s, %s, %s, %s,
+                        %s, %s, %s, %s,
+                        %s, %s, %s,
+                        %s, %s, %s, %s,
+                        %s, %s, %s, %s,
+                        %s, %s, %s,
+                        %s, %s, %s, %s
+                    )""",
+                    (
+                        snapshot_id, c.reference, c.client_name, c.mobile, c.case_type,
+                        c.payment_amount, c.arrears_amount, c.cycle, cycle_status,
+                        c.months_in_arrears, c.last_payment_due_date, c.days_since_last_payment_due,
+                        c.payment_break, c.catchup_agreed, c.catchup_amount, c.vulnerable,
+                        c.case_senior, c.last_contact_date, c.last_contact_notes, c.case_status,
+                        c.needs_manual_review, c.review_reason, c.sources_present,
+                        c.iva_fees_arrears, c.wf_arrears_amount, c.cases_in_arrears_amount, c.td_arrears_amount,
+                    ),
+                )
+
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+    total_live = result.total_live_iva + result.total_live_cpi + result.total_live_td
+    return jsonify({
+        "snapshot_id": snapshot_id,
+        "snapshot_date": snap_date.isoformat(),
+        "total_live": total_live,
+        "in_arrears_count": result.total_in_arrears,
+        "in_arrears_value": result.total_arrears_value,
+        "by_cycle": result.by_cycle,
+        "by_case_type": result.by_case_type,
+        "warnings": result.warnings,
+    })
+
+
+# ---------------------------------------------------------------------------
+# GET /api/pp/latest-snapshot
+# ---------------------------------------------------------------------------
+@app.route("/api/pp/latest-snapshot")
+@login_required
+def pp_latest_snapshot():
+    try:
+        conn = get_db_conn()
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute(
+                """SELECT id, snapshot_date, uploaded_at, uploaded_by, pipeline_result
+                   FROM pp_snapshots WHERE superseded = FALSE
+                   ORDER BY snapshot_date DESC, uploaded_at DESC LIMIT 1"""
+            )
+            row = cur.fetchone()
+        conn.close()
+        if not row:
+            return jsonify(None)
+        d = dict(row)
+        d["id"] = str(d["id"])
+        d["snapshot_date"] = d["snapshot_date"].isoformat()
+        d["uploaded_at"] = d["uploaded_at"].isoformat()
+        return jsonify(d)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+# ---------------------------------------------------------------------------
+# GET /api/pp/cases
+# ---------------------------------------------------------------------------
+@app.route("/api/pp/cases")
+@login_required
+def pp_cases_list():
+    snapshot_id = request.args.get("snapshot_id")
+    case_type = request.args.get("case_type")
+    cycles = request.args.getlist("cycle")
+    vulnerable = request.args.get("vulnerable")
+    needs_review = request.args.get("needs_manual_review")
+    search = (request.args.get("search") or "").strip()
+    show = request.args.get("show", "active")   # active | all | worked | resolved
+    min_arrears = request.args.get("min_arrears")
+    max_arrears = request.args.get("max_arrears")
+    sort_col = request.args.get("sort", "arrears_amount")
+    sort_dir = request.args.get("dir", "desc").upper()
+    try:
+        offset = int(request.args.get("offset", 0))
+        limit  = int(request.args.get("limit", 100))
+    except ValueError:
+        offset, limit = 0, 100
+
+    allowed_sorts = {
+        "arrears_amount", "reference", "client_name", "cycle",
+        "case_type", "days_since_last_payment_due", "months_in_arrears",
+    }
+    if sort_col not in allowed_sorts:
+        sort_col = "arrears_amount"
+    if sort_dir not in ("ASC", "DESC"):
+        sort_dir = "DESC"
+
+    try:
+        conn = get_db_conn()
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            # Resolve snapshot
+            if not snapshot_id:
+                cur.execute(
+                    "SELECT id FROM pp_snapshots WHERE superseded = FALSE ORDER BY snapshot_date DESC, uploaded_at DESC LIMIT 1"
+                )
+                row = cur.fetchone()
+                if not row:
+                    conn.close()
+                    return jsonify({"cases": [], "total": 0, "snapshot_date": None})
+                snapshot_id = str(row["id"])
+            else:
+                # Validate it exists
+                cur.execute("SELECT id, snapshot_date FROM pp_snapshots WHERE id = %s::uuid", (snapshot_id,))
+                row = cur.fetchone()
+                if not row:
+                    conn.close()
+                    return jsonify({"error": "Snapshot not found"}), 404
+
+            # Get snapshot date for response
+            cur.execute("SELECT snapshot_date FROM pp_snapshots WHERE id = %s::uuid", (snapshot_id,))
+            snap_row = cur.fetchone()
+            snap_date_str = snap_row["snapshot_date"].isoformat() if snap_row else None
+
+            # Base filters
+            filters = ["cs.snapshot_id = %s::uuid"]
+            params: list = [snapshot_id]
+
+            if case_type:
+                filters.append("cs.case_type = %s")
+                params.append(case_type)
+            if cycles:
+                filters.append("cs.cycle = ANY(%s)")
+                params.append(cycles)
+            if vulnerable and vulnerable.lower() in ("true", "1"):
+                filters.append("cs.vulnerable = TRUE")
+            if needs_review and needs_review.lower() in ("true", "1"):
+                filters.append("cs.needs_manual_review = TRUE")
+            if search:
+                filters.append("(cs.reference ILIKE %s OR cs.client_name ILIKE %s OR cs.mobile ILIKE %s)")
+                like = f"%{search}%"
+                params += [like, like, like]
+            if min_arrears:
+                try:
+                    filters.append("cs.arrears_amount >= %s")
+                    params.append(float(min_arrears))
+                except ValueError:
+                    pass
+            if max_arrears:
+                try:
+                    filters.append("cs.arrears_amount <= %s")
+                    params.append(float(max_arrears))
+                except ValueError:
+                    pass
+
+            # Show filter
+            if show == "active":
+                # No active note (removes_from_queue=TRUE AND superseded_at IS NULL)
+                filters.append(
+                    "NOT EXISTS (SELECT 1 FROM pp_case_notes n WHERE n.reference = cs.reference "
+                    "AND n.removes_from_queue = TRUE AND n.superseded_at IS NULL)"
+                )
+            elif show == "worked":
+                filters.append(
+                    "EXISTS (SELECT 1 FROM pp_case_notes n WHERE n.reference = cs.reference "
+                    "AND n.removes_from_queue = TRUE AND n.superseded_at IS NULL)"
+                )
+            # "all" and "resolved" handled below; "resolved" requires a different query
+
+            where_clause = " AND ".join(filters)
+
+            # Count
+            cur.execute(
+                f"SELECT COUNT(*) AS cnt FROM pp_case_snapshots cs WHERE {where_clause}",
+                params,
+            )
+            total = cur.fetchone()["cnt"]
+
+            # Fetch
+            cur.execute(
+                f"""SELECT cs.*, n.created_at AS note_created_at
+                    FROM pp_case_snapshots cs
+                    LEFT JOIN LATERAL (
+                        SELECT created_at FROM pp_case_notes
+                        WHERE reference = cs.reference AND removes_from_queue = TRUE AND superseded_at IS NULL
+                        ORDER BY created_at DESC LIMIT 1
+                    ) n ON TRUE
+                    WHERE {where_clause}
+                    ORDER BY cs.{sort_col} {sort_dir}
+                    LIMIT %s OFFSET %s""",
+                params + [limit, offset],
+            )
+            rows = cur.fetchall()
+
+        conn.close()
+        cases_out = [_pp_case_to_dict(r) for r in rows]
+        return jsonify({"cases": cases_out, "total": int(total), "snapshot_date": snap_date_str})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+# ---------------------------------------------------------------------------
+# GET /api/pp/cases/<reference>
+# ---------------------------------------------------------------------------
+@app.route("/api/pp/cases/<path:reference>")
+@login_required
+def pp_case_detail(reference):
+    try:
+        conn = get_db_conn()
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            # Latest snapshot data for this reference
+            cur.execute(
+                """SELECT cs.* FROM pp_case_snapshots cs
+                   JOIN pp_snapshots s ON s.id = cs.snapshot_id
+                   WHERE cs.reference = %s AND s.superseded = FALSE
+                   ORDER BY s.snapshot_date DESC LIMIT 1""",
+                (reference,),
+            )
+            case_row = cur.fetchone()
+
+            # All notes history
+            cur.execute(
+                """SELECT id, note_text, note_category, created_at, created_by,
+                          removes_from_queue, arrears_at_time, cycle_at_time,
+                          superseded_at, superseded_reason
+                   FROM pp_case_notes
+                   WHERE reference = %s
+                   ORDER BY created_at ASC""",
+                (reference,),
+            )
+            notes_rows = cur.fetchall()
+
+            # Last 30 snapshots arrears trend
+            cur.execute(
+                """SELECT s.snapshot_date, cs.arrears_amount, cs.cycle
+                   FROM pp_case_snapshots cs
+                   JOIN pp_snapshots s ON s.id = cs.snapshot_id
+                   WHERE cs.reference = %s AND s.superseded = FALSE
+                   ORDER BY s.snapshot_date DESC LIMIT 30""",
+                (reference,),
+            )
+            trend_rows = cur.fetchall()
+
+        conn.close()
+        if not case_row:
+            return jsonify({"error": "Case not found"}), 404
+
+        case_dict = _pp_case_to_dict(case_row)
+
+        notes_out = []
+        for n in notes_rows:
+            nd = dict(n)
+            nd["id"] = str(nd["id"])
+            nd["created_at"] = nd["created_at"].isoformat() if nd.get("created_at") else None
+            nd["superseded_at"] = nd["superseded_at"].isoformat() if nd.get("superseded_at") else None
+            if nd.get("arrears_at_time") is not None:
+                nd["arrears_at_time"] = float(nd["arrears_at_time"])
+            notes_out.append(nd)
+
+        trend_out = []
+        for t in trend_rows:
+            td = dict(t)
+            td["snapshot_date"] = td["snapshot_date"].isoformat()
+            td["arrears_amount"] = float(td["arrears_amount"]) if td.get("arrears_amount") else 0.0
+            trend_out.append(td)
+
+        return jsonify({"case": case_dict, "notes": notes_out, "trend": trend_out})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+# ---------------------------------------------------------------------------
+# POST /api/pp/cases/<reference>/notes
+# ---------------------------------------------------------------------------
+@app.route("/api/pp/cases/<path:reference>/notes", methods=["POST"])
+@login_required
+def pp_add_note(reference):
+    data = request.get_json() or {}
+    note_text = (data.get("note_text") or "").strip()
+    note_category = (data.get("note_category") or "").strip() or None
+    removes_from_queue = bool(data.get("removes_from_queue", True))
+
+    if not note_text:
+        return jsonify({"error": "note_text is required"}), 400
+
+    try:
+        conn = get_db_conn()
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            # Get current snapshot info for the case
+            snap_id = _pp_get_latest_snapshot_id(cur)
+            cur.execute(
+                "SELECT arrears_amount, cycle FROM pp_case_snapshots WHERE reference = %s AND snapshot_id = %s::uuid LIMIT 1",
+                (reference, snap_id),
+            ) if snap_id else None
+            case_row = cur.fetchone() if snap_id else None
+            arrears_at_time = float(case_row["arrears_amount"]) if case_row and case_row.get("arrears_amount") else None
+            cycle_at_time = case_row["cycle"] if case_row else None
+
+            cur.execute(
+                """INSERT INTO pp_case_notes
+                   (reference, note_text, note_category, created_by, removes_from_queue,
+                    arrears_at_time, cycle_at_time, snapshot_id_at_time)
+                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s::uuid)
+                   RETURNING id, reference, note_text, note_category, created_at,
+                             removes_from_queue, arrears_at_time, cycle_at_time""",
+                (reference, note_text, note_category, int(current_user.id), removes_from_queue,
+                 arrears_at_time, cycle_at_time, snap_id),
+            )
+            note_row = cur.fetchone()
+        conn.commit()
+        conn.close()
+        nd = dict(note_row)
+        nd["id"] = str(nd["id"])
+        nd["created_at"] = nd["created_at"].isoformat() if nd.get("created_at") else None
+        if nd.get("arrears_at_time") is not None:
+            nd["arrears_at_time"] = float(nd["arrears_at_time"])
+        return jsonify(nd), 201
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+# ---------------------------------------------------------------------------
+# GET /api/pp/movement
+# ---------------------------------------------------------------------------
+@app.route("/api/pp/movement")
+@login_required
+def pp_movement():
+    try:
+        conn = get_db_conn()
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            # Latest two non-superseded snapshots
+            cur.execute(
+                """SELECT id, snapshot_date FROM pp_snapshots WHERE superseded = FALSE
+                   ORDER BY snapshot_date DESC, uploaded_at DESC LIMIT 2"""
+            )
+            snaps = cur.fetchall()
+        if len(snaps) < 2:
+            conn.close()
+            return jsonify({"new": [], "cleared": [], "cycle_changes": [], "message": "Need at least 2 snapshots"})
+
+        latest_id = str(snaps[0]["id"])
+        prev_id   = str(snaps[1]["id"])
+        latest_date = snaps[0]["snapshot_date"].isoformat()
+        prev_date   = snaps[1]["snapshot_date"].isoformat()
+
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            # New: in latest but not prev
+            cur.execute(
+                """SELECT cs.reference, cs.client_name, cs.case_type, cs.arrears_amount, cs.cycle
+                   FROM pp_case_snapshots cs
+                   WHERE cs.snapshot_id = %s::uuid
+                     AND cs.reference NOT IN (
+                         SELECT reference FROM pp_case_snapshots WHERE snapshot_id = %s::uuid
+                     )""",
+                (latest_id, prev_id),
+            )
+            new_cases = [_pp_case_to_dict(r) for r in cur.fetchall()]
+
+            # Cleared: in prev but not latest
+            cur.execute(
+                """SELECT cs.reference, cs.client_name, cs.case_type, cs.arrears_amount, cs.cycle
+                   FROM pp_case_snapshots cs
+                   WHERE cs.snapshot_id = %s::uuid
+                     AND cs.reference NOT IN (
+                         SELECT reference FROM pp_case_snapshots WHERE snapshot_id = %s::uuid
+                     )""",
+                (prev_id, latest_id),
+            )
+            cleared_cases = [_pp_case_to_dict(r) for r in cur.fetchall()]
+
+            # Cycle changes: in both but different cycle
+            cur.execute(
+                """SELECT
+                       l.reference, l.client_name, l.case_type,
+                       p.cycle AS prev_cycle, l.cycle AS new_cycle,
+                       p.arrears_amount AS prev_arrears, l.arrears_amount AS new_arrears
+                   FROM pp_case_snapshots l
+                   JOIN pp_case_snapshots p ON p.reference = l.reference AND p.snapshot_id = %s::uuid
+                   WHERE l.snapshot_id = %s::uuid AND l.cycle != p.cycle""",
+                (prev_id, latest_id),
+            )
+            cycle_changes = []
+            for r in cur.fetchall():
+                d = dict(r)
+                if d.get("prev_arrears") is not None:
+                    d["prev_arrears"] = float(d["prev_arrears"])
+                if d.get("new_arrears") is not None:
+                    d["new_arrears"] = float(d["new_arrears"])
+                cycle_changes.append(d)
+
+        conn.close()
+        return jsonify({
+            "new": new_cases,
+            "cleared": cleared_cases,
+            "cycle_changes": cycle_changes,
+            "latest_date": latest_date,
+            "prev_date": prev_date,
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+# ---------------------------------------------------------------------------
+# GET /api/pp/snapshots  (admin only)
+# ---------------------------------------------------------------------------
+@app.route("/api/pp/snapshots")
+@login_required
+def pp_snapshots_list():
+    if current_user.role != "admin":
+        return jsonify({"error": "Forbidden"}), 403
+    try:
+        conn = get_db_conn()
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute(
+                """SELECT s.id, s.snapshot_date, s.uploaded_at, s.uploaded_by,
+                          s.superseded, s.source,
+                          COUNT(cs.id) AS case_count,
+                          SUM(cs.arrears_amount) AS total_arrears_value,
+                          u.username AS uploaded_by_name
+                   FROM pp_snapshots s
+                   LEFT JOIN pp_case_snapshots cs ON cs.snapshot_id = s.id
+                   LEFT JOIN users u ON u.id = s.uploaded_by
+                   GROUP BY s.id, s.snapshot_date, s.uploaded_at, s.uploaded_by,
+                            s.superseded, s.source, u.username
+                   ORDER BY s.snapshot_date DESC, s.uploaded_at DESC"""
+            )
+            rows = cur.fetchall()
+        conn.close()
+        result = []
+        for r in rows:
+            d = dict(r)
+            d["id"] = str(d["id"])
+            d["snapshot_date"] = d["snapshot_date"].isoformat()
+            d["uploaded_at"] = d["uploaded_at"].isoformat()
+            if d.get("total_arrears_value") is not None:
+                d["total_arrears_value"] = float(d["total_arrears_value"])
+            result.append(d)
+        return jsonify(result)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
