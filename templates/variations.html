@@ -880,6 +880,10 @@
     'field-propose-extension','field-extension-vc-ic','field-extension-months-ic',
   ];
 
+  // Declared here (above validateEosForm / applyVariationType) so the init
+  // call at the bottom of this block doesn't hit the temporal dead zone.
+  const fileMap = {};
+
   {% if current_user.role in ['uploader', 'admin'] %}
   function applyVariationType(type) {
     const cfg = VARIATION_TYPE_CONFIG[type] || VARIATION_TYPE_CONFIG['full_and_final'];
@@ -998,7 +1002,7 @@
     }
 
     // COA upload required for all variation types
-    const coaFiles = (typeof fileMap !== 'undefined' && fileMap['chart_of_accounts']) ? fileMap['chart_of_accounts'] : [];
+    const coaFiles = fileMap['chart_of_accounts'] || [];
     const coaPresent = coaFiles.length > 0;
     if (!coaPresent) valid = false;
     const coaHint = document.getElementById('coa-required-hint');
@@ -2362,7 +2366,6 @@
   }
 
   // ── File management ───────────────────────────────────────────────────────
-  const fileMap = {};
   {% if current_user.role in ['uploader', 'admin'] %}
   const slots = ['agreed_eos', 'modifications', 'chart_of_accounts'];
   slots.forEach(s => fileMap[s] = []);
