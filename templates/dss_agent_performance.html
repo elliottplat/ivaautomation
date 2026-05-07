@@ -51,31 +51,60 @@
     .card { background: #fff; border-radius: 12px; box-shadow: 0 1px 6px rgba(0,0,0,0.07); padding: 1.1rem 1.25rem; }
     .card-title { font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #999; margin-bottom: 0.9rem; }
 
+    /* ── Group tints ── */
+    .grp-identity      { background: #f8f9fa; }
+    .grp-contact       { background: #dbeafe; }
+    .grp-contact-light { background: #eff6ff; }
+    .grp-dw            { background: #fde68a; }
+    .grp-dw-light      { background: #fffbeb; }
+    .grp-reviews       { background: #d1fae5; }
+    .grp-reviews-light { background: #ecfdf5; }
+    .grp-docs          { background: #ede9fe; }
+    .grp-docs-light    { background: #f5f3ff; }
+    .grp-ops           { background: #e7e5e4; }
+    .grp-ops-light     { background: #f5f5f4; }
+    .grp-divider       { border-left: 2px solid #d1d5db; }
+
     /* ── Table ── */
     .table-wrap { overflow-x: auto; }
     table { width: 100%; border-collapse: collapse; font-size: 0.84rem; }
-    thead th {
+
+    /* Group header row */
+    thead tr.grp-row th {
+      text-align: center;
+      padding: 0.4rem 0.5rem;
+      font-size: 0.71rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #555;
+      border-bottom: 1px solid #e5e7eb;
+      white-space: nowrap;
+    }
+    /* Column header row */
+    thead tr.col-row th {
       text-align: left;
       padding: 0.55rem 0.65rem;
       font-size: 0.71rem;
       font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 0.4px;
-      color: #999;
-      border-bottom: 1.5px solid #f0f0f0;
+      color: #777;
+      border-bottom: 1.5px solid #e5e7eb;
       white-space: nowrap;
       cursor: pointer;
       user-select: none;
     }
-    thead th:hover { color: #6366f1; }
-    thead th .sort-arrow { margin-left: 4px; opacity: 0.4; font-size: 0.65rem; }
-    thead th.sorted .sort-arrow { opacity: 1; color: #6366f1; }
-    thead th:first-child { cursor: default; }
-    thead th:first-child:hover { color: #999; }
-    tbody td { padding: 0.65rem 0.65rem; border-bottom: 1px solid #f7f7f7; vertical-align: middle; white-space: nowrap; }
+    thead tr.col-row th:hover { color: #6366f1; }
+    thead tr.col-row th .sort-arrow { margin-left: 4px; opacity: 0.4; font-size: 0.65rem; }
+    thead tr.col-row th.sorted .sort-arrow { opacity: 1; color: #6366f1; }
+    thead tr.col-row th:first-child { cursor: default; }
+    thead tr.col-row th:first-child:hover { color: #777; }
+
+    tbody td { padding: 0.65rem 0.65rem; border-bottom: 1px solid #f0f0f0; vertical-align: middle; white-space: nowrap; }
     tbody tr:last-child td { border-bottom: none; }
-    tbody tr:hover td { background: #fafafa; }
-    tfoot tr td { padding: 0.65rem 0.65rem; border-top: 2px solid #e5e7eb; font-weight: 700; white-space: nowrap; background: #f9f9ff; }
+    tbody tr:hover td { filter: brightness(0.97); }
+    tfoot tr td { padding: 0.65rem 0.65rem; border-top: 2px solid #d1d5db; font-weight: 700; white-space: nowrap; }
 
     /* ── Status indicator ── */
     .inactive-badge { font-size: 0.68rem; color: #aaa; margin-left: 0.4rem; }
@@ -88,7 +117,7 @@
 <body>
 
 <div class="topbar">
-  <a href="/" class="back">← Home</a>
+  <a href="/" class="back">&#8592; Home</a>
   <h1>DSS Workload</h1>
   <nav class="topbar-nav">
     <a href="/dss/dashboard">Dashboard</a>
@@ -137,24 +166,34 @@
       <div id="table-status" class="status-msg">Loading...</div>
       <table id="perf-table" style="display:none;">
         <thead>
-          <tr>
-            <th>Name</th>
-            <th data-key="days">Days <span class="sort-arrow">&#8597;</span></th>
-            <th data-key="hours">Hours <span class="sort-arrow">&#8597;</span></th>
-            <th data-key="emails">Emails <span class="sort-arrow">&#8597;</span></th>
-            <th data-key="dnp">DNP <span class="sort-arrow">&#8597;</span></th>
-            <th data-key="offers">Offers <span class="sort-arrow">&#8597;</span></th>
-            <th data-key="transfer">Transfer <span class="sort-arrow">&#8597;</span></th>
-            <th data-key="bals">Bals <span class="sort-arrow">&#8597;</span></th>
-            <th data-key="rev_bals">Rev. Bals <span class="sort-arrow">&#8597;</span></th>
-            <th data-key="out">Out <span class="sort-arrow">&#8597;</span></th>
-            <th data-key="in_calls">In <span class="sort-arrow">&#8597;</span></th>
-            <th data-key="s_sheets">S/Sheets <span class="sort-arrow">&#8597;</span></th>
-            <th data-key="tac">TAC <span class="sort-arrow">&#8597;</span></th>
-            <th data-key="un_alloc">Un-alloc <span class="sort-arrow">&#8597;</span></th>
-            <th data-key="returns">Returns <span class="sort-arrow">&#8597;</span></th>
-            <th data-key="packs_poi">Packs/POI <span class="sort-arrow">&#8597;</span></th>
-            <th data-key="ie_review_appts">I&amp;E Review Appts <span class="sort-arrow">&#8597;</span></th>
+          <!-- Group header row -->
+          <tr class="grp-row">
+            <th colspan="3" class="grp-identity">Identity</th>
+            <th colspan="4" class="grp-contact grp-divider">Customer Contact</th>
+            <th colspan="3" class="grp-dw grp-divider">DocuWare</th>
+            <th colspan="2" class="grp-reviews grp-divider">Reviews</th>
+            <th colspan="2" class="grp-docs grp-divider">Document Processing</th>
+            <th colspan="3" class="grp-ops grp-divider">Operations</th>
+          </tr>
+          <!-- Column header row -->
+          <tr class="col-row">
+            <th class="grp-identity">Name</th>
+            <th class="grp-identity" data-key="days">Days <span class="sort-arrow">&#8597;</span></th>
+            <th class="grp-identity" data-key="hours">Hours <span class="sort-arrow">&#8597;</span></th>
+            <th class="grp-contact grp-divider" data-key="emails">Emails <span class="sort-arrow">&#8597;</span></th>
+            <th class="grp-contact" data-key="dnp">DNP <span class="sort-arrow">&#8597;</span></th>
+            <th class="grp-contact" data-key="out">Out <span class="sort-arrow">&#8597;</span></th>
+            <th class="grp-contact" data-key="in_calls">In <span class="sort-arrow">&#8597;</span></th>
+            <th class="grp-dw grp-divider" data-key="offers">Offers <span class="sort-arrow">&#8597;</span></th>
+            <th class="grp-dw" data-key="transfer">Transfer <span class="sort-arrow">&#8597;</span></th>
+            <th class="grp-dw" data-key="bals">Bals <span class="sort-arrow">&#8597;</span></th>
+            <th class="grp-reviews grp-divider" data-key="rev_bals">Rev. Bals <span class="sort-arrow">&#8597;</span></th>
+            <th class="grp-reviews" data-key="ie_review_appts">I&amp;E Review Appts <span class="sort-arrow">&#8597;</span></th>
+            <th class="grp-docs grp-divider" data-key="s_sheets">S/Sheets <span class="sort-arrow">&#8597;</span></th>
+            <th class="grp-docs" data-key="packs_poi">Packs/POI <span class="sort-arrow">&#8597;</span></th>
+            <th class="grp-ops grp-divider" data-key="tac">TAC <span class="sort-arrow">&#8597;</span></th>
+            <th class="grp-ops" data-key="un_alloc">Un-alloc <span class="sort-arrow">&#8597;</span></th>
+            <th class="grp-ops" data-key="returns">Returns <span class="sort-arrow">&#8597;</span></th>
           </tr>
         </thead>
         <tbody id="perf-tbody"></tbody>
@@ -167,12 +206,11 @@
 <script>
   // ── Date helpers ─────────────────────────────────────────────────────────
   function todayISO() {
-    const d = new Date();
-    return d.toISOString().slice(0, 10);
+    return new Date().toISOString().slice(0, 10);
   }
   function firstOfMonthISO() {
     const d = new Date();
-    return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().slice(0, 10);
+    return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1)).toISOString().slice(0, 10);
   }
 
   // ── Init date inputs ─────────────────────────────────────────────────────
@@ -187,9 +225,29 @@
   let currentAgents = [];
   let currentTotals = {};
 
-  const NUMERIC_KEYS = ['days','hours','emails','dnp','offers','transfer','bals',
-                        'rev_bals','out','in_calls','s_sheets','tac','un_alloc',
-                        'returns','packs_poi','ie_review_appts'];
+  // Column order matching the rendered table (after Name)
+  const NUMERIC_KEYS = ['days','hours','emails','dnp','out','in_calls',
+                        'offers','transfer','bals',
+                        'rev_bals','ie_review_appts',
+                        's_sheets','packs_poi',
+                        'tac','un_alloc','returns'];
+
+  // CSS classes per data column (index matches NUMERIC_KEYS)
+  const CELL_CLASSES = [
+    'grp-identity', 'grp-identity',                            // days, hours
+    'grp-contact-light grp-divider',                           // emails
+    'grp-contact-light', 'grp-contact-light', 'grp-contact-light', // dnp, out, in
+    'grp-dw-light grp-divider',                                // offers
+    'grp-dw-light', 'grp-dw-light',                            // transfer, bals
+    'grp-reviews-light grp-divider',                           // rev_bals
+    'grp-reviews-light',                                       // ie_review_appts
+    'grp-docs-light grp-divider',                              // s_sheets
+    'grp-docs-light',                                          // packs_poi
+    'grp-ops-light grp-divider',                               // tac
+    'grp-ops-light', 'grp-ops-light',                          // un_alloc, returns
+  ];
+
+  function escHtml(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
   // ── Render table ─────────────────────────────────────────────────────────
   function renderTable() {
@@ -207,13 +265,17 @@
     tbody.innerHTML = '';
     agents.forEach(agent => {
       const tr = document.createElement('tr');
+
+      // Name cell
       const nameTd = document.createElement('td');
-      nameTd.innerHTML = agent.member_name +
+      nameTd.className = 'grp-identity';
+      nameTd.innerHTML = '<strong>' + escHtml(agent.member_name) + '</strong>' +
         (agent.is_active ? '' : '<span class="inactive-badge">(inactive)</span>');
       tr.appendChild(nameTd);
 
-      NUMERIC_KEYS.forEach(k => {
+      NUMERIC_KEYS.forEach((k, i) => {
         const td = document.createElement('td');
+        td.className = CELL_CLASSES[i];
         if (k === 'hours') {
           td.textContent = agent[k].toFixed(1);
         } else {
@@ -228,12 +290,14 @@
     tfoot.innerHTML = '';
     const tr = document.createElement('tr');
     const td0 = document.createElement('td');
+    td0.className = 'grp-identity';
     td0.textContent = 'Total';
     tr.appendChild(td0);
-    NUMERIC_KEYS.forEach(k => {
+    NUMERIC_KEYS.forEach((k, i) => {
       const td = document.createElement('td');
+      td.className = CELL_CLASSES[i];
       if (k === 'hours') {
-        td.textContent = currentTotals[k].toFixed(1);
+        td.textContent = (currentTotals[k] || 0).toFixed(1);
       } else {
         td.textContent = currentTotals[k] || 0;
       }
@@ -243,7 +307,7 @@
   }
 
   // ── Column sort handlers ─────────────────────────────────────────────────
-  document.querySelectorAll('thead th[data-key]').forEach(th => {
+  document.querySelectorAll('thead tr.col-row th[data-key]').forEach(th => {
     th.addEventListener('click', () => {
       const key = th.dataset.key;
       if (sortKey === key) {
@@ -252,8 +316,7 @@
         sortKey = key;
         sortAsc = false; // default descending for numeric
       }
-      // Update header classes
-      document.querySelectorAll('thead th').forEach(h => h.classList.remove('sorted'));
+      document.querySelectorAll('thead tr.col-row th').forEach(h => h.classList.remove('sorted'));
       th.classList.add('sorted');
       renderTable();
     });

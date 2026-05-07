@@ -38,9 +38,9 @@
     .admin-dropdown .danger:hover { background: #fef2f2; color: #dc2626; }
 
     /* ── Main ── */
-    .main { padding: 1.5rem; display: flex; flex-direction: column; gap: 1.25rem; max-width: 1400px; margin: 0 auto; }
+    .main { padding: 1.5rem; display: flex; flex-direction: column; gap: 1.25rem; max-width: 1600px; margin: 0 auto; }
 
-    /* ── Date bar ── */
+    /* ── Date bar (KPI) ── */
     .date-bar { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
     .date-bar button { padding: 0.4rem 0.85rem; border: 1.5px solid #d0d5dd; border-radius: 8px; background: #fff; font-size: 0.85rem; font-weight: 600; color: #444; cursor: pointer; transition: all 0.15s; }
     .date-bar button:hover { border-color: #6366f1; color: #4f46e5; }
@@ -67,33 +67,94 @@
     .card { background: #fff; border-radius: 12px; box-shadow: 0 1px 6px rgba(0,0,0,0.07); padding: 1.1rem 1.25rem; }
     .card-title { font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #999; margin-bottom: 0.9rem; }
 
-    /* ── Agent table ── */
+    /* ── Perf date bar ── */
+    .perf-date-bar { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; margin-bottom: 0.85rem; }
+    .perf-date-bar label { font-size: 0.83rem; font-weight: 600; color: #555; }
+    .perf-date-bar input[type="date"] { border: 1.5px solid #d0d5dd; border-radius: 8px; padding: 0.35rem 0.7rem; font-size: 0.84rem; font-family: inherit; background: #fff; color: #1a1a2e; }
+    .perf-date-bar input[type="date"]:focus { outline: none; border-color: #6366f1; }
+    .btn-load { padding: 0.35rem 0.9rem; border: none; border-radius: 8px; background: #6366f1; color: #fff; font-size: 0.84rem; font-weight: 600; cursor: pointer; transition: background 0.15s; }
+    .btn-load:hover { background: #4f46e5; }
+
+    /* ── Agent performance table ── */
     .table-wrap { overflow-x: auto; }
-    table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
-    thead th { text-align: left; padding: 0.55rem 0.75rem; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; color: #999; border-bottom: 1.5px solid #f0f0f0; white-space: nowrap; cursor: pointer; user-select: none; }
-    thead th:hover { color: #6366f1; }
-    thead th .sort-arrow { margin-left: 4px; opacity: 0.4; }
-    thead th.sorted .sort-arrow { opacity: 1; }
-    tbody td { padding: 0.7rem 0.75rem; border-bottom: 1px solid #f7f7f7; vertical-align: middle; }
-    tbody tr:last-child td { border-bottom: none; }
-    tbody tr.below-target td { background: #fff5f5; }
-    tbody tr:hover td { background: #fafafa; }
-    tbody tr.below-target:hover td { background: #fef2f2; }
-    .status-pill { display: inline-block; font-size: 0.72rem; font-weight: 700; padding: 0.2rem 0.6rem; border-radius: 10px; }
-    .status-pill.on-track { background: #dcfce7; color: #15803d; }
-    .status-pill.below-target { background: #fee2e2; color: #b91c1c; }
-    .status-pill.no-data { background: #f3f4f6; color: #888; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.83rem; }
+
+    /* Group tints */
+    .grp-identity      { background: #f8f9fa; }
+    .grp-contact       { background: #dbeafe; }
+    .grp-contact-light { background: #eff6ff; }
+    .grp-dw            { background: #fde68a; }
+    .grp-dw-light      { background: #fffbeb; }
+    .grp-reviews       { background: #d1fae5; }
+    .grp-reviews-light { background: #ecfdf5; }
+    .grp-docs          { background: #ede9fe; }
+    .grp-docs-light    { background: #f5f3ff; }
+    .grp-ops           { background: #e7e5e4; }
+    .grp-ops-light     { background: #f5f5f4; }
+    .grp-divider       { border-left: 2px solid #d1d5db; }
+
+    /* Group header row */
+    .perf-table thead tr.grp-row th {
+      text-align: center;
+      padding: 0.4rem 0.5rem;
+      font-size: 0.71rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #555;
+      border-bottom: 1px solid #e5e7eb;
+      white-space: nowrap;
+    }
+    /* Column header row */
+    .perf-table thead tr.col-row th {
+      text-align: left;
+      padding: 0.5rem 0.6rem;
+      font-size: 0.70rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      color: #777;
+      border-bottom: 1.5px solid #e5e7eb;
+      white-space: nowrap;
+      cursor: pointer;
+      user-select: none;
+    }
+    .perf-table thead tr.col-row th:hover { color: #6366f1; }
+    .perf-table thead tr.col-row th .sort-arrow { margin-left: 3px; opacity: 0.4; font-size: 0.65rem; }
+    .perf-table thead tr.col-row th.sorted .sort-arrow { opacity: 1; color: #6366f1; }
+    .perf-table thead tr.col-row th:first-child { cursor: default; }
+    .perf-table thead tr.col-row th:first-child:hover { color: #777; }
+
+    .perf-table tbody td {
+      padding: 0.6rem 0.6rem;
+      border-bottom: 1px solid #f0f0f0;
+      vertical-align: middle;
+      white-space: nowrap;
+    }
+    .perf-table tbody tr:last-child td { border-bottom: none; }
+    .perf-table tbody tr:hover td { filter: brightness(0.97); }
+
+    .perf-table tfoot tr td {
+      padding: 0.6rem 0.6rem;
+      border-top: 2px solid #d1d5db;
+      font-weight: 700;
+      white-space: nowrap;
+    }
 
     /* ── Charts ── */
     .charts-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(400px, 1fr)); gap: 1.25rem; }
     .chart-card { background: #fff; border-radius: 12px; box-shadow: 0 1px 6px rgba(0,0,0,0.07); padding: 1.1rem 1.25rem; }
     .chart-card canvas { max-height: 260px; }
+
+    /* ── Perf status ── */
+    .perf-status { font-size: 0.87rem; color: #888; padding: 0.5rem 0; }
+    .perf-error  { font-size: 0.87rem; color: #dc2626; padding: 0.5rem 0; }
   </style>
 </head>
 <body>
 
 <div class="topbar">
-  <a href="/" class="back">← Home</a>
+  <a href="/" class="back">&#8592; Home</a>
   <h1>DSS Workload</h1>
   <nav class="topbar-nav">
     <a href="/dss/dashboard" class="active">Dashboard</a>
@@ -109,12 +170,12 @@
     <span class="topbar-user">Signed in as <strong>{{ current_user.username }}</strong></span>
     {% if current_user.role == 'admin' %}
     <div class="admin-menu-wrap">
-      <button class="admin-menu-btn" id="admin-menu-btn">⚙ Admin <span class="chevron">▼</span></button>
+      <button class="admin-menu-btn" id="admin-menu-btn">&#9881; Admin <span class="chevron">&#9660;</span></button>
       <div class="admin-dropdown" id="admin-dropdown">
-        <a href="/completions">✅ Completions</a>
-        <a href="/admin/corrections">📋 Review Log</a>
-        <a href="/admin/users">👥 Users</a>
-        <a href="/admin/projects">🏢 Projects</a>
+        <a href="/completions">&#10003; Completions</a>
+        <a href="/admin/corrections">&#128203; Review Log</a>
+        <a href="/admin/users">&#128101; Users</a>
+        <a href="/admin/projects">&#127970; Projects</a>
         <div class="divider"></div>
         <a href="/logout" class="danger">Sign out</a>
       </div>
@@ -126,11 +187,11 @@
 </div>
 
 <div class="main">
-  <!-- Date bar -->
+  <!-- ── KPI date bar (single-date, unchanged) ── -->
   <div class="date-bar">
-    <button id="btn-prev">← Prev</button>
+    <button id="btn-prev">&#8592; Prev</button>
     <input type="date" id="date-picker" />
-    <button id="btn-next">Next →</button>
+    <button id="btn-next">Next &#8594;</button>
     <button class="btn-today" id="btn-today">Today</button>
   </div>
 
@@ -141,50 +202,81 @@
   <div class="kpi-strip">
     <div class="kpi-card">
       <div class="kpi-label">Running Backlog</div>
-      <div class="kpi-value" id="kpi-backlog">—</div>
+      <div class="kpi-value" id="kpi-backlog">&#8212;</div>
       <div class="kpi-sub">units</div>
     </div>
     <div class="kpi-card">
       <div class="kpi-label">Days of Work</div>
-      <div class="kpi-value" id="kpi-dow">—</div>
+      <div class="kpi-value" id="kpi-dow">&#8212;</div>
       <div class="kpi-sub">at avg capacity</div>
     </div>
     <div class="kpi-card">
       <div class="kpi-label">SLA Status</div>
-      <div class="kpi-value" id="kpi-sla" style="font-size:1.3rem;">—</div>
+      <div class="kpi-value" id="kpi-sla" style="font-size:1.3rem;">&#8212;</div>
       <div class="kpi-sub" id="kpi-sla-sub"></div>
     </div>
     <div class="kpi-card">
       <div class="kpi-label">Agents Today</div>
-      <div class="kpi-value" id="kpi-agents">—</div>
+      <div class="kpi-value" id="kpi-agents">&#8212;</div>
       <div class="kpi-sub" id="kpi-hours-sub"></div>
     </div>
     <div class="kpi-card">
       <div class="kpi-label">Below Target</div>
-      <div class="kpi-value bad" id="kpi-below">—</div>
+      <div class="kpi-value bad" id="kpi-below">&#8212;</div>
       <div class="kpi-sub">agents</div>
     </div>
   </div>
 
-  <!-- Agent table -->
+  <!-- ── Agent Performance table (own date-range, MTD default) ── -->
   <div class="card">
     <div class="card-title">Agent Performance</div>
+
+    <!-- Independent date-range picker -->
+    <div class="perf-date-bar">
+      <label for="perf-start">From</label>
+      <input type="date" id="perf-start" />
+      <label for="perf-end">To</label>
+      <input type="date" id="perf-end" />
+      <button class="btn-load" id="perf-load-btn">Load</button>
+    </div>
+
+    <div id="perf-status" class="perf-status">Loading&#8230;</div>
+
     <div class="table-wrap">
-      <table id="agent-table">
+      <table class="perf-table" id="perf-table" style="display:none;">
         <thead>
-          <tr>
-            <th data-col="member_name">Agent <span class="sort-arrow">↕</span></th>
-            <th data-col="hours_worked">Hours <span class="sort-arrow">↕</span></th>
-            <th data-col="target_units">Target Units <span class="sort-arrow">↕</span></th>
-            <th data-col="actual_units">Actual Units <span class="sort-arrow">↕</span></th>
-            <th data-col="pct_target_hit">% Target <span class="sort-arrow">↕</span></th>
-            <th data-col="status">Status <span class="sort-arrow">↕</span></th>
-            <th data-col="rolling_avg_pct">7-Day Avg % <span class="sort-arrow">↕</span></th>
+          <!-- Group header row -->
+          <tr class="grp-row">
+            <th colspan="3" class="grp-identity">Identity</th>
+            <th colspan="4" class="grp-contact grp-divider">Customer Contact</th>
+            <th colspan="3" class="grp-dw grp-divider">DocuWare</th>
+            <th colspan="2" class="grp-reviews grp-divider">Reviews</th>
+            <th colspan="2" class="grp-docs grp-divider">Document Processing</th>
+            <th colspan="3" class="grp-ops grp-divider">Operations</th>
+          </tr>
+          <!-- Column header row -->
+          <tr class="col-row">
+            <th class="grp-identity">Name</th>
+            <th class="grp-identity" data-key="days">Days <span class="sort-arrow">&#8597;</span></th>
+            <th class="grp-identity" data-key="hours">Hours <span class="sort-arrow">&#8597;</span></th>
+            <th class="grp-contact grp-divider" data-key="emails">Emails <span class="sort-arrow">&#8597;</span></th>
+            <th class="grp-contact" data-key="dnp">DNP <span class="sort-arrow">&#8597;</span></th>
+            <th class="grp-contact" data-key="out">Out <span class="sort-arrow">&#8597;</span></th>
+            <th class="grp-contact" data-key="in_calls">In <span class="sort-arrow">&#8597;</span></th>
+            <th class="grp-dw grp-divider" data-key="offers">Offers <span class="sort-arrow">&#8597;</span></th>
+            <th class="grp-dw" data-key="transfer">Transfer <span class="sort-arrow">&#8597;</span></th>
+            <th class="grp-dw" data-key="bals">Bals <span class="sort-arrow">&#8597;</span></th>
+            <th class="grp-reviews grp-divider" data-key="rev_bals">Rev. Bals <span class="sort-arrow">&#8597;</span></th>
+            <th class="grp-reviews" data-key="ie_review_appts">I&amp;E Review Appts <span class="sort-arrow">&#8597;</span></th>
+            <th class="grp-docs grp-divider" data-key="s_sheets">S/Sheets <span class="sort-arrow">&#8597;</span></th>
+            <th class="grp-docs" data-key="packs_poi">Packs/POI <span class="sort-arrow">&#8597;</span></th>
+            <th class="grp-ops grp-divider" data-key="tac">TAC <span class="sort-arrow">&#8597;</span></th>
+            <th class="grp-ops" data-key="un_alloc">Un-alloc <span class="sort-arrow">&#8597;</span></th>
+            <th class="grp-ops" data-key="returns">Returns <span class="sort-arrow">&#8597;</span></th>
           </tr>
         </thead>
-        <tbody id="agent-tbody">
-          <tr><td colspan="7" style="text-align:center;color:#bbb;padding:2rem;">Loading…</td></tr>
-        </tbody>
+        <tbody id="perf-tbody"></tbody>
+        <tfoot id="perf-tfoot"></tfoot>
       </table>
     </div>
   </div>
@@ -207,18 +299,17 @@
 </div>
 
 <script>
+  // ── KPI date controls (single-date, independent) ─────────────────────────
   let currentDate = new Date().toISOString().split('T')[0];
-  let sortCol = null, sortDir = 1;
-  let agentData = [];
   let chartBacklog, chartFlow, chartPct;
 
   const datePicker = document.getElementById('date-picker');
   datePicker.value = currentDate;
 
-  datePicker.addEventListener('change', () => { currentDate = datePicker.value; loadDashboard(); });
-  document.getElementById('btn-prev').addEventListener('click', () => { currentDate = offsetDate(currentDate, -1); datePicker.value = currentDate; loadDashboard(); });
-  document.getElementById('btn-next').addEventListener('click', () => { currentDate = offsetDate(currentDate, 1); datePicker.value = currentDate; loadDashboard(); });
-  document.getElementById('btn-today').addEventListener('click', () => { currentDate = new Date().toISOString().split('T')[0]; datePicker.value = currentDate; loadDashboard(); });
+  datePicker.addEventListener('change', () => { currentDate = datePicker.value; loadKPIs(); });
+  document.getElementById('btn-prev').addEventListener('click', () => { currentDate = offsetDate(currentDate, -1); datePicker.value = currentDate; loadKPIs(); });
+  document.getElementById('btn-next').addEventListener('click', () => { currentDate = offsetDate(currentDate, 1); datePicker.value = currentDate; loadKPIs(); });
+  document.getElementById('btn-today').addEventListener('click', () => { currentDate = new Date().toISOString().split('T')[0]; datePicker.value = currentDate; loadKPIs(); });
 
   function offsetDate(d, days) {
     const dt = new Date(d + 'T12:00:00');
@@ -226,94 +317,203 @@
     return dt.toISOString().split('T')[0];
   }
 
-  function fmtPct(v) { return v == null ? '—' : (v * 100).toFixed(1) + '%'; }
-  function fmtNum(v, dp=1) { return v == null ? '—' : Number(v).toFixed(dp); }
+  function fmtNum(v, dp) { dp = dp === undefined ? 1 : dp; return v == null ? '0' : Number(v).toFixed(dp); }
   function escHtml(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
-  async function loadDashboard() {
+  // ── KPI load ──────────────────────────────────────────────────────────────
+  async function loadKPIs() {
     try {
-      const res = await fetch(`/api/dss/dashboard?date=${currentDate}`);
+      const res = await fetch('/api/dss/dashboard?date=' + currentDate);
       const data = await res.json();
       if (data.error) { console.error(data.error); return; }
       renderKPIs(data);
-      renderAgentTable(data.agents || []);
     } catch(e) { console.error(e); }
-    loadCharts();
   }
 
   function renderKPIs(data) {
     const rollup = data.rollup || {};
     document.getElementById('kpi-backlog').textContent = fmtNum(rollup.running_backlog, 1);
-    document.getElementById('kpi-dow').textContent = data.days_of_work == null ? '—' : fmtNum(data.days_of_work, 1);
-    document.getElementById('kpi-sla').textContent = data.sla_status || '—';
-    document.getElementById('kpi-sla-sub').textContent = `threshold: ${data.sla_breach_threshold_days} days`;
+    document.getElementById('kpi-dow').textContent = data.days_of_work == null ? '&#8212;' : fmtNum(data.days_of_work, 1);
+    document.getElementById('kpi-sla').textContent = data.sla_status || '&#8212;';
+    document.getElementById('kpi-sla-sub').textContent = 'threshold: ' + data.sla_breach_threshold_days + ' days';
     const agents = data.agents || [];
     document.getElementById('kpi-agents').textContent = agents.length;
     const totalHours = agents.reduce((s, a) => s + (a.hours_worked || 0), 0);
-    document.getElementById('kpi-hours-sub').textContent = `${fmtNum(totalHours, 1)} hrs worked`;
+    document.getElementById('kpi-hours-sub').textContent = fmtNum(totalHours, 1) + ' hrs worked';
     const below = agents.filter(a => a.status === 'Below Target').length;
     document.getElementById('kpi-below').textContent = below;
 
     const banner = document.getElementById('hiring-banner');
     if (data.hiring_trigger) {
       banner.classList.add('visible');
-      banner.textContent = `⚠️ Hiring Trigger: backlog has been SLA-breached for ${data.sla_breach_threshold_days} consecutive days.`;
+      banner.textContent = 'Hiring Trigger: backlog has been SLA-breached for ' + data.sla_breach_threshold_days + ' consecutive days.';
     } else {
       banner.classList.remove('visible');
     }
   }
 
-  function renderAgentTable(agents) {
-    agentData = agents;
-    doRender();
+  // ── Agent Performance table (independent date range) ──────────────────────
+  function utcToday() {
+    return new Date().toISOString().slice(0, 10);
+  }
+  function utcFirstOfMonth() {
+    const d = new Date();
+    return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1)).toISOString().slice(0, 10);
   }
 
-  document.querySelectorAll('#agent-table thead th').forEach(th => {
+  const perfStart = document.getElementById('perf-start');
+  const perfEnd   = document.getElementById('perf-end');
+  perfStart.value = utcFirstOfMonth();
+  perfEnd.value   = utcToday();
+
+  document.getElementById('perf-load-btn').addEventListener('click', loadPerfTable);
+
+  let perfSortKey = null;
+  let perfSortAsc = true;
+  let perfAgents  = [];
+  let perfTotals  = {};
+
+  // Column order as rendered in the table body (matches header order)
+  // Identity: name(text), days, hours
+  // Contact:  emails, dnp, out, in_calls
+  // DocuWare: offers, transfer, bals
+  // Reviews:  rev_bals, ie_review_appts
+  // Docs:     s_sheets, packs_poi
+  // Ops:      tac, un_alloc, returns
+  const PERF_KEYS = ['days','hours','emails','dnp','out','in_calls',
+                     'offers','transfer','bals',
+                     'rev_bals','ie_review_appts',
+                     's_sheets','packs_poi',
+                     'tac','un_alloc','returns'];
+
+  // CSS classes per column index (0 = Name column)
+  // col 0: name (identity)
+  // col 1: days, col 2: hours
+  // col 3: emails (contact+divider), col 4: dnp, col 5: out, col 6: in_calls
+  // col 7: offers (dw+divider), col 8: transfer, col 9: bals
+  // col 10: rev_bals (reviews+divider), col 11: ie_review_appts
+  // col 12: s_sheets (docs+divider), col 13: packs_poi
+  // col 14: tac (ops+divider), col 15: un_alloc, col 16: returns
+  const CELL_CLASSES = [
+    'grp-identity',                         // 0 name
+    'grp-identity', 'grp-identity',         // 1 days, 2 hours
+    'grp-contact-light grp-divider',        // 3 emails
+    'grp-contact-light', 'grp-contact-light', 'grp-contact-light', // 4-6
+    'grp-dw-light grp-divider',             // 7 offers
+    'grp-dw-light', 'grp-dw-light',         // 8-9
+    'grp-reviews-light grp-divider',        // 10 rev_bals
+    'grp-reviews-light',                    // 11 ie_review_appts
+    'grp-docs-light grp-divider',           // 12 s_sheets
+    'grp-docs-light',                       // 13 packs_poi
+    'grp-ops-light grp-divider',            // 14 tac
+    'grp-ops-light', 'grp-ops-light',       // 15-16
+  ];
+
+  function renderPerfTable() {
+    const tbody = document.getElementById('perf-tbody');
+    const tfoot = document.getElementById('perf-tfoot');
+
+    let agents = perfAgents.slice();
+    if (perfSortKey) {
+      agents.sort((a, b) => {
+        let av = a[perfSortKey], bv = b[perfSortKey];
+        return perfSortAsc ? av - bv : bv - av;
+      });
+    }
+
+    tbody.innerHTML = '';
+    agents.forEach(agent => {
+      const tr = document.createElement('tr');
+
+      // Name cell
+      const nameTd = document.createElement('td');
+      nameTd.className = CELL_CLASSES[0];
+      nameTd.innerHTML = '<strong>' + escHtml(agent.member_name) + '</strong>' +
+        (agent.is_active ? '' : ' <span style="font-size:0.68rem;color:#aaa;">(inactive)</span>');
+      tr.appendChild(nameTd);
+
+      PERF_KEYS.forEach((k, i) => {
+        const td = document.createElement('td');
+        td.className = CELL_CLASSES[i + 1];
+        if (k === 'hours') {
+          td.textContent = agent[k].toFixed(1);
+        } else {
+          td.textContent = agent[k];
+        }
+        tr.appendChild(td);
+      });
+      tbody.appendChild(tr);
+    });
+
+    // Totals row
+    tfoot.innerHTML = '';
+    const tr = document.createElement('tr');
+    const td0 = document.createElement('td');
+    td0.className = CELL_CLASSES[0];
+    td0.textContent = 'Total';
+    tr.appendChild(td0);
+    PERF_KEYS.forEach((k, i) => {
+      const td = document.createElement('td');
+      td.className = CELL_CLASSES[i + 1];
+      if (k === 'hours') {
+        td.textContent = (perfTotals[k] || 0).toFixed(1);
+      } else {
+        td.textContent = perfTotals[k] || 0;
+      }
+      tr.appendChild(td);
+    });
+    tfoot.appendChild(tr);
+  }
+
+  // Sort click handlers on col-row headers
+  document.querySelectorAll('.perf-table thead tr.col-row th[data-key]').forEach(th => {
     th.addEventListener('click', () => {
-      const col = th.dataset.col;
-      if (sortCol === col) sortDir *= -1; else { sortCol = col; sortDir = 1; }
-      document.querySelectorAll('#agent-table thead th').forEach(t => t.classList.remove('sorted'));
+      const key = th.dataset.key;
+      if (perfSortKey === key) {
+        perfSortAsc = !perfSortAsc;
+      } else {
+        perfSortKey = key;
+        perfSortAsc = false; // default desc for numerics
+      }
+      document.querySelectorAll('.perf-table thead tr.col-row th').forEach(h => h.classList.remove('sorted'));
       th.classList.add('sorted');
-      th.querySelector('.sort-arrow').textContent = sortDir === 1 ? '↑' : '↓';
-      doRender();
+      renderPerfTable();
     });
   });
 
-  function doRender() {
-    const sorted = [...agentData];
-    if (sortCol) {
-      sorted.sort((a, b) => {
-        const av = a[sortCol], bv = b[sortCol];
-        if (av == null && bv == null) return 0;
-        if (av == null) return 1;
-        if (bv == null) return -1;
-        return (av < bv ? -1 : av > bv ? 1 : 0) * sortDir;
+  function loadPerfTable() {
+    const start = perfStart.value;
+    const end   = perfEnd.value;
+    const statusEl = document.getElementById('perf-status');
+    const tableEl  = document.getElementById('perf-table');
+
+    statusEl.className = 'perf-status';
+    statusEl.textContent = 'Loading…';
+    statusEl.style.display = 'block';
+    tableEl.style.display = 'none';
+
+    fetch('/api/dss/agent-performance?start_date=' + encodeURIComponent(start) + '&end_date=' + encodeURIComponent(end))
+      .then(r => r.json())
+      .then(data => {
+        if (data.error) {
+          statusEl.className = 'perf-error';
+          statusEl.textContent = 'Error: ' + data.error;
+          return;
+        }
+        perfAgents = data.agents || [];
+        perfTotals = data.totals || {};
+        renderPerfTable();
+        statusEl.style.display = 'none';
+        tableEl.style.display = '';
+      })
+      .catch(err => {
+        statusEl.className = 'perf-error';
+        statusEl.textContent = 'Failed to load: ' + err;
       });
-    }
-    const tbody = document.getElementById('agent-tbody');
-    if (!sorted.length) {
-      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#bbb;padding:2rem;">No data for this date</td></tr>';
-      return;
-    }
-    tbody.innerHTML = sorted.map(a => {
-      const isBelow = a.status === 'Below Target';
-      const statusPill = a.status
-        ? `<span class="status-pill ${isBelow ? 'below-target' : 'on-track'}">${escHtml(a.status)}</span>`
-        : '<span class="status-pill no-data">No Hours</span>';
-      return `<tr class="${isBelow ? 'below-target' : ''}">
-        <td><strong>${escHtml(a.member_name)}</strong></td>
-        <td>${fmtNum(a.hours_worked, 1)}</td>
-        <td>${fmtNum(a.target_units, 1)}</td>
-        <td>${fmtNum(a.actual_units, 1)}</td>
-        <td>${fmtPct(a.pct_target_hit)}</td>
-        <td>${statusPill}</td>
-        <td>${fmtPct(a.rolling_avg_pct)}</td>
-      </tr>`;
-    }).join('');
   }
 
+  // ── Charts ───────────────────────────────────────────────────────────────
   async function loadCharts() {
-    // Load last 30 dates from history
     try {
       const res = await fetch('/api/dss/history?per_page=30&page=1');
       const data = await res.json();
@@ -323,19 +523,15 @@
       const landed = dates.map(d => d.landed_units);
       const completed = dates.map(d => d.completed_units);
 
-      // Pct target per day: need per-day agent data
-      // Use completed / capacity as a proxy (completed_units / (landed_units + completed_units) is not right)
-      // Just show completed units vs landed units bars; for pct use history's sla proxy
-      // Actually calculate team pct from dashboard endpoint for each date
       const pctArr = [];
       for (const d of dates) {
         try {
-          const r = await fetch(`/api/dss/dashboard?date=${d.work_date}`);
+          const r = await fetch('/api/dss/dashboard?date=' + d.work_date);
           const dd = await r.json();
-          const agents = dd.agents || [];
-          const worked = agents.filter(a => a.hours_worked > 0);
+          const a = dd.agents || [];
+          const worked = a.filter(x => x.hours_worked > 0);
           if (worked.length) {
-            const avgPct = worked.reduce((s, a) => s + (a.pct_target_hit || 0), 0) / worked.length;
+            const avgPct = worked.reduce((s, x) => s + (x.pct_target_hit || 0), 0) / worked.length;
             pctArr.push(Math.round(avgPct * 100));
           } else {
             pctArr.push(null);
@@ -389,7 +585,7 @@
     });
   }
 
-  // Admin dropdown
+  // ── Admin dropdown ────────────────────────────────────────────────────────
   const adminBtn = document.getElementById('admin-menu-btn');
   if (adminBtn) {
     adminBtn.addEventListener('click', () => {
@@ -404,7 +600,10 @@
     });
   }
 
-  loadDashboard();
+  // ── Initial load ──────────────────────────────────────────────────────────
+  loadKPIs();
+  loadPerfTable();
+  loadCharts();
 </script>
 </body>
 </html>
