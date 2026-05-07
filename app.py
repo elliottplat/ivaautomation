@@ -1564,6 +1564,10 @@ def init_db():
                     updated_at TIMESTAMP DEFAULT NOW()
                 )
             """)
+            # 1b. Add tracking_enabled column if not already present
+            cur.execute("""
+                ALTER TABLE dss_task_types ADD COLUMN IF NOT EXISTS tracking_enabled BOOLEAN DEFAULT TRUE
+            """)
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS dss_task_sub_types (
                     id SERIAL PRIMARY KEY,
@@ -1644,31 +1648,48 @@ def init_db():
                         (team_id, m),
                     )
 
-                # Task types
+                # Task types (name, rate, is_base, order, tracking_enabled)
                 task_types = [
-                    ("DocuWare",         15, True,  1),
-                    ("Spreadsheet",      30, False, 2),
-                    ("Reviews",          11, False, 3),
-                    ("Creditor Emails",  30, False, 4),
-                    ("Packs/POI",        10, False, 5),
-                    ("I&E Review Appts", 11, False, 6),
+                    ("DocuWare",         15, True,  1, True),
+                    ("Spreadsheet",      30, False, 2, True),
+                    ("Reviews",          11, False, 3, True),
+                    ("Creditor Emails",  30, False, 4, True),
+                    ("Packs/POI",        10, False, 5, True),
+                    ("I&E Review Appts", 11, False, 6, True),
                 ]
-                for name, rate, is_base, order in task_types:
+                for name, rate, is_base, order, tracking in task_types:
                     cur.execute(
                         """INSERT INTO dss_task_types
-                           (team_id, name, rate_per_hour, is_base, display_order, is_active)
-                           VALUES (%s, %s, %s, %s, %s, TRUE) RETURNING id""",
-                        (team_id, name, rate, is_base, order),
+                           (team_id, name, rate_per_hour, is_base, display_order, is_active, tracking_enabled)
+                           VALUES (%s, %s, %s, %s, %s, TRUE, %s) RETURNING id""",
+                        (team_id, name, rate, is_base, order, tracking),
                     )
                     tt_id = cur.fetchone()[0]
                     if name == "DocuWare":
-                        for sub_name, sub_order in [("Balances", 1), ("Offers", 2), ("DBT", 3)]:
+                        for sub_name, sub_order in [("Balances", 1), ("Offers", 2), ("Transfer", 3)]:
                             cur.execute(
                                 """INSERT INTO dss_task_sub_types
                                    (task_type_id, name, display_order, is_active)
                                    VALUES (%s, %s, %s, TRUE)""",
                                 (tt_id, sub_name, sub_order),
                             )
+
+                # Placeholder task types (not tracked in workload calculations)
+                placeholder_types = [
+                    ("DNP",      0, False, 7,  False),
+                    ("Out",      0, False, 8,  False),
+                    ("In",       0, False, 9,  False),
+                    ("TAC",      0, False, 10, False),
+                    ("Un-alloc", 0, False, 11, False),
+                    ("Returns",  0, False, 12, False),
+                ]
+                for name, rate, is_base, order, tracking in placeholder_types:
+                    cur.execute(
+                        """INSERT INTO dss_task_types
+                           (team_id, name, rate_per_hour, is_base, display_order, is_active, tracking_enabled)
+                           VALUES (%s, %s, %s, %s, %s, TRUE, %s)""",
+                        (team_id, name, rate, is_base, order, tracking),
+                    )
 
                 # Team settings
                 cur.execute(
@@ -1677,6 +1698,46 @@ def init_db():
                        VALUES (%s, 0, 3)""",
                     (team_id,),
                 )
+
+            # ── DSS safe migrations ─────────────────────────────────────────
+            # 1a. Rename 'DBT' sub-type to 'Transfer' for DocuWare/Dubai
+            cur.execute("""
+                UPDATE dss_task_sub_types
+                SET name = 'Transfer'
+                WHERE name = 'DBT'
+                  AND task_type_id = (
+                      SELECT id FROM dss_task_types
+                      WHERE name = 'DocuWare'
+                        AND team_id = (SELECT id FROM dss_teams WHERE name = 'Dubai' LIMIT 1)
+                      LIMIT 1
+                  )
+            """)
+
+            # 1c. Add placeholder task types for Dubai if they don't exist
+            cur.execute("SELECT id FROM dss_teams WHERE name = 'Dubai' LIMIT 1")
+            dubai_row = cur.fetchone()
+            if dubai_row:
+                dubai_id = dubai_row[0]
+                placeholder_types_migration = [
+                    ("DNP",      0, False, 7,  False),
+                    ("Out",      0, False, 8,  False),
+                    ("In",       0, False, 9,  False),
+                    ("TAC",      0, False, 10, False),
+                    ("Un-alloc", 0, False, 11, False),
+                    ("Returns",  0, False, 12, False),
+                ]
+                for p_name, p_rate, p_is_base, p_order, p_tracking in placeholder_types_migration:
+                    cur.execute(
+                        "SELECT id FROM dss_task_types WHERE team_id = %s AND name = %s",
+                        (dubai_id, p_name),
+                    )
+                    if not cur.fetchone():
+                        cur.execute(
+                            """INSERT INTO dss_task_types
+                               (team_id, name, rate_per_hour, is_base, display_order, is_active, tracking_enabled)
+                               VALUES (%s, %s, %s, %s, %s, TRUE, %s)""",
+                            (dubai_id, p_name, p_rate, p_is_base, p_order, p_tracking),
+                        )
 
         conn.commit()
     finally:
@@ -4652,6 +4713,16 @@ def dss_settings():
     return render_template("dss_settings.html")
 
 
+@app.route("/dss/agent-performance")
+@login_required
+def dss_agent_performance():
+    if current_user.role not in ("admin", "team_leader"):
+        abort(403)
+    if not user_can_see(current_user, "dss"):
+        abort(404)
+    return render_template("dss_agent_performance.html")
+
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -5536,6 +5607,143 @@ def dss_settings_team_put():
         d = dict(row)
         d["starting_backlog_units"] = float(d["starting_backlog_units"])
         return jsonify(d)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+# ---------------------------------------------------------------------------
+# GET /api/dss/agent-performance
+# ---------------------------------------------------------------------------
+@app.route("/api/dss/agent-performance")
+@login_required
+def dss_agent_performance_api():
+    if current_user.role not in ("admin", "team_leader"):
+        return jsonify({"error": "Forbidden"}), 403
+    try:
+        from datetime import date as _date
+        today = _date.today()
+        first_of_month = today.replace(day=1).isoformat()
+        today_iso = today.isoformat()
+
+        start_date = request.args.get("start_date", first_of_month)
+        end_date = request.args.get("end_date", today_iso)
+
+        conn = get_db_conn()
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            team = _dss_get_team(cur)
+            if not team:
+                conn.close()
+                return jsonify({"error": "No team configured"}), 404
+            team_id = team["id"]
+
+            cur.execute("""
+                SELECT
+                    tm.id AS member_id,
+                    tm.name AS member_name,
+                    tm.is_active,
+                    COUNT(DISTINCT CASE WHEN ds.hours_worked > 0 THEN ds.work_date END) AS days_worked,
+                    COALESCE(SUM(ds.hours_worked), 0) AS total_hours,
+                    tt.name AS task_type_name,
+                    tst.name AS sub_type_name,
+                    COALESCE(SUM(dc.count), 0) AS total_count
+                FROM dss_team_members tm
+                LEFT JOIN dss_daily_shifts ds
+                    ON ds.team_member_id = tm.id
+                    AND ds.work_date BETWEEN %s AND %s
+                LEFT JOIN dss_daily_completions dc ON dc.daily_shift_id = ds.id
+                LEFT JOIN dss_task_types tt ON tt.id = dc.task_type_id
+                LEFT JOIN dss_task_sub_types tst ON tst.id = dc.task_sub_type_id
+                WHERE tm.team_id = %s
+                GROUP BY tm.id, tm.name, tm.is_active, tt.name, tst.name
+                ORDER BY tm.name, tt.name, tst.name
+            """, (start_date, end_date, team_id))
+            rows = cur.fetchall()
+        conn.close()
+
+        # Pivot rows into one dict per agent
+        agents_map = {}
+        for row in rows:
+            mid = row["member_id"]
+            if mid not in agents_map:
+                agents_map[mid] = {
+                    "member_id": mid,
+                    "member_name": row["member_name"],
+                    "is_active": row["is_active"],
+                    "days": int(row["days_worked"] or 0),
+                    "hours": float(row["total_hours"] or 0),
+                    "emails": 0,
+                    "dnp": 0,
+                    "offers": 0,
+                    "transfer": 0,
+                    "bals": 0,
+                    "rev_bals": 0,
+                    "out": 0,
+                    "in_calls": 0,
+                    "s_sheets": 0,
+                    "tac": 0,
+                    "un_alloc": 0,
+                    "returns": 0,
+                    "packs_poi": 0,
+                    "ie_review_appts": 0,
+                }
+            else:
+                # Update days/hours from later rows if needed (should be consistent per member)
+                agents_map[mid]["days"] = max(agents_map[mid]["days"], int(row["days_worked"] or 0))
+                agents_map[mid]["hours"] = max(agents_map[mid]["hours"], float(row["total_hours"] or 0))
+
+            tt = row["task_type_name"]
+            tst = row["sub_type_name"]
+            cnt = int(row["total_count"] or 0)
+
+            if tt == "Creditor Emails":
+                agents_map[mid]["emails"] += cnt
+            elif tt == "DocuWare":
+                if tst == "Offers":
+                    agents_map[mid]["offers"] += cnt
+                elif tst == "Transfer":
+                    agents_map[mid]["transfer"] += cnt
+                elif tst == "Balances":
+                    agents_map[mid]["bals"] += cnt
+            elif tt == "Reviews":
+                agents_map[mid]["rev_bals"] += cnt
+            elif tt == "Spreadsheet":
+                agents_map[mid]["s_sheets"] += cnt
+            elif tt == "Packs/POI":
+                agents_map[mid]["packs_poi"] += cnt
+            elif tt == "I&E Review Appts":
+                agents_map[mid]["ie_review_appts"] += cnt
+
+        numeric_keys = ["days", "hours", "emails", "dnp", "offers", "transfer", "bals",
+                        "rev_bals", "out", "in_calls", "s_sheets", "tac", "un_alloc",
+                        "returns", "packs_poi", "ie_review_appts"]
+
+        # Filter: active members always included; inactive only if they have shifts in range
+        agents_list = []
+        for agent in agents_map.values():
+            if not agent["is_active"] and agent["days"] == 0:
+                continue
+            agents_list.append(agent)
+
+        # Sort by name
+        agents_list.sort(key=lambda a: a["member_name"])
+
+        # Totals
+        totals = {k: 0 for k in numeric_keys}
+        for agent in agents_list:
+            for k in numeric_keys:
+                totals[k] += agent[k]
+        totals["hours"] = round(totals["hours"], 1)
+
+        # Round hours per agent
+        for agent in agents_list:
+            agent["hours"] = round(agent["hours"], 1)
+
+        return jsonify({
+            "start_date": start_date,
+            "end_date": end_date,
+            "agents": agents_list,
+            "totals": totals,
+        })
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
