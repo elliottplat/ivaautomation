@@ -121,6 +121,12 @@
   <h1>IVA Automation Suite</h1>
   <p class="subtitle">Sign in to continue</p>
 
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for category, message in messages %}
+    <div style="background:#f0fdf4;color:#166534;border:1px solid #bbf7d0;border-radius:8px;padding:0.6rem 0.85rem;font-size:0.84rem;margin-bottom:1rem;">{{ message }}</div>
+    {% endfor %}
+  {% endwith %}
+
   {% if error %}
   <div class="error-msg">{{ error }}</div>
   {% endif %}
@@ -136,6 +142,12 @@
       <span id="btn-label">Sign In</span>
     </button>
   </form>
+
+  <div style="text-align:center;margin-top:1rem;">
+    <a href="/forgot-password" style="font-size:0.82rem;color:#6366f1;text-decoration:none;font-weight:600;">
+      Forgot your password?
+    </a>
+  </div>
 
   <div class="footer">OMNI Group L.L.C-FZ &copy; 2026</div>
 </div>

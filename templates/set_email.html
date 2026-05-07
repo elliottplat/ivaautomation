@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Add Email – Omni Group</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #f0f2f5;
+      color: #1a1a2e;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+    }
+
+    .card {
+      background: #fff;
+      border-radius: 16px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.10);
+      padding: 2.5rem 2rem;
+      width: 100%;
+      max-width: 420px;
+    }
+
+    .card img {
+      display: block;
+      margin: 0 auto 1.25rem;
+      width: 90px;
+      height: auto;
+    }
+
+    .card h1 {
+      text-align: center;
+      font-size: 1.2rem;
+      font-weight: 700;
+      margin-bottom: 0.5rem;
+    }
+
+    .card .subtitle {
+      text-align: center;
+      font-size: 0.84rem;
+      color: #666;
+      margin-bottom: 1.75rem;
+      line-height: 1.5;
+    }
+
+    label {
+      display: block;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: #333;
+      margin-bottom: 0.35rem;
+    }
+
+    input[type="email"] {
+      width: 100%;
+      border: 1.5px solid #d0d5dd;
+      border-radius: 8px;
+      padding: 0.65rem 0.85rem;
+      font-size: 0.95rem;
+      font-family: inherit;
+      transition: border-color 0.2s;
+      margin-bottom: 1rem;
+    }
+    input:focus { outline: none; border-color: #6366f1; }
+
+    .error-msg {
+      background: #fef2f2;
+      color: #b91c1c;
+      border: 1px solid #fecaca;
+      border-radius: 8px;
+      padding: 0.6rem 0.85rem;
+      font-size: 0.84rem;
+      margin-bottom: 1rem;
+    }
+
+    button[type="submit"] {
+      width: 100%;
+      padding: 0.75rem;
+      background: #6366f1;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    button[type="submit"]:hover { background: #4f46e5; }
+
+    .footer {
+      margin-top: 1.25rem;
+      text-align: center;
+      font-size: 0.75rem;
+      color: #bbb;
+    }
+  </style>
+</head>
+<body>
+
+<div class="card">
+  <img src="/static/logo.png" alt="Omni Group" />
+  <h1>Add Your Email Address</h1>
+  <p class="subtitle">
+    We've added email support to accounts for password reset and notifications.
+    Please add your email address to continue.
+  </p>
+
+  {% if error %}
+  <div class="error-msg">{{ error }}</div>
+  {% endif %}
+
+  <form method="post" action="/set-email{% if request.args.get('next') %}?next={{ request.args.get('next') | urlencode }}{% endif %}">
+    <label for="email">Email Address</label>
+    <input type="email" id="email" name="email" autocomplete="email" autofocus required
+           placeholder="you@example.com" />
+    <button type="submit">Save &amp; Continue</button>
+  </form>
+
+  <div class="footer">OMNI Group L.L.C-FZ &copy; 2026</div>
+</div>
+
+</body>
+</html>
