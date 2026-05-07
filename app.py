@@ -4476,114 +4476,96 @@ def dss_api_dashboard():
             team_id = team["id"]
             base_rate = _dss_get_base_rate(cur, team_id)
 
-            # Shifts for this date
-            cur.execute(
-                """SELECT ds.id, ds.team_member_id, ds.hours_worked, ds.notes,
-                          tm.name AS member_name
-                   FROM dss_daily_shifts ds
-                   JOIN dss_team_members tm ON tm.id = ds.team_member_id
-                   WHERE ds.team_id = %s AND ds.work_date = %s
-                   ORDER BY tm.name""",
-                (team_id, work_date),
-            )
-            shifts = cur.fetchall()
+            cur.execute("SELECT sla_breach_threshold_days, starting_backlog_units FROM dss_team_settings WHERE team_id = %s", (team_id,))
+            settings_row = cur.fetchone()
+            threshold = settings_row["sla_breach_threshold_days"] if settings_row else 3
+            starting_backlog = float(settings_row["starting_backlog_units"]) if settings_row else 0.0
 
-            agents = []
-            for s in shifts:
-                metrics = _dss_compute_shift_metrics(cur, s["id"], s["hours_worked"], base_rate)
+            # Two queries replace hundreds: bulk load all data up to work_date
+            shift_rows, landing_rows = _dss_bulk_load(cur, team_id, work_date)
 
-                # Rolling avg: last 30 shifts where hours_worked > 0, newest first
-                cur.execute(
-                    """SELECT ds2.work_date,
-                              ds2.hours_worked
-                       FROM dss_daily_shifts ds2
-                       WHERE ds2.team_member_id = %s AND ds2.hours_worked > 0
-                         AND ds2.work_date <= %s
-                       ORDER BY ds2.work_date DESC
-                       LIMIT 30""",
-                    (s["team_member_id"], work_date),
-                )
-                history_shifts = cur.fetchall()
-                history = []
-                for hs in history_shifts:
-                    cur.execute(
-                        "SELECT count, conversion_factor FROM dss_daily_completions WHERE daily_shift_id = (SELECT id FROM dss_daily_shifts WHERE team_member_id = %s AND work_date = %s LIMIT 1)",
-                        (s["team_member_id"], hs["work_date"]),
-                    )
-                    hc = [{"count": r["count"], "conversion_factor": float(r["conversion_factor"])} for r in cur.fetchall()]
-                    hm = dss_calc.shift_metrics(float(hs["hours_worked"]), hc, base_rate)
-                    history.append({"work_date": str(hs["work_date"]), "pct_target_hit": hm["pct_target_hit"]})
-
-                avg_pct = dss_calc.rolling_avg_pct(history, 7)
-                agents.append({
-                    "member_id": s["team_member_id"],
-                    "member_name": s["member_name"],
-                    "hours_worked": float(s["hours_worked"]),
-                    "target_units": metrics["target_units"],
-                    "actual_units": metrics["actual_units"],
-                    "pct_target_hit": metrics["pct_target_hit"],
-                    "status": metrics["status"],
-                    "rolling_avg_pct": avg_pct,
-                })
-
-            # Team totals for today
-            completed_units = sum(a["actual_units"] for a in agents)
-            team_capacity = sum(float(s["hours_worked"]) * base_rate for s in shifts)
-            landed_units = _dss_landed_units_for_date(cur, team_id, work_date)
-            prior_backlog = _dss_accumulate_backlog(cur, team_id, base_rate, work_date)
-            rollup = dss_calc.daily_team_rollup(landed_units, completed_units, team_capacity, prior_backlog)
-
-            # Avg daily capacity: last 7 dates with capacity > 0
+            # Avg daily capacity: last 7 dates with hours > 0
             cur.execute(
                 """SELECT work_date, SUM(hours_worked) AS total_hours
                    FROM dss_daily_shifts
                    WHERE team_id = %s AND work_date <= %s AND hours_worked > 0
-                   GROUP BY work_date
-                   HAVING SUM(hours_worked) > 0
-                   ORDER BY work_date DESC
-                   LIMIT 7""",
+                   GROUP BY work_date HAVING SUM(hours_worked) > 0
+                   ORDER BY work_date DESC LIMIT 7""",
                 (team_id, work_date),
             )
             cap_rows = cur.fetchall()
-            avg_daily_cap = (sum(float(r["total_hours"]) * base_rate for r in cap_rows) / len(cap_rows)) if cap_rows else 0
-
-            # Team settings
-            cur.execute("SELECT sla_breach_threshold_days FROM dss_team_settings WHERE team_id = %s", (team_id,))
-            settings_row = cur.fetchone()
-            threshold = settings_row["sla_breach_threshold_days"] if settings_row else 3
-
-            dow = dss_calc.days_of_work(rollup["running_backlog"], avg_daily_cap)
-            sla = dss_calc.sla_status(dow, threshold)
-
-            # Hiring trigger: SLA for last threshold consecutive days
-            cur.execute(
-                """SELECT DISTINCT work_date FROM dss_daily_shifts
-                   WHERE team_id = %s AND work_date < %s
-                   UNION
-                   SELECT DISTINCT work_date FROM dss_daily_landings
-                   WHERE team_id = %s AND work_date < %s
-                   ORDER BY work_date DESC
-                   LIMIT %s""",
-                (team_id, work_date, team_id, work_date, threshold),
-            )
-            prev_dates = [r["work_date"] for r in cur.fetchall()]
-            sla_history = []
-            running_bl = float((cur.execute("SELECT starting_backlog_units FROM dss_team_settings WHERE team_id = %s", (team_id,)) or 0) or 0)
-            cur.execute("SELECT starting_backlog_units FROM dss_team_settings WHERE team_id = %s", (team_id,))
-            sr = cur.fetchone()
-            running_bl_hist = float(sr["starting_backlog_units"]) if sr else 0.0
-            # Re-accumulate for each prev date
-            for pd in reversed(prev_dates):
-                l_u = _dss_landed_units_for_date(cur, team_id, pd)
-                c_u = _dss_completed_units_for_date(cur, team_id, base_rate, pd)
-                prior_bl_pd = _dss_accumulate_backlog(cur, team_id, base_rate, pd)
-                r2 = dss_calc.daily_team_rollup(l_u, c_u, 0, prior_bl_pd)
-                d_w = dss_calc.days_of_work(r2["running_backlog"], avg_daily_cap)
-                sla_history.append(dss_calc.sla_status(d_w, threshold))
-
-            trigger = dss_calc.hiring_trigger(sla_history, threshold)
 
         conn.close()
+
+        avg_daily_cap = (sum(float(r["total_hours"]) * base_rate for r in cap_rows) / len(cap_rows)) if cap_rows else 0
+
+        series = _dss_build_series(shift_rows, landing_rows, base_rate, starting_backlog)
+        shifts_by_date = series["shifts_by_date"]
+        completions_by_shift = series["completions_by_shift"]
+        landed_by_date = series["landed_by_date"]
+        completed_by_date = series["completed_by_date"]
+        backlog_by_date = series["backlog_by_date"]
+        all_dates = series["all_dates"]
+
+        # Build per-agent list for the requested date
+        # Group historical shifts by member for rolling avg (all data loaded already)
+        from collections import defaultdict
+        member_shift_history = defaultdict(list)  # member_id -> [{work_date, pct_target_hit}] newest first
+        for d in reversed(all_dates):
+            for shift in shifts_by_date.get(d, []):
+                if shift["hours_worked"] > 0:
+                    comps = completions_by_shift.get(shift["id"], [])
+                    hm = dss_calc.shift_metrics(shift["hours_worked"], comps, base_rate)
+                    member_shift_history[shift["team_member_id"]].append({
+                        "work_date": str(d),
+                        "pct_target_hit": hm["pct_target_hit"],
+                    })
+
+        today_shifts = sorted(shifts_by_date.get(work_date, []), key=lambda s: s["member_name"])
+        agents = []
+        for shift in today_shifts:
+            comps = completions_by_shift.get(shift["id"], [])
+            metrics = dss_calc.shift_metrics(shift["hours_worked"], comps, base_rate)
+            history = member_shift_history[shift["team_member_id"]][:30]
+            avg_pct = dss_calc.rolling_avg_pct(history, 7)
+            agents.append({
+                "member_id": shift["team_member_id"],
+                "member_name": shift["member_name"],
+                "hours_worked": shift["hours_worked"],
+                "target_units": metrics["target_units"],
+                "actual_units": metrics["actual_units"],
+                "pct_target_hit": metrics["pct_target_hit"],
+                "status": metrics["status"],
+                "rolling_avg_pct": avg_pct,
+            })
+
+        completed_units = completed_by_date.get(work_date, 0.0)
+        landed_units = landed_by_date.get(work_date, 0.0)
+        team_capacity = sum(s["hours_worked"] * base_rate for s in today_shifts)
+        prior_backlog = backlog_by_date.get(
+            all_dates[all_dates.index(work_date) - 1], starting_backlog
+        ) if work_date in all_dates and all_dates.index(work_date) > 0 else starting_backlog
+        rollup = dss_calc.daily_team_rollup(landed_units, completed_units, team_capacity, prior_backlog)
+
+        dow = dss_calc.days_of_work(rollup["running_backlog"], avg_daily_cap)
+        sla = dss_calc.sla_status(dow, threshold)
+
+        # SLA history for hiring trigger: last `threshold` dates before today
+        prev_dates = [d for d in all_dates if d < work_date][-threshold:]
+        sla_history = []
+        for pd in prev_dates:
+            idx = all_dates.index(pd)
+            pb = backlog_by_date.get(all_dates[idx - 1], starting_backlog) if idx > 0 else starting_backlog
+            r2 = dss_calc.daily_team_rollup(
+                landed_by_date.get(pd, 0.0),
+                completed_by_date.get(pd, 0.0),
+                0, pb,
+            )
+            d_w = dss_calc.days_of_work(r2["running_backlog"], avg_daily_cap)
+            sla_history.append(dss_calc.sla_status(d_w, threshold))
+
+        trigger = dss_calc.hiring_trigger(sla_history, threshold)
+
         return jsonify({
             "date": str(work_date),
             "team": {"id": team_id, "name": team["name"]},
@@ -4819,6 +4801,7 @@ def dss_api_history():
     offset = (page - 1) * per_page
 
     try:
+        from datetime import date as date_type
         conn = get_db_conn()
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             team = _dss_get_team(cur)
@@ -4828,22 +4811,11 @@ def dss_api_history():
             team_id = team["id"]
             base_rate = _dss_get_base_rate(cur, team_id)
 
-            cur.execute(
-                """SELECT DISTINCT work_date FROM dss_daily_shifts WHERE team_id = %s
-                   UNION
-                   SELECT DISTINCT work_date FROM dss_daily_landings WHERE team_id = %s
-                   ORDER BY work_date DESC""",
-                (team_id, team_id),
-            )
-            all_dates = [r["work_date"] for r in cur.fetchall()]
-            total = len(all_dates)
-            page_dates = all_dates[offset:offset + per_page]
-
-            cur.execute("SELECT sla_breach_threshold_days FROM dss_team_settings WHERE team_id = %s", (team_id,))
+            cur.execute("SELECT sla_breach_threshold_days, starting_backlog_units FROM dss_team_settings WHERE team_id = %s", (team_id,))
             settings_row = cur.fetchone()
             threshold = settings_row["sla_breach_threshold_days"] if settings_row else 3
+            starting_backlog = float(settings_row["starting_backlog_units"]) if settings_row else 0.0
 
-            # Avg daily capacity (last 7 dates with hours > 0, from all data)
             cur.execute(
                 """SELECT work_date, SUM(hours_worked) AS total_hours
                    FROM dss_daily_shifts WHERE team_id = %s AND hours_worked > 0
@@ -4852,39 +4824,56 @@ def dss_api_history():
                 (team_id,),
             )
             cap_rows = cur.fetchall()
-            avg_daily_cap = (sum(float(r["total_hours"]) * base_rate for r in cap_rows) / len(cap_rows)) if cap_rows else 0
 
-            rows = []
-            for d in page_dates:
-                cur.execute(
-                    "SELECT COUNT(*) AS cnt, SUM(hours_worked) AS total_hours FROM dss_daily_shifts WHERE team_id = %s AND work_date = %s",
-                    (team_id, d),
-                )
-                shift_summary = cur.fetchone()
-                agent_count = shift_summary["cnt"] or 0
-                total_hours = float(shift_summary["total_hours"] or 0)
-
-                completed_units = _dss_completed_units_for_date(cur, team_id, base_rate, d)
-                landed_units = _dss_landed_units_for_date(cur, team_id, d)
-                prior_backlog = _dss_accumulate_backlog(cur, team_id, base_rate, d)
-                rollup = dss_calc.daily_team_rollup(landed_units, completed_units, total_hours * base_rate, prior_backlog)
-
-                dow = dss_calc.days_of_work(rollup["running_backlog"], avg_daily_cap)
-                sla = dss_calc.sla_status(dow, threshold)
-
-                rows.append({
-                    "work_date": str(d),
-                    "agent_count": agent_count,
-                    "total_hours": total_hours,
-                    "completed_units": rollup["completed_units"],
-                    "landed_units": rollup["landed_units"],
-                    "backlog_change": rollup["backlog_change"],
-                    "running_backlog": rollup["running_backlog"],
-                    "sla_status": sla,
-                    "days_of_work": dow,
-                })
+            # Two queries load all history
+            today = date_type.today()
+            shift_rows, landing_rows = _dss_bulk_load(cur, team_id, today)
 
         conn.close()
+
+        avg_daily_cap = (sum(float(r["total_hours"]) * base_rate for r in cap_rows) / len(cap_rows)) if cap_rows else 0
+
+        series = _dss_build_series(shift_rows, landing_rows, base_rate, starting_backlog)
+        shifts_by_date = series["shifts_by_date"]
+        landed_by_date = series["landed_by_date"]
+        completed_by_date = series["completed_by_date"]
+        backlog_by_date = series["backlog_by_date"]
+        all_dates_asc = series["all_dates"]
+
+        # Pagination (newest first)
+        all_dates_desc = list(reversed(all_dates_asc))
+        total = len(all_dates_desc)
+        page_dates = all_dates_desc[offset:offset + per_page]
+
+        rows = []
+        for d in page_dates:
+            day_shifts = shifts_by_date.get(d, [])
+            agent_count = len(day_shifts)
+            total_hours = sum(s["hours_worked"] for s in day_shifts)
+
+            idx = all_dates_asc.index(d)
+            prior_backlog = backlog_by_date.get(all_dates_asc[idx - 1], starting_backlog) if idx > 0 else starting_backlog
+            rollup = dss_calc.daily_team_rollup(
+                landed_by_date.get(d, 0.0),
+                completed_by_date.get(d, 0.0),
+                total_hours * base_rate,
+                prior_backlog,
+            )
+            dow = dss_calc.days_of_work(rollup["running_backlog"], avg_daily_cap)
+            sla = dss_calc.sla_status(dow, threshold)
+
+            rows.append({
+                "work_date": str(d),
+                "agent_count": agent_count,
+                "total_hours": total_hours,
+                "completed_units": rollup["completed_units"],
+                "landed_units": rollup["landed_units"],
+                "backlog_change": rollup["backlog_change"],
+                "running_backlog": rollup["running_backlog"],
+                "sla_status": sla,
+                "days_of_work": dow,
+            })
+
         return jsonify({
             "dates": rows,
             "total": total,
