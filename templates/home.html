@@ -224,7 +224,7 @@
         <div class="tool-icon amber">📊</div>
         <h3>Arrears</h3>
         <p>Arrears case management and analysis</p>
-        <a href="/arrears" class="tool-btn">Open</a>
+        <a href="/pp-arrears" class="tool-btn">Open</a>
       </div>
       <div class="tool-card coming-soon">
         <div class="tool-icon green">📅</div>
@@ -253,7 +253,7 @@
 <script>
   const TASK_LABELS = { completion: 'Completion', arrears: 'Arrears', annual: 'Annual', variation: 'Variation', termination: 'Termination' };
   const TASK_CLASS  = { completion: 'completion', arrears: 'arrears', annual: 'annual', variation: 'variation', termination: 'termination' };
-  const TOOL_URLS   = { completion: '/completions', arrears: '/arrears', annual: '/annuals', variation: '/variations', termination: '/terminations' };
+  const TOOL_URLS   = { completion: '/completions', arrears: '/pp-arrears', annual: '/annuals', variation: '/variations', termination: '/terminations' };
   const IS_ADMIN = {{ 'true' if current_user.role == 'admin' else 'false' }};
 
   let allItems = [];
