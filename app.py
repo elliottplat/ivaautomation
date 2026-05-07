@@ -525,6 +525,17 @@ If any check fails, STOP and recompute before output.
 
 ALLOWED_TYPES = {"image/jpeg", "image/png", "image/gif", "image/webp"}
 
+# Extended set for variation/I&E uploads — includes PDFs and office documents
+VARIATION_ALLOWED_TYPES = {
+    "image/jpeg", "image/png", "image/gif", "image/webp", "image/heic",
+    "application/pdf",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "application/vnd.ms-excel",
+    "text/csv",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "application/msword",
+}
+
 DOCUMENT_SLOTS = [
     ("contribution_schedule", "Contribution Schedule"),
     ("eos", "Estimated Outcome Statement (EOS)"),
@@ -1869,6 +1880,32 @@ def encode_file(file):
     return base64.standard_b64encode(file.read()).decode("utf-8"), media_type
 
 
+def variation_file_to_block(file):
+    """Return an Anthropic content block for a variation upload (images + PDF + office docs)."""
+    media_type = file.content_type or "application/octet-stream"
+    # Normalise content-type sniffing gaps (browser sometimes sends empty string)
+    if not media_type or media_type == "application/octet-stream":
+        ext = (file.filename or "").rsplit(".", 1)[-1].lower()
+        media_type = {
+            "pdf": "application/pdf",
+            "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            "xls": "application/vnd.ms-excel",
+            "csv": "text/csv",
+            "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            "doc": "application/msword",
+        }.get(ext, media_type)
+    if media_type not in VARIATION_ALLOWED_TYPES:
+        raise ValueError(f"Unsupported file type '{media_type}' for '{file.filename}'.")
+    data = base64.standard_b64encode(file.read()).decode("utf-8")
+    if media_type == "application/pdf":
+        return {"type": "document", "source": {"type": "base64", "media_type": media_type, "data": data}}
+    if media_type.startswith("image/"):
+        return {"type": "image", "source": {"type": "base64", "media_type": media_type, "data": data}}
+    # Excel / CSV / Word — Claude cannot read binary office formats directly;
+    # include a placeholder so the model knows the file was present.
+    return {"type": "text", "text": f"[Attached file: {file.filename} ({media_type})]"}
+
+
 def extract_cashier_instruction(text):
     # Try JSON first (termination results)
     stripped = (text or "").strip()
@@ -2346,20 +2383,20 @@ def analyze_variation():
         if not pages:
             continue
         any_document = True
-        content.append({"type": "text", "text": f"--- {label} ({len(pages)} page(s)) ---"})
+        content.append({"type": "text", "text": f"--- {label} ({len(pages)} file(s)) ---"})
         for page in pages:
             try:
-                image_data, media_type = encode_file(page)
+                block = variation_file_to_block(page)
             except ValueError as e:
                 return jsonify({"error": str(e)}), 400
-            content.append({"type": "image", "source": {"type": "base64", "media_type": media_type, "data": image_data}})
+            content.append(block)
 
     if not any_document:
         return jsonify({"error": "Please upload at least one document."}), 400
 
     content.append({
         "type": "text",
-        "text": f"Agreed EOS, Schedule of Modifications, and Chart of Accounts attached.\n\nDynamic inputs:\n```json\n{json.dumps(inputs, indent=2)}\n```\n\nGenerate the EOS."
+        "text": f"Documents attached.\n\nDynamic inputs:\n```json\n{json.dumps(inputs, indent=2)}\n```\n\nGenerate the EOS."
     })
 
     def generate():
@@ -2915,10 +2952,10 @@ def analyze_ie():
     content = []
     for page in pages:
         try:
-            image_data, media_type = encode_file(page)
+            block = variation_file_to_block(page)
         except ValueError as e:
             return jsonify({"error": str(e)}), 400
-        content.append({"type": "image", "source": {"type": "base64", "media_type": media_type, "data": image_data}})
+        content.append(block)
 
     content.append({
         "type": "text",

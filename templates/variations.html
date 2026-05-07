@@ -600,8 +600,8 @@
           <div class="card">
             <div class="slot-label"><span class="dot" id="dot-agreed_eos"></span>Agreed EOS</div>
             <label class="upload-area" id="area-agreed_eos">
-              <span class="area-text">Click, drag, or paste images here</span>
-              <input type="file" name="agreed_eos" id="inp-agreed_eos" accept="image/*" multiple />
+              <span class="area-text">Click, drag, or paste files here</span>
+              <input type="file" name="agreed_eos" id="inp-agreed_eos" accept="image/*,.pdf,.xlsx,.xls,.csv,.docx,.doc" multiple />
             </label>
             <div class="file-list" id="list-agreed_eos"></div>
           </div>
@@ -609,8 +609,8 @@
           <div class="card">
             <div class="slot-label"><span class="dot" id="dot-modifications"></span>Schedule of Modifications</div>
             <label class="upload-area" id="area-modifications">
-              <span class="area-text">Click, drag, or paste images here</span>
-              <input type="file" name="modifications" id="inp-modifications" accept="image/*" multiple />
+              <span class="area-text">Click, drag, or paste files here</span>
+              <input type="file" name="modifications" id="inp-modifications" accept="image/*,.pdf,.xlsx,.xls,.csv,.docx,.doc" multiple />
             </label>
             <div class="file-list" id="list-modifications"></div>
           </div>
@@ -618,8 +618,8 @@
           <div class="card" id="card-chart_of_accounts">
             <div class="slot-label"><span class="dot" id="dot-chart_of_accounts"></span>Chart of Accounts <span style="color:#dc2626;font-size:0.75rem;font-weight:700;">*</span></div>
             <label class="upload-area" id="area-chart_of_accounts">
-              <span class="area-text">Click, drag, or paste images here</span>
-              <input type="file" name="chart_of_accounts" id="inp-chart_of_accounts" accept="image/*" multiple />
+              <span class="area-text">Click, drag, or paste files here</span>
+              <input type="file" name="chart_of_accounts" id="inp-chart_of_accounts" accept="image/*,.pdf,.xlsx,.xls,.csv,.docx,.doc" multiple />
             </label>
             <div class="file-list" id="list-chart_of_accounts"></div>
             <div class="coa-required-hint" id="coa-required-hint">Chart of Accounts required to generate EOS</div>
@@ -660,8 +660,8 @@
           <div class="card" style="margin-bottom:0;">
             <div class="slot-label"><span class="dot" id="dot-ie_document"></span>I&amp;E Document</div>
             <label class="upload-area" id="area-ie_document">
-              <span class="area-text">Click, drag, or paste images here</span>
-              <input type="file" name="ie_document" id="inp-ie_document" accept="image/*" multiple />
+              <span class="area-text">Click, drag, or paste files here</span>
+              <input type="file" name="ie_document" id="inp-ie_document" accept="image/*,.pdf,.xlsx,.xls,.csv,.docx,.doc" multiple />
             </label>
             <div class="file-list" id="list-ie_document"></div>
           </div>
@@ -2367,6 +2367,58 @@
   const slots = ['agreed_eos', 'modifications', 'chart_of_accounts'];
   slots.forEach(s => fileMap[s] = []);
 
+  const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
+  const MAX_DOC_BYTES   = 25 * 1024 * 1024;
+  const ALLOWED_EXTS    = new Set(['jpg','jpeg','png','webp','heic','pdf','xlsx','xls','csv','docx','doc']);
+  const ALLOWED_MIMES   = new Set([
+    'image/jpeg','image/png','image/gif','image/webp','image/heic',
+    'application/pdf',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'application/vnd.ms-excel','text/csv',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'application/msword',
+  ]);
+
+  function isAllowedFile(f) {
+    const ext = (f.name.split('.').pop() || '').toLowerCase();
+    return ALLOWED_MIMES.has(f.type) || ALLOWED_EXTS.has(ext);
+  }
+
+  function fileSizeOk(f) {
+    const limit = f.type.startsWith('image/') ? MAX_IMAGE_BYTES : MAX_DOC_BYTES;
+    return f.size <= limit;
+  }
+
+  function fmtSize(bytes) {
+    if (bytes >= 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+    if (bytes >= 1024) return (bytes / 1024).toFixed(0) + ' KB';
+    return bytes + ' B';
+  }
+
+  function fileIcon(f) {
+    if (f.type.startsWith('image/')) return '🖼';
+    const ext = (f.name.split('.').pop() || '').toLowerCase();
+    if (ext === 'pdf') return '📄';
+    if (['xlsx','xls','csv'].includes(ext)) return '📊';
+    if (['docx','doc'].includes(ext)) return '📝';
+    return '📎';
+  }
+
+  function addValidFiles(incoming, slot) {
+    const rejected = [];
+    const valid = [];
+    for (const f of incoming) {
+      if (!isAllowedFile(f)) { rejected.push(`"${f.name}" — unsupported type`); continue; }
+      if (!fileSizeOk(f))    { rejected.push(`"${f.name}" — too large (max ${f.type.startsWith('image/') ? '10 MB' : '25 MB'})`); continue; }
+      valid.push(f);
+    }
+    if (rejected.length) alert('Skipped:\n' + rejected.join('\n'));
+    if (slot !== null) {
+      fileMap[slot] = [...fileMap[slot], ...valid];
+    }
+    return valid;
+  }
+
   function refreshSlot(slot) {
     const files = fileMap[slot];
     const area  = document.getElementById('area-' + slot);
@@ -2378,13 +2430,13 @@
       text.textContent = files.length + ' file(s) selected';
     } else {
       area.classList.remove('has-files'); dot.classList.remove('filled');
-      text.textContent = 'Click, drag, or paste images here';
+      text.textContent = 'Click, drag, or paste files here';
     }
     list.innerHTML = '';
     files.forEach((f, i) => {
       const item = document.createElement('div');
       item.className = 'file-item';
-      item.innerHTML = `<span class="fname" title="${f.name}">${f.name}</span><button type="button" data-slot="${slot}" data-idx="${i}">×</button>`;
+      item.innerHTML = `<span class="fname" title="${f.name}">${fileIcon(f)} ${f.name} <span style="color:#aaa;font-size:0.72rem;">${fmtSize(f.size)}</span></span><button type="button" data-slot="${slot}" data-idx="${i}">×</button>`;
       list.appendChild(item);
     });
   }
@@ -2400,7 +2452,7 @@
     area.addEventListener('focus', () => { activeSlot = slot; activeIEFocus = false; });
     area.setAttribute('tabindex', '0');
     input.addEventListener('change', () => {
-      fileMap[slot] = [...fileMap[slot], ...input.files];
+      addValidFiles([...input.files], slot);
       input.value = '';
       refreshSlot(slot);
       validateEosForm();
@@ -2409,34 +2461,27 @@
     area.addEventListener('dragleave', () => area.classList.remove('drag'));
     area.addEventListener('drop', e => {
       e.preventDefault(); area.classList.remove('drag');
-      const images = [...e.dataTransfer.files].filter(f => f.type.startsWith('image/'));
-      fileMap[slot] = [...fileMap[slot], ...images];
+      addValidFiles([...e.dataTransfer.files], slot);
       refreshSlot(slot);
       validateEosForm();
     });
   });
 
-  // Global paste handler — pastes clipboard images into the last-clicked upload slot
+  // Global paste handler — pastes clipboard files into the last-clicked upload slot
   document.addEventListener('paste', e => {
     const tag = (document.activeElement || {}).tagName || '';
     if (tag === 'INPUT' || tag === 'TEXTAREA') return;
-    const items = (e.clipboardData || {}).items || [];
-    const images = [];
-    for (const item of items) {
-      if (item.kind === 'file' && item.type.startsWith('image/')) {
-        const f = item.getAsFile();
-        if (f) images.push(f);
-      }
-    }
-    if (!images.length) return;
+    const rawFiles = [...(e.clipboardData || {}).items || []].filter(i => i.kind === 'file').map(i => i.getAsFile()).filter(Boolean);
+    if (!rawFiles.length) return;
     e.preventDefault();
     if (activeIEFocus) {
-      ieFileMap.push(...images);
+      const valid = addValidFiles(rawFiles, null);
+      ieFileMap.push(...valid);
       refreshIESlot();
       ieDocArea.classList.add('drag'); setTimeout(() => ieDocArea.classList.remove('drag'), 600);
     } else {
       const target = activeSlot || slots[0];
-      fileMap[target] = [...fileMap[target], ...images];
+      addValidFiles(rawFiles, target);
       refreshSlot(target);
       validateEosForm();
       const area = document.getElementById('area-' + target);
@@ -2606,13 +2651,13 @@
       ieDocArea.querySelector('.area-text').textContent = ieFileMap.length + ' file(s) selected';
     } else {
       ieDocArea.classList.remove('has-files'); ieDocDot.classList.remove('filled');
-      ieDocArea.querySelector('.area-text').textContent = 'Click, drag, or paste images here';
+      ieDocArea.querySelector('.area-text').textContent = 'Click, drag, or paste files here';
     }
     ieDocList.innerHTML = '';
     ieFileMap.forEach((f, i) => {
       const item = document.createElement('div');
       item.className = 'file-item';
-      item.innerHTML = `<span class="fname" title="${f.name}">${f.name}</span><button type="button" data-ie-idx="${i}">×</button>`;
+      item.innerHTML = `<span class="fname" title="${f.name}">${fileIcon(f)} ${f.name} <span style="color:#aaa;font-size:0.72rem;">${fmtSize(f.size)}</span></span><button type="button" data-ie-idx="${i}">×</button>`;
       ieDocList.appendChild(item);
     });
   }
@@ -2620,13 +2665,13 @@
   ieDocArea.setAttribute('tabindex', '0');
   ieDocArea.addEventListener('click', () => { activeIEFocus = true; });
   ieDocArea.addEventListener('focus', () => { activeIEFocus = true; });
-  ieDocInput.addEventListener('change', () => { ieFileMap.push(...ieDocInput.files); ieDocInput.value = ''; refreshIESlot(); });
+  ieDocInput.addEventListener('change', () => { const valid = addValidFiles([...ieDocInput.files], null); ieFileMap.push(...valid); ieDocInput.value = ''; refreshIESlot(); });
   ieDocArea.addEventListener('dragover', e => { e.preventDefault(); ieDocArea.classList.add('drag'); });
   ieDocArea.addEventListener('dragleave', () => ieDocArea.classList.remove('drag'));
   ieDocArea.addEventListener('drop', e => {
     e.preventDefault(); ieDocArea.classList.remove('drag');
-    const images = [...e.dataTransfer.files].filter(f => f.type.startsWith('image/'));
-    ieFileMap.push(...images); refreshIESlot();
+    const valid = addValidFiles([...e.dataTransfer.files], null);
+    ieFileMap.push(...valid); refreshIESlot();
   });
   document.addEventListener('click', e => {
     const btn = e.target.closest('[data-ie-idx]');
