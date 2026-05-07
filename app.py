@@ -1700,6 +1700,61 @@ def init_db():
                     (team_id,),
                 )
 
+            # ── DSS performance indexes ─────────────────────────────────────
+            cur.execute("""
+                CREATE INDEX IF NOT EXISTS idx_daily_shifts_team_date
+                    ON dss_daily_shifts(team_id, work_date)
+            """)
+            cur.execute("""
+                CREATE INDEX IF NOT EXISTS idx_daily_shifts_member_date
+                    ON dss_daily_shifts(team_member_id, work_date)
+            """)
+            cur.execute("""
+                CREATE INDEX IF NOT EXISTS idx_daily_completions_shift
+                    ON dss_daily_completions(daily_shift_id)
+            """)
+            cur.execute("""
+                CREATE INDEX IF NOT EXISTS idx_daily_completions_type
+                    ON dss_daily_completions(task_type_id)
+            """)
+            cur.execute("""
+                CREATE INDEX IF NOT EXISTS idx_daily_completions_subtype
+                    ON dss_daily_completions(task_sub_type_id)
+            """)
+
+            # ── equivalent_units column on dss_daily_completions ────────────
+            cur.execute("""
+                ALTER TABLE dss_daily_completions
+                    ADD COLUMN IF NOT EXISTS equivalent_units NUMERIC(10,4)
+            """)
+            # Backfill
+            cur.execute("""
+                UPDATE dss_daily_completions
+                SET equivalent_units = count * conversion_factor
+                WHERE equivalent_units IS NULL
+            """)
+
+            # ── dss_daily_team_rollups table ─────────────────────────────────
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS dss_daily_team_rollups (
+                    id SERIAL PRIMARY KEY,
+                    team_id INTEGER REFERENCES dss_teams(id) ON DELETE CASCADE,
+                    work_date DATE NOT NULL,
+                    hours_worked_total NUMERIC(8,2) DEFAULT 0,
+                    actual_units_total NUMERIC(10,4) DEFAULT 0,
+                    landed_units_total NUMERIC(10,4) DEFAULT 0,
+                    running_backlog_units NUMERIC(10,4) DEFAULT 0,
+                    sla_status VARCHAR(50),
+                    agents_below_target_count INTEGER DEFAULT 0,
+                    updated_at TIMESTAMP DEFAULT NOW(),
+                    UNIQUE(team_id, work_date)
+                )
+            """)
+            cur.execute("""
+                CREATE INDEX IF NOT EXISTS idx_rollups_team_date
+                    ON dss_daily_team_rollups(team_id, work_date)
+            """)
+
             # ── DSS safe migrations ─────────────────────────────────────────
             # 1a. Rename 'DBT' sub-type to 'Transfer' for DocuWare/Dubai
             cur.execute("""
@@ -5171,9 +5226,10 @@ def dss_api_entry_post():
 
                     cur.execute(
                         """INSERT INTO dss_daily_completions
-                           (daily_shift_id, task_type_id, task_sub_type_id, count, conversion_factor)
-                           VALUES (%s, %s, %s, %s, %s)""",
-                        (shift_id, task_type_id, sub_type_id, count, cf),
+                           (daily_shift_id, task_type_id, task_sub_type_id, count, conversion_factor,
+                            equivalent_units)
+                           VALUES (%s, %s, %s, %s, %s, %s)""",
+                        (shift_id, task_type_id, sub_type_id, count, cf, count * cf),
                     )
 
             # UPSERT landings
@@ -5190,6 +5246,82 @@ def dss_api_entry_post():
 
         conn.commit()
         conn.close()
+
+        # ── Maintain daily_team_rollup for this work_date ────────────────────
+        try:
+            conn2 = get_db_conn()
+            with conn2.cursor(cursor_factory=RealDictCursor) as cur2:
+                team2 = _dss_get_team(cur2)
+                if team2:
+                    team_id2 = team2["id"]
+                    base_rate2 = _dss_get_base_rate(cur2, team_id2)
+                    cur2.execute(
+                        "SELECT starting_backlog_units FROM dss_team_settings WHERE team_id = %s",
+                        (team_id2,),
+                    )
+                    settings2 = cur2.fetchone()
+                    starting_backlog2 = float(settings2["starting_backlog_units"]) if settings2 else 0.0
+
+                    shift_rows2, landing_rows2 = _dss_bulk_load(cur2, team_id2, work_date)
+                    series2 = _dss_build_series(shift_rows2, landing_rows2, base_rate2, starting_backlog2)
+
+                    all_dates2 = series2["all_dates"]
+                    backlog_by_date2 = series2["backlog_by_date"]
+                    completed_by_date2 = series2["completed_by_date"]
+                    landed_by_date2 = series2["landed_by_date"]
+                    shifts_by_date2 = series2["shifts_by_date"]
+                    completions_by_shift2 = series2["completions_by_shift"]
+
+                    if work_date in all_dates2:
+                        idx2 = all_dates2.index(work_date)
+                        pb2 = backlog_by_date2.get(all_dates2[idx2 - 1], starting_backlog2) if idx2 > 0 else starting_backlog2
+                        landed2 = landed_by_date2.get(work_date, 0.0)
+                        completed2 = completed_by_date2.get(work_date, 0.0)
+                        today_shifts2 = shifts_by_date2.get(work_date, [])
+                        hours_total2 = sum(s["hours_worked"] for s in today_shifts2)
+                        team_cap2 = hours_total2 * base_rate2
+                        rollup2 = dss_calc.daily_team_rollup(landed2, completed2, team_cap2, pb2)
+
+                        # Count agents below target
+                        below_count2 = 0
+                        for s2 in today_shifts2:
+                            if s2["hours_worked"] > 0:
+                                comps2 = completions_by_shift2.get(s2["id"], [])
+                                m2 = dss_calc.shift_metrics(s2["hours_worked"], comps2, base_rate2)
+                                if m2.get("status") == "Below Target":
+                                    below_count2 += 1
+
+                        cur2.execute(
+                            """INSERT INTO dss_daily_team_rollups
+                               (team_id, work_date, hours_worked_total, actual_units_total,
+                                landed_units_total, running_backlog_units, sla_status,
+                                agents_below_target_count, updated_at)
+                               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, NOW())
+                               ON CONFLICT (team_id, work_date) DO UPDATE SET
+                                   hours_worked_total = EXCLUDED.hours_worked_total,
+                                   actual_units_total = EXCLUDED.actual_units_total,
+                                   landed_units_total = EXCLUDED.landed_units_total,
+                                   running_backlog_units = EXCLUDED.running_backlog_units,
+                                   sla_status = EXCLUDED.sla_status,
+                                   agents_below_target_count = EXCLUDED.agents_below_target_count,
+                                   updated_at = NOW()""",
+                            (
+                                team_id2, work_date,
+                                round(hours_total2, 2),
+                                round(rollup2.get("completed_units", completed2), 4),
+                                round(landed2, 4),
+                                round(rollup2["running_backlog"], 4),
+                                rollup2.get("sla_status", ""),
+                                below_count2,
+                            ),
+                        )
+                    conn2.commit()
+                    # Bust cache for this work_date
+                    _bust_perf_cache(team_id2, work_date)
+            conn2.close()
+        except Exception as rollup_err:
+            print(f"Warning: rollup maintenance failed: {rollup_err}")
+
         # Return updated grid data
         return dss_api_entry_get()
     except Exception as e:
@@ -5626,6 +5758,24 @@ def dss_settings_team_put():
 
 
 # ---------------------------------------------------------------------------
+# In-memory cache for agent performance (historic ranges only)
+# ---------------------------------------------------------------------------
+_perf_cache = {}  # key: (team_id, start_date_str, end_date_str) -> {"data": ..., "expires": datetime}
+
+
+def _bust_perf_cache(team_id, work_date):
+    """Remove any cached entry whose date range includes work_date."""
+    from datetime import date as _date
+    wd = work_date if isinstance(work_date, _date) else _date.fromisoformat(str(work_date))
+    keys_to_remove = [
+        k for k in list(_perf_cache.keys())
+        if k[0] == team_id and _date.fromisoformat(k[1]) <= wd <= _date.fromisoformat(k[2])
+    ]
+    for k in keys_to_remove:
+        del _perf_cache[k]
+
+
+# ---------------------------------------------------------------------------
 # GET /api/dss/agent-performance
 # ---------------------------------------------------------------------------
 @app.route("/api/dss/agent-performance")
@@ -5634,7 +5784,7 @@ def dss_agent_performance_api():
     if current_user.role not in ("admin", "team_leader"):
         return jsonify({"error": "Forbidden"}), 403
     try:
-        from datetime import date as _date
+        from datetime import date as _date, datetime as _datetime
         today = _date.today()
         first_of_month = today.replace(day=1).isoformat()
         today_iso = today.isoformat()
@@ -5642,6 +5792,7 @@ def dss_agent_performance_api():
         start_date = request.args.get("start_date", first_of_month)
         end_date = request.args.get("end_date", today_iso)
 
+        # Resolve team_id first (needed for cache key)
         conn = get_db_conn()
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             team = _dss_get_team(cur)
@@ -5649,6 +5800,15 @@ def dss_agent_performance_api():
                 conn.close()
                 return jsonify({"error": "No team configured"}), 404
             team_id = team["id"]
+
+            # Cache check — only for fully historic ranges (end_date < today)
+            end_date_obj = _date.fromisoformat(end_date)
+            cache_key = (team_id, start_date, end_date)
+            if end_date_obj < today:
+                entry = _perf_cache.get(cache_key)
+                if entry and entry["expires"] > _datetime.utcnow():
+                    conn.close()
+                    return jsonify(entry["data"])
 
             cur.execute("""
                 SELECT
@@ -5752,12 +5912,22 @@ def dss_agent_performance_api():
         for agent in agents_list:
             agent["hours"] = round(agent["hours"], 1)
 
-        return jsonify({
+        result = {
             "start_date": start_date,
             "end_date": end_date,
             "agents": agents_list,
             "totals": totals,
-        })
+        }
+
+        # Store in cache only for fully historic ranges (TTL: 1 hour)
+        if end_date_obj < today:
+            from datetime import timedelta as _timedelta
+            _perf_cache[cache_key] = {
+                "data": result,
+                "expires": _datetime.utcnow() + _timedelta(hours=1),
+            }
+
+        return jsonify(result)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
