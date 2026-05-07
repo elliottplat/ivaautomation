@@ -293,13 +293,22 @@
             <input type="checkbox" id="spec-completion" value="completion" /> Completions
           </label>
           <label style="display:flex;align-items:center;gap:0.35rem;font-weight:500;font-size:0.85rem;">
+            <input type="checkbox" id="spec-variation" value="variation" /> Variations
+          </label>
+          <label style="display:flex;align-items:center;gap:0.35rem;font-weight:500;font-size:0.85rem;">
+            <input type="checkbox" id="spec-termination" value="termination" /> Terminations
+          </label>
+          <label style="display:flex;align-items:center;gap:0.35rem;font-weight:500;font-size:0.85rem;">
             <input type="checkbox" id="spec-arrears" value="arrears" /> Arrears
+          </label>
+          <label style="display:flex;align-items:center;gap:0.35rem;font-weight:500;font-size:0.85rem;">
+            <input type="checkbox" id="spec-dss" value="dss" /> DSS Workload
           </label>
           <label style="display:flex;align-items:center;gap:0.35rem;font-weight:500;font-size:0.85rem;">
             <input type="checkbox" id="spec-annual" value="annual" /> Annual Reviews
           </label>
         </div>
-        <div class="form-hint">Leave "All task types" checked to allow any work.</div>
+        <div class="form-hint">Leave "All task types" checked to allow any work. If all 6 individual types are checked, "All" is stored.</div>
       </div>
     </div>
     <div class="modal-footer">
@@ -404,8 +413,10 @@
     document.getElementById('modal-error').style.display = 'none';
     // set specialism checkboxes
     const specs = (u.specialisms || 'all').split(',').map(s => s.trim());
-    ['all','completion','arrears','annual'].forEach(s => {
-      document.getElementById('spec-' + s).checked = specs.includes(s);
+    const isAll = specs.includes('all');
+    document.getElementById('spec-all').checked = isAll;
+    ['completion','variation','termination','arrears','dss','annual'].forEach(s => {
+      document.getElementById('spec-' + s).checked = isAll || specs.includes(s);
     });
     document.getElementById('user-modal').classList.add('open');
     document.getElementById('m-role').focus();
@@ -459,11 +470,13 @@
       payload.display_name = document.getElementById('m-display-name').value.trim() || null;
       // build specialisms string
       const allChecked = document.getElementById('spec-all').checked;
+      const allTypes = ['completion','variation','termination','arrears','dss','annual'];
       if (allChecked) {
         payload.specialisms = 'all';
       } else {
-        const sel = ['completion','arrears','annual'].filter(s => document.getElementById('spec-' + s).checked);
-        payload.specialisms = sel.length ? sel.join(',') : 'all';
+        const sel = allTypes.filter(s => document.getElementById('spec-' + s).checked);
+        // if all 6 individual types are checked, store 'all'
+        payload.specialisms = (sel.length === allTypes.length || sel.length === 0) ? 'all' : sel.join(',');
       }
       try {
         const data = await saveUser(editingUserId, payload);

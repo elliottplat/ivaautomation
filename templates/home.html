@@ -214,37 +214,47 @@
       <h2>Tools</h2>
     </div>
     <div class="tools-grid">
+      {% if user_can_see(current_user, 'completion') %}
       <div class="tool-card active">
         <div class="tool-icon indigo">✅</div>
         <h3>Completions</h3>
         <p>IVA completion calculations &amp; cashier instructions</p>
         <a href="/completions" class="tool-btn">Open</a>
       </div>
+      {% endif %}
+      {% if user_can_see(current_user, 'arrears') %}
       <div class="tool-card active">
         <div class="tool-icon amber">📊</div>
         <h3>Arrears</h3>
         <p>Arrears case management and analysis</p>
         <a href="/pp-arrears" class="tool-btn">Open</a>
       </div>
+      {% endif %}
+      {% if user_can_see(current_user, 'annual') %}
       <div class="tool-card coming-soon">
         <div class="tool-icon green">📅</div>
         <h3>Annual Reviews</h3>
         <p>Annual review calculations and reporting</p>
         <span class="tool-badge">Coming Soon</span>
       </div>
+      {% endif %}
+      {% if user_can_see(current_user, 'variation') %}
       <div class="tool-card active">
         <div class="tool-icon purple">📋</div>
         <h3>Variations</h3>
         <p>Automated variation calculations</p>
         <a href="/variations" class="tool-btn">Open</a>
       </div>
+      {% endif %}
+      {% if user_can_see(current_user, 'termination') %}
       <div class="tool-card active">
         <div class="tool-icon rose">🔚</div>
         <h3>Terminations</h3>
         <p>Termination calculations &amp; cashier instructions</p>
         <a href="/terminations" class="tool-btn">Open</a>
       </div>
-      {% if current_user.role in ['admin', 'team_leader'] %}
+      {% endif %}
+      {% if current_user.role in ['admin', 'team_leader'] and user_can_see(current_user, 'dss') %}
       <div class="tool-card active">
         <div class="tool-icon" style="background:#e0f2fe;">📊</div>
         <h3>DSS Workload</h3>
