@@ -379,6 +379,26 @@
     .eos-custom-label-input:focus { outline: none; border-color: #6366f1; }
     .eos-remove-line-btn { background: none; border: none; color: #fca5a5; cursor: pointer; font-size: 1rem; padding: 0 0.2rem; transition: color 0.15s; }
     .eos-remove-line-btn:hover { color: #ef4444; }
+
+    /* ── COA required hint ── */
+    .coa-required-hint { font-size: 0.78rem; color: #b45309; margin-top: 0.35rem; display: none; }
+    .coa-required-hint.visible { display: block; }
+
+    /* ── Creditors' Claims Alert Banner ── */
+    .eos-claims-alert {
+        background: #dc2626;
+        color: white;
+        padding: 12px 16px;
+        border-radius: 6px;
+        margin-bottom: 12px;
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+    }
+    .eos-claims-alert .alert-body { flex: 1; }
+    .eos-claims-alert .alert-title { font-weight: 700; font-size: 0.95rem; }
+    .eos-claims-alert .alert-detail { font-size: 0.85rem; margin-top: 4px; opacity: 0.9; }
+    .eos-claims-alert .alert-dismiss { background: none; border: none; color: white; cursor: pointer; font-size: 1.1rem; padding: 0; line-height: 1; }
   </style>
 </head>
 <body>
@@ -576,12 +596,13 @@
           </div>
 
           <div class="card" id="card-chart_of_accounts">
-            <div class="slot-label"><span class="dot" id="dot-chart_of_accounts"></span>Chart of Accounts</div>
+            <div class="slot-label"><span class="dot" id="dot-chart_of_accounts"></span>Chart of Accounts <span style="color:#dc2626;font-size:0.75rem;font-weight:700;">*</span></div>
             <div class="upload-area" id="area-chart_of_accounts">
               <span class="area-text">Click or drag images here</span>
               <input type="file" name="chart_of_accounts" id="inp-chart_of_accounts" accept="image/*" multiple />
             </div>
             <div class="file-list" id="list-chart_of_accounts"></div>
+            <div class="coa-required-hint" id="coa-required-hint">Chart of Accounts required to generate EOS</div>
           </div>
 
         </div>
@@ -790,7 +811,7 @@
   const VARIATION_TYPE_CONFIG = {
     full_and_final:                  { hasIE: true,  hasCOA: true,  hasFFAmountField: true,  flagNote: null,
       extraFields: ['ff-amount-field'], requiredFields: ['creditors-claim','ff-amount'] },
-    changing_ip:                     { hasIE: false, hasCOA: false, hasFFAmountField: false, flagNote: null,
+    changing_ip:                     { hasIE: false, hasCOA: true,  hasFFAmountField: false, flagNote: null,
       extraFields: [], requiredFields: ['creditors-claim'] },
     funds_paid_to_date:              { hasIE: true,  hasCOA: true,  hasFFAmountField: false, flagNote: null,
       extraFields: ['field-additional-assets-amount','field-additional-assets-label'],
@@ -798,20 +819,20 @@
     contributions_reduction:         { hasIE: true,  hasCOA: true,  hasFFAmountField: false, flagNote: null,
       extraFields: ['field-new-contribution','field-remaining-months-cr'],
       requiredFields: ['creditors-claim','new-contribution-amount','remaining-months-cr'] },
-    extension_for_arrears:           { hasIE: false, hasCOA: false, hasFFAmountField: false, flagNote: null,
+    extension_for_arrears:           { hasIE: false, hasCOA: true,  hasFFAmountField: false, flagNote: null,
       extraFields: ['field-regular-vc-amount','field-regular-remaining-months','field-extension-months-ea','field-extension-vc-ea'],
       requiredFields: ['creditors-claim','regular-vc-amount','regular-remaining-months','extension-months-ea','extension-vc-ea'] },
-    extra_payment_breaks:            { hasIE: false, hasCOA: false, hasFFAmountField: false, flagNote: null,
+    extra_payment_breaks:            { hasIE: false, hasCOA: true,  hasFFAmountField: false, flagNote: null,
       extraFields: [], requiredFields: ['creditors-claim'] },
-    min_dividend_not_complied:       { hasIE: false, hasCOA: false, hasFFAmountField: false, flagNote: null,
+    min_dividend_not_complied:       { hasIE: false, hasCOA: true,  hasFFAmountField: false, flagNote: null,
       extraFields: [], requiredFields: ['creditors-claim'] },
-    other_modification_not_complied: { hasIE: false, hasCOA: false, hasFFAmountField: false,
+    other_modification_not_complied: { hasIE: false, hasCOA: true,  hasFFAmountField: false,
       flagNote: '<strong>Note:</strong> Specify in the reason which modification is not going to be complied with, and explain why it cannot be met.',
       extraFields: [], requiredFields: ['creditors-claim'] },
-    increase_in_claims:              { hasIE: false, hasCOA: false, hasFFAmountField: false,
+    increase_in_claims:              { hasIE: false, hasCOA: true,  hasFFAmountField: false,
       flagNote: '<strong>Note:</strong> Specify in the reason where the claim has come from and why it has increased.',
       extraFields: ['field-propose-extension'], requiredFields: ['creditors-claim'] },
-    other:                           { hasIE: false, hasCOA: false, hasFFAmountField: false, flagNote: null,
+    other:                           { hasIE: false, hasCOA: true,  hasFFAmountField: false, flagNote: null,
       extraFields: [], requiredFields: ['creditors-claim'] },
   };
 
@@ -853,9 +874,8 @@
       });
     }
 
-    // COA upload card
-    const coaCard = document.getElementById('card-chart_of_accounts');
-    if (coaCard) coaCard.style.display = cfg.hasCOA ? '' : 'none';
+    // COA upload card — always visible (required for all variation types)
+    // (hasCOA is now true for all types; card visibility not toggled)
 
     // I&E section
     const ieWrap = document.getElementById('ie-section-wrap');
@@ -941,6 +961,13 @@
         });
       }
     }
+
+    // COA upload required for all variation types
+    const coaFiles = (typeof fileMap !== 'undefined' && fileMap['chart_of_accounts']) ? fileMap['chart_of_accounts'] : [];
+    const coaPresent = coaFiles.length > 0;
+    if (!coaPresent) valid = false;
+    const coaHint = document.getElementById('coa-required-hint');
+    if (coaHint) coaHint.classList.toggle('visible', !coaPresent);
 
     submitBtn.disabled = !valid;
   }
@@ -2340,6 +2367,7 @@
       fileMap[slot] = [...fileMap[slot], ...input.files];
       input.value = '';
       refreshSlot(slot);
+      validateEosForm();
     });
     area.addEventListener('dragover', e => { e.preventDefault(); area.classList.add('drag'); });
     area.addEventListener('dragleave', () => area.classList.remove('drag'));
@@ -2347,6 +2375,7 @@
       e.preventDefault(); area.classList.remove('drag');
       fileMap[slot] = [...fileMap[slot], ...e.dataTransfer.files];
       refreshSlot(slot);
+      validateEosForm();
     });
   });
 
@@ -2357,6 +2386,7 @@
     const idx  = Number(btn.dataset.idx);
     fileMap[slot].splice(idx, 1);
     refreshSlot(slot);
+    validateEosForm();
   });
 
   // Variation fee toggle
@@ -2897,7 +2927,30 @@
     const eosEl = document.getElementById('review-eos-content');
     if (entry.eosState || (entry.parsedResult && entry.parsedResult.eos)) {
       const state = entry.eosState || entry.parsedResult.eos;
-      eosEl.innerHTML = renderEosTable(state, false);
+      let eosHtml = '';
+
+      // §11 — Creditors' claims increase alert (>20%)
+      const uc = state.unsecured_creditors || {};
+      const ucCurrent = typeof uc.current === 'number' ? uc.current : null;
+      const ucLastAgreed = typeof uc.last_agreed === 'number' ? uc.last_agreed : null;
+      if (ucCurrent !== null && ucLastAgreed !== null && ucLastAgreed > 0) {
+        const pctIncrease = ((ucCurrent - ucLastAgreed) / ucLastAgreed) * 100;
+        if (pctIncrease > 20) {
+          const fmtGbp = v => '£' + v.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+          const fmtPct = p => p.toLocaleString('en-GB', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+          eosHtml += `
+            <div class="eos-claims-alert" id="eos-claims-alert-banner">
+              <div class="alert-body">
+                <div class="alert-title">⚠ CLAIMS INCREASED BY MORE THAN 20% — INVESTIGATE</div>
+                <div class="alert-detail">Last Agreed: ${fmtGbp(ucLastAgreed)} &rarr; Current: ${fmtGbp(ucCurrent)} (+${fmtPct(pctIncrease)}%)</div>
+              </div>
+              <button class="alert-dismiss" type="button" onclick="document.getElementById('eos-claims-alert-banner').style.display='none';" title="Dismiss">×</button>
+            </div>`;
+        }
+      }
+
+      eosHtml += renderEosTable(state, false);
+      eosEl.innerHTML = eosHtml;
     } else {
       eosEl.innerHTML = '<p style="color:#bbb;padding:1rem;">No EOS data available.</p>';
     }

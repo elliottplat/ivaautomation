@@ -992,7 +992,8 @@ OUTPUT RULES:
 - Round all monetary values to 2 decimal places.
 - Round dividend p/pound to 2 decimal places.
 - Include Variation Meeting Fee line ONLY if variation_meeting_fee > 0.
-- If a screenshot is unreadable or missing required data, populate the JSON as best you can and put a clear flag in compliance.notes.\
+- If a screenshot is unreadable or missing required data, populate the JSON as best you can and put a clear flag in compliance.notes.
+- If eos.unsecured_creditors.current exceeds eos.unsecured_creditors.last_agreed by more than 20%, append a review_flag with the exact text: "Creditors' claims increased by more than 20% vs agreed EOS — investigate." Also include a brief note in compliance.notes describing the delta in £ and %.\
 """
 
 VARIATION_TYPE_LABELS = {
@@ -1189,7 +1190,8 @@ OUTPUT RULES:
 - When variation_type is "other", echo custom_variation_type_name verbatim in summary.recommendation_basis.
 - The universal creditors_claim_amount from the input always populates eos.unsecured_creditors.current. The Last Agreed value remains the figure scraped from the Agreed EOS.
 - The universal variation_meeting_fee always applies on top of the total cost cap regardless of variation_type, including for non-F&F types — include the line item only when the value is > 0.
-- If a screenshot is unreadable or missing required data, populate the JSON as best you can and put a clear flag in compliance.notes.\
+- If a screenshot is unreadable or missing required data, populate the JSON as best you can and put a clear flag in compliance.notes.
+- If eos.unsecured_creditors.current exceeds eos.unsecured_creditors.last_agreed by more than 20%, append a review_flag with the exact text: "Creditors' claims increased by more than 20% vs agreed EOS — investigate." Also include a brief note in compliance.notes describing the delta in £ and %.\
 """
 
 VARIATION_DOCUMENT_SLOTS = [
