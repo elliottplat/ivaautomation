@@ -1,0 +1,40 @@
+{
+  "name": "Insufficient funds — Nominee fee overdrawn, refund closes the gap",
+  "description": "Nominee fee is overdrawn by £100.00. Cash in hand before refund is £40.00. After refunding the £100 overdraw, cash in hand becomes £140.00, which is enough to pay the £111.77 creditor shortfall in full. No unrecoverable shortfall. Expected: waterfall triggered, £100 Nominee refund, full £111.77 paid to creditors, zero unrecoverable shortfall.",
+  "inputs": {
+    "source": "synthetic",
+    "rp_summary": {
+      "total_contributions_received": 1237.43,
+      "fees_drawn": {
+        "nominee": 700.00,
+        "supervisor": 150.00
+      },
+      "disbursements_drawn": 341.43,
+      "creditor_payments_made": 5.06,
+      "total_cash_out": 1196.49,
+      "cash_in_hand": 40.94
+    },
+    "locked_model": {
+      "retention_rule": "First 10 contributions retained for Nominee fee",
+      "retention_amount": 848.00,
+      "creditor_percentage": 30,
+      "required_creditor_distribution": 116.83
+    },
+    "fee_entitlements": {
+      "nominee": {"entitlement": 600.00, "drawn": 700.00, "variance": -100.00, "position": "overdrawn"},
+      "supervisor": {"entitlement": 150.00, "drawn": 150.00, "variance": 0.00, "position": "matched"}
+    }
+  },
+  "expected": {
+    "cash_reconciliation.waterfall_triggered": true,
+    "cash_reconciliation.instruction_executable": false,
+    "cash_reconciliation.fee_refunds_into_case": 100.00,
+    "cash_reconciliation.cash_in_hand_after_refunds": 140.94,
+    "cash_reconciliation.creditor_shortfall_unrecoverable": 0.00,
+    "ready_to_close": true,
+    "final_cashier_instruction_pattern": "Refund £100.00 from Nominee fee, then distribute all remaining funds to creditors",
+    "risks_must_contain": "INSUFFICIENT FUNDS",
+    "omni_fee_notes_pattern": "Refund £100.00 from Nominee fee. Remaining cash distributed to creditors"
+  },
+  "notes": "Waterfall: Step A — Nominee overdrawn by £100, refund into case; Step B — cash rises from £40.94 to £140.94; Step C — £140.94 ≥ £111.77 shortfall, pay shortfall in full, remainder to creditors. Figures approximate; validates waterfall logic."
+}

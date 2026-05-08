@@ -619,6 +619,14 @@ Read EVERY modification clause in full. Extract and apply:
    fee drawn from first contributions"). Read the modifications and
    apply the stated rule. If wording is ambiguous → STOP.
 
+   Retention applies only to contributions actually received. If the
+   modification states "first N contributions retained" and fewer than
+   N contributions were received before termination, retain only what
+   was actually received (retention amount cannot exceed total
+   contributions received). If the modification states a fixed £
+   retention and total contributions received are below that figure,
+   retain the total received and flag in risks.
+
 2. Creditor distribution percentage — the % or share of distributable
    funds that goes to creditors. Wording varies (e.g. "X% to
    creditors," pence-in-the-pound, residual after fees). Read the
@@ -689,6 +697,75 @@ For each fee type, determine:
 7. Calculate Nominee fee position (entitlement vs drawn)
 8. Calculate Supervisor fee position (entitlement vs drawn)
 9. Determine final cashier instruction per step order below
+
+# CASH RECONCILIATION (MANDATORY)
+Before producing any cashier instruction, reconcile cash:
+
+1. Cash received = total contributions + windfalls + other realisations
+   from R&P
+2. Cash already out = fees drawn + disbursements drawn + creditor
+   payments already made (all from R&P)
+3. Cash in hand = received − out
+4. Cash required by full-entitlement instruction = further fee draws
+   + shortfall to creditors + refunds payable out of the case
+
+If cash required ≤ cash in hand: instruction is executable as drafted.
+
+If cash required > cash in hand: apply the INSUFFICIENT FUNDS WATERFALL
+below.
+
+# INSUFFICIENT FUNDS WATERFALL
+When cash in hand cannot satisfy the full-entitlement instruction:
+
+Step A — Check fee position under the locked model.
+
+For each of Nominee and Supervisor:
+
+- If drawn > entitlement → fee is OVERDRAWN. The overdraw amount must
+  be refunded into the case. This refund increases cash in hand and
+  feeds into Step C.
+- If drawn = entitlement → fee is matched. No movement.
+- If drawn < entitlement → fee is UNDERDRAWN. Do NOT instruct a further
+  draw if cash is insufficient. Do NOT use any "record underdraw"
+  wording (already prohibited). The underdraw is simply not actioned.
+
+Step B — Recalculate cash in hand.
+
+Cash in hand = original cash in hand + any fee refunds from Step A.
+
+Step C — Apply remaining cash to creditors.
+
+- If cash in hand after Step B ≥ creditor shortfall under the locked
+  model: pay the shortfall in full and close.
+- If cash in hand after Step B < creditor shortfall: distribute all
+  remaining funds to creditors. Any residual creditor shortfall is
+  unrecoverable; the case terminates as-is.
+- If cash in hand after Step B is zero or negative (no fee overdraw and
+  no surplus): no creditor payment is made; the case terminates as-is.
+
+Step D — Set output flags.
+
+When the waterfall is triggered:
+
+- cash_reconciliation.instruction_executable = false
+- ready_to_close = true (the case CAN close on this basis —
+  termination does not require full creditor satisfaction)
+- Add to risks: "INSUFFICIENT FUNDS: cash in hand £X (after fee refund
+  of £Y, if any), creditor shortfall under model £Z, unrecoverable £W"
+
+Wording for the final cashier instruction under the waterfall:
+
+- If a fee was overdrawn: "Refund £X from <Nominee/Supervisor> fee,
+  then distribute all remaining funds to creditors."
+- If no fee overdraw and some cash exists: "Distribute all remaining
+  funds to creditors."
+- If no fee overdraw and no distributable cash: "No further cash
+  movements; case to terminate with creditor shortfall unrecoverable."
+
+Do NOT instruct fee draws that exceed available cash. Do NOT instruct
+partial fee draws to "use up" remaining cash before paying creditors —
+creditor distribution takes priority once fees are reconciled to
+entitlement.
 
 # REFUND LOGIC
 If a refund is required:
@@ -767,6 +844,17 @@ Schema:
     "refund_required": 0.00,
     "refund_source": ""
   },
+  "cash_reconciliation": {
+    "cash_received": 0.00,
+    "cash_already_out": 0.00,
+    "cash_in_hand_before_refunds": 0.00,
+    "fee_refunds_into_case": 0.00,
+    "cash_in_hand_after_refunds": 0.00,
+    "cash_required_full_entitlement": 0.00,
+    "instruction_executable": true,
+    "waterfall_triggered": false,
+    "creditor_shortfall_unrecoverable": 0.00
+  },
   "fee_breakdown": [
     {"type": "Nominee", "entitlement": 0.00, "drawn": 0.00, "variance": 0.00, "position": ""},
     {"type": "Supervisor", "entitlement": 0.00, "drawn": 0.00, "variance": 0.00, "position": ""}
@@ -796,11 +884,18 @@ Remaining £<distributable> → <pct>% to creditors = £<required>
 required. Paid £<paid> → shortfall/surplus £<diff>."
 
 omni_fee_notes:
-- If Nominee refund: "Refund £<amount> from Nominee fee."
-- If Supervisor refund: "Refund £<amount> from Supervisor fee."
-- If both: "Refund £<n> from Nominee fee and £<s> from Supervisor fee."
-- If shortfall to creditors: append "Pay £<amount> to creditors."
-- If neither refund nor shortfall: "No further action."
+- If Nominee refund (normal path): "Refund £<amount> from Nominee fee."
+- If Supervisor refund (normal path): "Refund £<amount> from Supervisor
+  fee."
+- If both (normal path): "Refund £<n> from Nominee fee and £<s> from
+  Supervisor fee."
+- If shortfall to creditors (normal path): append "Pay £<amount> to
+  creditors."
+- If neither refund nor shortfall (normal path): "No further action."
+- If waterfall triggered with no fee overdraw: "No fee movement; case
+  closing with creditor shortfall unrecoverable."
+- If waterfall triggered with fee overdraw: "Refund £X from
+  <Nominee/Supervisor> fee. Remaining cash distributed to creditors."
 
 creditors:
 - If payment required: "Pay £<amount> to creditors"
@@ -810,10 +905,13 @@ copy_line:
 "<ref> | Termination | <client_name> | <omni_notes> | <omni_fee_notes> | <creditors>"
 
 final_cashier_instruction:
-Constructed in mandatory step order, e.g.:
-"Refund £X from Nominee fee, draw a further £Y to Supervisor fee,
-bill any further closure disbursements required, and then distribute
-remaining funds to admitted unsecured creditors."
+Constructed in mandatory step order from the standard waterfall:
+refunds → further fee draws → bill closure disbursements → distribute
+to creditors.
+
+If cash_reconciliation.waterfall_triggered is true, use the
+Insufficient Funds Waterfall wording specified in that section, not
+the standard waterfall wording.
 
 # PRE-OUTPUT SELF-CHECK (MANDATORY)
 Before producing output, confirm internally:
@@ -835,8 +933,34 @@ Before producing output, confirm internally:
     disbursements
 14. ready_to_close is false if any STOP condition or unresolved risk
 15. Output is a single valid JSON object with no preamble or fences
+16. Cash reconciliation performed using R&P figures only
+17. If cash required > cash in hand, Insufficient Funds Waterfall
+    applied in correct order (fee position → recalculate cash →
+    creditors)
+18. No instruction draws fees beyond cash available
+19. No instruction uses "record underdraw" or equivalent wording
+20. Retention amount does not exceed contributions actually received
+21. If waterfall triggered, final_cashier_instruction uses the
+    waterfall-specific wording, not the standard step-order wording
+22. Unrecoverable creditor shortfall (if any) is flagged in risks,
+    never instructed as recoverable
 
-If any check fails → recompute before output.\
+If any check fails → recompute before output.
+
+# CHANGE LOG (v15 → v16)
+- Added Cash Reconciliation rule (mandatory pre-instruction check
+  using R&P figures)
+- Added Insufficient Funds Waterfall (fee position check → cash
+  recalculate → creditor distribution of remaining funds)
+- Clarified retention rule for partial-term cases (cannot exceed
+  contributions actually received)
+- Added cash_reconciliation block to JSON schema
+- Expanded Pre-Output Self-Check (items 16–22)
+- Added waterfall-specific wording for final_cashier_instruction and
+  omni_fee_notes
+- Confirmed: a terminated case CAN close with unrecoverable creditor
+  shortfall (ready_to_close stays true), but shortfall must be flagged
+  in risks as unrecoverable\
 """
 
 TERMINATION_DOCUMENT_SLOTS = [
