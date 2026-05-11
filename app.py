@@ -36,10 +36,15 @@ sentry_sdk.init(dsn=os.environ.get("SENTRY_DSN"), traces_sample_rate=0.1)
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 40 * 1024 * 1024
 
-# F-07: Fail fast if SECRET_KEY is not set
+# F-07: Require SECRET_KEY in production; generate a per-process random key in local dev
 _secret_key = os.environ.get("SECRET_KEY")
 if not _secret_key:
-    raise RuntimeError("SECRET_KEY env var must be set to a random value")
+    if os.environ.get("DATABASE_URL"):
+        # Production environment — refuse to start with an unknown key
+        raise RuntimeError("SECRET_KEY env var must be set. Generate one with: python -c \"import secrets; print(secrets.token_hex(32))\"")
+    # Local dev — random key per process (sessions won't persist across restarts, which is fine)
+    _secret_key = secrets.token_hex(32)
+    logger.warning("SECRET_KEY not set — using a per-process random key. Set SECRET_KEY for persistent sessions.")
 app.config["SECRET_KEY"] = _secret_key
 
 # F-02: Secure session cookie settings
