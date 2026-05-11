@@ -339,11 +339,25 @@
 
           <div class="card">
             <div class="slot-label"><span class="dot" id="dot-rp"></span>Receipts &amp; Payments (R&amp;P)</div>
-            <div class="upload-area" id="area-rp">
-              <span class="area-text">Click or drag images here</span>
-              <input type="file" name="rp" id="inp-rp" accept="image/*" multiple />
+            <div class="input-mode-toggle">
+              <button type="button" class="mode-btn active" id="rp-btn-screenshot" onclick="setRpMode('screenshot')">Screenshot</button>
+              <button type="button" class="mode-btn" id="rp-btn-pdf" onclick="setRpMode('pdf')">PDF</button>
             </div>
-            <div class="file-list" id="list-rp"></div>
+            <div id="rp-screenshot-area">
+              <div class="upload-area" id="area-rp">
+                <span class="area-text">Click or drag images here</span>
+                <input type="file" name="rp" id="inp-rp" accept="image/*" multiple />
+              </div>
+              <div class="file-list" id="list-rp"></div>
+            </div>
+            <div id="rp-pdf-area" style="display:none;">
+              <div class="upload-area" id="area-rp-pdf">
+                <span class="area-text">Click or drag PDF here</span>
+                <input type="file" name="rp" id="inp-rp-doc" accept=".pdf,application/pdf" />
+              </div>
+              <div class="file-list" id="list-rp-pdf"></div>
+            </div>
+            <p class="upload-helper">Accepted: JPEG, PNG, GIF, WebP (screenshots) or PDF</p>
           </div>
 
           <div class="card">
@@ -353,6 +367,7 @@
               <input type="file" name="contribution_schedule" id="inp-contribution_schedule" accept="image/*" multiple />
             </div>
             <div class="file-list" id="list-contribution_schedule"></div>
+            <p class="upload-helper">Accepted: JPEG, PNG, GIF, WebP screenshots</p>
           </div>
 
           <div class="card">
@@ -379,6 +394,7 @@
               <input type="file" name="eos" id="inp-eos" accept="image/*" multiple />
             </div>
             <div class="file-list" id="list-eos"></div>
+            <p class="upload-helper">Accepted: JPEG, PNG, GIF, WebP screenshots</p>
           </div>
 
         </div>
@@ -424,6 +440,7 @@
               <input type="file" name="vmoc_modifications" id="inp-vmoc_modifications" accept="image/*" multiple />
             </div>
             <div class="file-list" id="list-vmoc_modifications"></div>
+            <p class="upload-helper">Accepted: JPEG, PNG, GIF, WebP screenshots</p>
           </div>
 
         </div><!-- /vmoc-questions -->
@@ -865,6 +882,34 @@
     const idx  = Number(btn.dataset.idx);
     fileMap[slot].splice(idx, 1);
     refreshSlot(slot);
+  });
+
+  // ── R&P mode toggle (Screenshot / PDF) ───────────────────────────────────
+  function setRpMode(mode) {
+    document.getElementById('rp-screenshot-area').style.display = mode === 'screenshot' ? '' : 'none';
+    document.getElementById('rp-pdf-area').style.display        = mode === 'pdf'        ? '' : 'none';
+    document.getElementById('rp-btn-screenshot').classList.toggle('active', mode === 'screenshot');
+    document.getElementById('rp-btn-pdf').classList.toggle('active', mode === 'pdf');
+    // Clear the other mode's files when switching
+    if (mode === 'screenshot') fileMap['rp-pdf'] = [];
+    else fileMap['rp'] = [];
+    refreshSlot('rp');
+  }
+  // Wire PDF input into fileMap so dot fills and validation works
+  const rpPdfInput = document.getElementById('inp-rp-doc');
+  const rpPdfArea  = document.getElementById('area-rp-pdf');
+  rpPdfArea.addEventListener('click', e => { if (e.target !== rpPdfInput) rpPdfInput.click(); });
+  rpPdfInput.addEventListener('change', () => {
+    fileMap['rp'] = [...rpPdfInput.files];
+    rpPdfInput.value = '';
+    refreshSlot('rp');
+  });
+  rpPdfArea.addEventListener('dragover', e => { e.preventDefault(); rpPdfArea.classList.add('drag'); });
+  rpPdfArea.addEventListener('dragleave', () => rpPdfArea.classList.remove('drag'));
+  rpPdfArea.addEventListener('drop', e => {
+    e.preventDefault(); rpPdfArea.classList.remove('drag');
+    fileMap['rp'] = [...e.dataTransfer.files];
+    refreshSlot('rp');
   });
 
   // ── Paste-text mode toggle for Modifications ─────────────────────────────
