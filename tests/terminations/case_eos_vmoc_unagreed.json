@@ -1,0 +1,42 @@
+{
+  "name": "EOS state: VMOC_UNAGREED — unagreed VMOC outline, provisional figures",
+  "description": "VMOC_UNAGREED case. EOS is an outline of what the VMOC is proposing; it has not yet been agreed. The VMOC Modifications document (5th document) contains the proposed modifications. Calculation must be based entirely on the VMOC Modifications document — the outline EOS has no authority. The mandatory provisional risk flag must always be present. Expected: eos_state = VMOC_UNAGREED, provisional risk flag in risks, vmoc_modifications_applied populated, instruction marked provisional.",
+  "inputs": {
+    "source": "synthetic",
+    "eos_state": "VMOC_UNAGREED",
+    "rp_summary": {
+      "total_contributions_received": 1100.00,
+      "fees_drawn": {
+        "nominee": 550.00,
+        "supervisor": 120.00
+      },
+      "disbursements_drawn": 250.00,
+      "creditor_payments_made": 0.00,
+      "total_cash_out": 920.00,
+      "cash_in_hand": 180.00
+    },
+    "proposed_model_from_vmoc_modifications": {
+      "retention_rule": "First 8 contributions retained for Nominee fee (proposed per VMOC outline)",
+      "retention_amount": 720.00,
+      "creditor_percentage": 35,
+      "required_creditor_distribution": 133.00,
+      "note": "Proposed; not yet agreed. Outline EOS figures must NOT be used as the source."
+    },
+    "fee_entitlements_under_proposed_model": {
+      "nominee": {"entitlement": 550.00, "drawn": 550.00, "variance": 0.00, "position": "matched"},
+      "supervisor": {"entitlement": 120.00, "drawn": 120.00, "variance": 0.00, "position": "matched"}
+    }
+  },
+  "expected": {
+    "eos_state": "VMOC_UNAGREED",
+    "cash_reconciliation.waterfall_triggered": false,
+    "cash_reconciliation.instruction_executable": true,
+    "ready_to_close": true,
+    "risks_must_contain": "provisional",
+    "risks_must_contain_alt": "unagreed VMOC outline",
+    "risks_must_contain_re_run_note": "Re-run required if VMOC terms change before agreement",
+    "locked_model.vmoc_modifications_applied_must_be_non_empty": true,
+    "final_cashier_instruction_must_not_contain": "EOS"
+  },
+  "notes": "Mandatory provisional risk: 'Calculation based on unagreed VMOC outline; figures provisional pending VMOC approval. Re-run required if VMOC terms change before agreement.' No figure may be sourced from the outline EOS. Locked model comes from VMOC Modifications document only."
+}

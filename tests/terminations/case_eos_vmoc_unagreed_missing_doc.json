@@ -1,0 +1,19 @@
+{
+  "name": "EOS state: VMOC_UNAGREED — VMOC Modifications document missing (400 error expected)",
+  "description": "VMOC_UNAGREED case where the VMOC Modifications document has not been uploaded. The backend must reject the request with a 400 error before calling Claude. This test validates the API-level guard in analyze_termination, not Claude's output.",
+  "inputs": {
+    "source": "synthetic",
+    "eos_state": "VMOC_UNAGREED",
+    "vmoc_modifications_uploaded": false,
+    "rp_summary": {
+      "note": "Irrelevant — request should be rejected before reaching Claude"
+    }
+  },
+  "expected": {
+    "http_status": 400,
+    "error_contains": "VMOC Modifications document required",
+    "claude_not_called": true
+  },
+  "manual_testing_note": "Submit to /analyze-termination with eos_state=VMOC_UNAGREED but no vmoc_modifications file. Expect HTTP 400 with JSON error: {'error': 'VMOC Modifications document required when EOS state is VMOC_UNAGREED.'} The request must be rejected by the Flask route guard, not by Claude.",
+  "notes": "Backend guard location: app.py analyze_termination route, after eos_state extraction. Condition: eos_state == 'VMOC_UNAGREED' and not request.files.get('vmoc_modifications')."
+}

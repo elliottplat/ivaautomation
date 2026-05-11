@@ -579,28 +579,74 @@ For each terminated IVA, determine:
 - Fee position (Nominee and Supervisor separately)
 - Final cashier instruction
 
+# EOS STATE (provided as input)
+
+The calling application provides eos_state with one of three values:
+
+1. NON_VMOC — EOS is validation-only. Never used for any calculation
+   figure. Locked model and existing modifications drive the
+   calculation. (Default behaviour.)
+
+2. VMOC_AGREED — EOS is an agreed Revised EOS from a VMOC. EOS is
+   authoritative for fees, disbursements, and cost structure. Existing
+   VMOC override rules apply.
+
+3. VMOC_UNAGREED — EOS is an outline of what the VMOC is proposing
+   but has NOT been agreed. EOS is INDICATIVE ONLY and must NOT be
+   used as a source for any calculation figure. A separate VMOC
+   Modifications document is provided as a fifth input. The locked
+   model plus the VMOC Modifications drive the calculation.
+
+If eos_state is missing from the trigger text or is not one of the
+three values above → STOP with reason "EOS state not provided or
+invalid."
+
 # INPUTS
-You will receive four documents for a single case:
+
+Always provided:
 1. R&P (Receipts and Payments)
 2. Contribution Schedule
 3. Modifications
 4. EOS (Estimated Outcome Statement)
 
+Provided only when eos_state = "VMOC_UNAGREED":
+5. VMOC Modifications
+
+If eos_state = "VMOC_UNAGREED" and the VMOC Modifications document
+is not present in the input → STOP with reason "VMOC Modifications
+document required but not provided."
+
 # DOCUMENT PRIORITY
+
+When eos_state = "NON_VMOC":
 1. R&P (highest)
 2. Contribution Schedule
 3. Modifications
-4. EOS (lowest)
+4. EOS (lowest — validation only)
 
-EOS permitted use:
+EOS permitted use (NON_VMOC):
 - Validate intent
 - Support conflict decision between competing models
 - Flag inconsistencies
 
-EOS prohibited use:
+EOS prohibited use (NON_VMOC):
 - Source of any calculation figure
 - Override the locked model
 - Override modification fee structure
+
+When eos_state = "VMOC_AGREED":
+1. EOS (highest — authoritative for fees, disbursements, cost structure)
+2. R&P
+3. Contribution Schedule
+4. Modifications
+
+When eos_state = "VMOC_UNAGREED":
+1. R&P (highest)
+2. Contribution Schedule
+3. VMOC Modifications (takes precedence over pre-existing Modifications
+   on any conflict)
+4. Modifications (pre-existing)
+5. EOS (lowest — outline only, indicative, never a calculation source)
 
 # MODEL SELECTION (CONFLICT HARD-LOCK)
 Where modifications present competing models or competing fee/
@@ -643,6 +689,19 @@ Read EVERY modification clause in full. Extract and apply:
 
 Modifications apply at termination. Do not assume a modification is
 suspended because the case terminated early.
+
+When eos_state = "VMOC_UNAGREED", read BOTH the pre-existing
+Modifications AND the VMOC Modifications in full. Apply all
+fee-affecting clauses from both, with VMOC Modifications taking
+precedence on any conflict. Conflicts in practice are rare — but
+where they occur, the VMOC Modifications clause wins, and the
+displaced pre-existing clause must be noted in risks and logged in
+locked_model.modification_conflicts_resolved.
+
+The "VMOC EOS overrides locked model on fees" rule does NOT apply when
+eos_state = "VMOC_UNAGREED". The outline EOS has no authority over the
+locked model. The locked model plus the combined modifications
+(pre-existing + VMOC) drive the calculation.
 
 # CAT 1 DISBURSEMENT NOMINEE REDUCTION CLAUSE
 If ANY modification states (or substantively states) that "where
@@ -753,6 +812,17 @@ When the waterfall is triggered:
 - Add to risks: "INSUFFICIENT FUNDS: cash in hand £X (after fee refund
   of £Y, if any), creditor shortfall under model £Z, unrecoverable £W"
 
+# VMOC_UNAGREED — MANDATORY PROVISIONAL RISK FLAG
+If eos_state = "VMOC_UNAGREED", ALWAYS include the following risk
+entry regardless of all other conditions:
+
+"Calculation based on unagreed VMOC outline; figures provisional
+pending VMOC approval. Re-run required if VMOC terms change before
+agreement."
+
+This flag MUST appear even when ready_to_close is true and no other
+risks are present.
+
 Wording for the final cashier instruction under the waterfall:
 
 - If a fee was overdrawn: "Refund £X from <Nominee/Supervisor> fee,
@@ -826,13 +896,16 @@ Schema:
 
 {
   "status": "OK",
+  "eos_state": "NON_VMOC",
   "ready_to_close": true,
   "locked_model": {
     "description": "",
     "retention_rule": "",
     "retention_amount": 0.00,
     "creditor_percentage": 0,
-    "fee_modifications_applied": []
+    "fee_modifications_applied": [],
+    "vmoc_modifications_applied": [],
+    "modification_conflicts_resolved": []
   },
   "calculation_summary": {
     "total_contributions": 0.00,
@@ -944,6 +1017,18 @@ Before producing output, confirm internally:
     waterfall-specific wording, not the standard step-order wording
 22. Unrecoverable creditor shortfall (if any) is flagged in risks,
     never instructed as recoverable
+23. eos_state is one of "NON_VMOC", "VMOC_AGREED", or "VMOC_UNAGREED"
+    (never blank, never any other value)
+24. If eos_state = "VMOC_UNAGREED": the VMOC Modifications document was
+    present and read in full before producing any figure
+25. If eos_state = "VMOC_UNAGREED": no calculation figure (retention
+    rule, amounts, creditor %, fee entitlements) was sourced from the
+    outline EOS — all figures come from the VMOC Modifications document
+    and R&P only
+26. If eos_state = "VMOC_UNAGREED": risks contains the mandatory
+    provisional calculation warning
+27. Document priority applied matches the eos_state (NON_VMOC/
+    VMOC_AGREED priority list vs VMOC_UNAGREED priority list)
 
 If any check fails → recompute before output.
 
@@ -960,7 +1045,25 @@ If any check fails → recompute before output.
   omni_fee_notes
 - Confirmed: a terminated case CAN close with unrecoverable creditor
   shortfall (ready_to_close stays true), but shortfall must be flagged
-  in risks as unrecoverable\
+  in risks as unrecoverable
+
+# CHANGE LOG (v16 → v17)
+- Added three-state EOS input: NON_VMOC / VMOC_AGREED / VMOC_UNAGREED
+- Added conditional INPUTS section (5th document required only for
+  VMOC_UNAGREED)
+- Added state-conditional DOCUMENT PRIORITY (three separate priority
+  lists — NON_VMOC, VMOC_AGREED, VMOC_UNAGREED)
+- Extended MODIFICATION READING RULE for VMOC_UNAGREED: both Mods
+  documents read, VMOC takes precedence, outline EOS has no authority
+  over the locked model
+- Added eos_state to JSON schema (top-level field)
+- Added vmoc_modifications_applied and modification_conflicts_resolved
+  to locked_model in JSON schema
+- Added mandatory provisional risk flag for VMOC_UNAGREED (always
+  included regardless of other conditions)
+- Expanded Pre-Output Self-Check (items 23–27) for eos_state validity,
+  VMOC Mods read, no EOS-sourced figures, provisional flag present,
+  document priority correct
 """
 
 TERMINATION_DOCUMENT_SLOTS = [
@@ -2335,6 +2438,10 @@ def analyze_termination():
     work_item_id = int(work_item_id_raw) if work_item_id_raw.isdigit() else None
     submitted_by = int(current_user.id)
 
+    eos_state = request.form.get("eos_state", "NON_VMOC").strip().upper()
+    if eos_state not in ("NON_VMOC", "VMOC_AGREED", "VMOC_UNAGREED"):
+        eos_state = "NON_VMOC"
+
     content = []
     any_document = False
 
@@ -2344,8 +2451,26 @@ def analyze_termination():
         if not pages:
             continue
         any_document = True
-        content.append({"type": "text", "text": f"--- {label} ({len(pages)} page(s)) ---"})
+        # Suffix EOS label with state so the prompt knows which mode applies
+        if field_name == "eos" and eos_state != "NON_VMOC":
+            doc_label = f"{label} [{eos_state}]"
+        else:
+            doc_label = label
+        content.append({"type": "text", "text": f"--- {doc_label} ({len(pages)} page(s)) ---"})
         for page in pages:
+            try:
+                image_data, media_type = encode_file(page)
+            except ValueError as e:
+                return jsonify({"error": str(e)}), 400
+            content.append({"type": "image", "source": {"type": "base64", "media_type": media_type, "data": image_data}})
+
+    # Attach VMOC Modifications as the fifth document when state is VMOC_UNAGREED
+    if eos_state == "VMOC_UNAGREED":
+        vmoc_pages = [f for f in request.files.getlist("vmoc_modifications") if f and f.filename]
+        if not vmoc_pages:
+            return jsonify({"error": "VMOC Modifications document required when EOS state is VMOC_UNAGREED."}), 400
+        content.append({"type": "text", "text": f"--- VMOC Modifications ({len(vmoc_pages)} page(s)) ---"})
+        for page in vmoc_pages:
             try:
                 image_data, media_type = encode_file(page)
             except ValueError as e:
@@ -2355,7 +2480,7 @@ def analyze_termination():
     if not any_document:
         return jsonify({"error": "Please upload at least one document."}), 400
 
-    content.append({"type": "text", "text": "CALCULATE"})
+    content.append({"type": "text", "text": f"EOS STATE: {eos_state}\n\nCALCULATE"})
 
     def generate():
         full_text = []

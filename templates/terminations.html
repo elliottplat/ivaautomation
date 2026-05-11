@@ -117,6 +117,17 @@
     .btn-submit { background: #6366f1; color: #fff; border: none; border-radius: 9px; padding: 0.7rem 2rem; font-size: 0.95rem; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 0.5rem; transition: background 0.2s; }
     .btn-submit:hover:not(:disabled) { background: #4f46e5; }
     .btn-submit:disabled { opacity: 0.6; cursor: not-allowed; }
+
+    /* ── VMOC questions ── */
+    .vmoc-questions { margin-bottom: 1.25rem; display: flex; flex-direction: column; gap: 0.75rem; }
+    .vmoc-block { border: 1.5px solid #e5e7eb; border-radius: 8px; padding: 0.9rem 1rem; background: #fff; box-shadow: 0 1px 6px rgba(0,0,0,0.07); }
+    .vmoc-block p { font-size: 0.82rem; font-weight: 600; color: #444; margin-bottom: 0.6rem; }
+    .vmoc-options { display: flex; gap: 0.5rem; }
+    .vmoc-options label { flex: 1; display: flex; align-items: center; justify-content: center; gap: 0.35rem; padding: 0.5rem; border: 1.5px solid #d0d5dd; border-radius: 6px; cursor: pointer; font-size: 0.85rem; font-weight: 600; transition: border-color 0.15s, background 0.15s, color 0.15s; }
+    .vmoc-options input[type="radio"] { display: none; }
+    .vmoc-options label.selected-yes { border-color: #6366f1; background: #6366f1; color: #fff; }
+    .vmoc-options label.selected-no  { border-color: #6366f1; background: #fff; color: #6366f1; }
+    .vmoc-hidden { display: none; }
     .btn-spinner { width: 16px; height: 16px; border: 2.5px solid rgba(255,255,255,0.4); border-top-color: #fff; border-radius: 50%; animation: spin 0.7s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
 
@@ -354,6 +365,51 @@
           </div>
 
         </div>
+
+        <!-- VMOC questions — shown after EOS upload -->
+        <div class="vmoc-questions">
+
+          <!-- Q1: Is this EOS from a VMOC? -->
+          <div class="vmoc-block">
+            <p>Is the EOS from a VMOC?</p>
+            <div class="vmoc-options">
+              <label id="vmoc-lbl-yes">
+                <input type="radio" name="eos_is_vmoc" value="yes" />
+                <span>Yes</span>
+              </label>
+              <label id="vmoc-lbl-no" class="selected-no">
+                <input type="radio" name="eos_is_vmoc" value="no" checked />
+                <span>No</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Q2: Is this a Revised Agreed EOS? — only shown when Q1 = Yes -->
+          <div class="vmoc-block vmoc-hidden" id="vmoc-q2-block">
+            <p>Is this a Revised Agreed EOS?</p>
+            <div class="vmoc-options">
+              <label id="agreed-lbl-yes">
+                <input type="radio" name="eos_vmoc_agreed" value="yes" checked />
+                <span>Yes</span>
+              </label>
+              <label id="agreed-lbl-no">
+                <input type="radio" name="eos_vmoc_agreed" value="no" />
+                <span>No</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- VMOC Modifications upload — only shown when Q1 = Yes AND Q2 = No -->
+          <div class="card vmoc-hidden" id="vmoc-mods-card">
+            <div class="slot-label"><span class="dot" id="dot-vmoc_modifications"></span>VMOC Modifications</div>
+            <div class="upload-area" id="area-vmoc_modifications">
+              <span class="area-text">Click or drag images here</span>
+              <input type="file" name="vmoc_modifications" id="inp-vmoc_modifications" accept="image/*" multiple />
+            </div>
+            <div class="file-list" id="list-vmoc_modifications"></div>
+          </div>
+
+        </div><!-- /vmoc-questions -->
 
         <div class="submit-row">
           <button type="submit" class="btn-submit" id="submit-btn">
@@ -741,8 +797,9 @@
   // ── File management ───────────────────────────────────────────────────────
   {% if current_user.role in ['uploader', 'admin'] %}
   const slots = ['rp', 'contribution_schedule', 'modifications', 'eos'];
+  const ALL_SLOTS = [...slots, 'vmoc_modifications'];
   const fileMap = {};
-  slots.forEach(s => fileMap[s] = []);
+  ALL_SLOTS.forEach(s => fileMap[s] = []);
 
   function refreshSlot(slot) {
     const files = fileMap[slot];
@@ -766,7 +823,7 @@
     });
   }
 
-  slots.forEach(slot => {
+  ALL_SLOTS.forEach(slot => {
     const area  = document.getElementById('area-' + slot);
     const input = document.getElementById('inp-' + slot);
     area.addEventListener('click', e => { if (e.target !== input) input.click(); });
@@ -793,6 +850,46 @@
     refreshSlot(slot);
   });
 
+  // ── VMOC question logic ───────────────────────────────────────────────────
+  function getEosState() {
+    const isVmoc   = document.querySelector('input[name="eos_is_vmoc"]:checked').value === 'yes';
+    if (!isVmoc) return 'NON_VMOC';
+    const isAgreed = document.querySelector('input[name="eos_vmoc_agreed"]:checked').value === 'yes';
+    return isAgreed ? 'VMOC_AGREED' : 'VMOC_UNAGREED';
+  }
+
+  function applyVmocState() {
+    const state      = getEosState();
+    const q2Block    = document.getElementById('vmoc-q2-block');
+    const vmocCard   = document.getElementById('vmoc-mods-card');
+    q2Block.classList.toggle('vmoc-hidden', state === 'NON_VMOC');
+    vmocCard.classList.toggle('vmoc-hidden', state !== 'VMOC_UNAGREED');
+  }
+
+  // Q1 radio styling + state update
+  document.querySelectorAll('input[name="eos_is_vmoc"]').forEach(radio => {
+    radio.addEventListener('change', () => {
+      const yes = radio.value === 'yes';
+      document.getElementById('vmoc-lbl-yes').className = yes ? 'selected-yes' : '';
+      document.getElementById('vmoc-lbl-no').className  = yes ? '' : 'selected-no';
+      applyVmocState();
+    });
+  });
+
+  // Q2 radio styling + state update
+  document.querySelectorAll('input[name="eos_vmoc_agreed"]').forEach(radio => {
+    radio.addEventListener('change', () => {
+      const yes = radio.value === 'yes';
+      document.getElementById('agreed-lbl-yes').className = yes ? 'selected-yes' : '';
+      document.getElementById('agreed-lbl-no').className  = yes ? '' : 'selected-no';
+      applyVmocState();
+    });
+  });
+
+  // Set initial label states to match default checked values
+  document.getElementById('vmoc-lbl-no').classList.add('selected-no');
+  document.getElementById('agreed-lbl-yes').classList.add('selected-yes');
+
   // ── Form submit ───────────────────────────────────────────────────────────
   const form      = document.getElementById('analyze-form');
   const submitBtn = document.getElementById('submit-btn');
@@ -800,6 +897,14 @@
 
   form.addEventListener('submit', async e => {
     e.preventDefault();
+
+    const eosState = getEosState();
+
+    // Validate VMOC_UNAGREED requires VMOC Modifications document
+    if (eosState === 'VMOC_UNAGREED' && fileMap['vmoc_modifications'].length === 0) {
+      alert('VMOC Modifications document required when EOS is from an unagreed VMOC.');
+      return;
+    }
 
     const totalFiles = slots.reduce((n, s) => n + fileMap[s].length, 0);
     if (!totalFiles) { alert('Please upload at least one document.'); return; }
@@ -814,9 +919,14 @@
     const fd = new FormData();
     fd.append('case_number', caseNumber);
     fd.append('task_type',   'termination');
+    fd.append('eos_state',   eosState);
     const workItemId = document.getElementById('hidden-work-item-id').value;
     if (workItemId) fd.append('work_item_id', workItemId);
     slots.forEach(slot => fileMap[slot].forEach(f => fd.append(slot, f)));
+    // VMOC Modifications only sent when state requires it
+    if (eosState === 'VMOC_UNAGREED') {
+      fileMap['vmoc_modifications'].forEach(f => fd.append('vmoc_modifications', f));
+    }
 
     submitBtn.disabled = true;
     btnLabel.textContent = 'Calculating…';

@@ -1,0 +1,41 @@
+{
+  "name": "EOS state: VMOC_AGREED — agreed VMOC EOS, revised model applied",
+  "description": "VMOC_AGREED case. EOS is from a VMOC that has been agreed and signed off. The VMOC Modifications document (supplied as the 5th document) contains the revised locked model — modified retention rule and creditor percentage. No provisional flag should be generated. Expected: eos_state = VMOC_AGREED, vmoc_modifications_applied populated, standard (non-provisional) cashier instruction.",
+  "inputs": {
+    "source": "synthetic",
+    "eos_state": "VMOC_AGREED",
+    "rp_summary": {
+      "total_contributions_received": 1100.00,
+      "fees_drawn": {
+        "nominee": 550.00,
+        "supervisor": 120.00
+      },
+      "disbursements_drawn": 250.00,
+      "creditor_payments_made": 0.00,
+      "total_cash_out": 920.00,
+      "cash_in_hand": 180.00
+    },
+    "locked_model_from_vmoc_modifications": {
+      "retention_rule": "First 8 contributions retained for Nominee fee (per VMOC agreement)",
+      "retention_amount": 720.00,
+      "creditor_percentage": 35,
+      "required_creditor_distribution": 133.00,
+      "note": "VMOC reduced retention from 10 to 8 contributions; raised creditor % from 30 to 35"
+    },
+    "fee_entitlements_under_vmoc_model": {
+      "nominee": {"entitlement": 550.00, "drawn": 550.00, "variance": 0.00, "position": "matched"},
+      "supervisor": {"entitlement": 120.00, "drawn": 120.00, "variance": 0.00, "position": "matched"}
+    }
+  },
+  "expected": {
+    "eos_state": "VMOC_AGREED",
+    "cash_reconciliation.waterfall_triggered": false,
+    "cash_reconciliation.instruction_executable": true,
+    "ready_to_close": true,
+    "locked_model.vmoc_modifications_applied_must_be_non_empty": true,
+    "risks_must_not_contain": "provisional",
+    "risks_must_not_contain_alt": "unagreed",
+    "final_cashier_instruction_must_not_contain": "provisional"
+  },
+  "notes": "VMOC agreed → model is authoritative, no provisional flag. Cash £180 > shortfall £133. Locked model sourced from VMOC Modifications, not the outline EOS. vmoc_modifications_applied should list the changes applied (retention rule and creditor % revision)."
+}
