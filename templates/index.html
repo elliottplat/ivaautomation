@@ -502,6 +502,7 @@
   </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <script>
   // ── File management ──────────────────────────────────────────────────────
   const slots = ['contribution_schedule', 'eos', 'modifications', 'rp', 'creditor_claims'];
@@ -803,6 +804,7 @@
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let buffer = '';
+      let fullText = '';
       resultCard.style.display = 'block';
       resultCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
@@ -817,11 +819,18 @@
           const data = JSON.parse(line.slice(6));
           if (data.error) {
             responseText.className = 'error-text';
-            responseText.textContent = '⚠️ ' + data.error;
+            const msg = data.error === 'save_failed'
+              ? '⚠️ Analysis complete but failed to save to database. Please copy the result before refreshing.'
+              : '⚠️ ' + data.error;
+            responseText.textContent = msg;
           } else if (data.done) {
+            if (typeof marked !== 'undefined' && fullText) {
+              responseText.innerHTML = marked.parse(fullText);
+            }
             renderUsage(data.usage);
           } else if (data.text) {
-            responseText.textContent += data.text;
+            fullText += data.text;
+            responseText.textContent = fullText;
           }
         }
       }

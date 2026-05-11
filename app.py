@@ -6,11 +6,19 @@ import io
 import time
 import hashlib
 import secrets
+import logging
+import datetime
+import imghdr
 import anthropic
+import httpx
 import psycopg2
+import sentry_sdk
+from psycopg2.pool import ThreadedConnectionPool
 from psycopg2.extras import RealDictCursor
 from flask import Flask, render_template, request, jsonify, Response, stream_with_context, redirect, url_for, flash, abort
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 from werkzeug.security import generate_password_hash, check_password_hash
 from functools import wraps
 from dotenv import load_dotenv
@@ -18,14 +26,42 @@ import dss_calculations as dss_calc
 
 load_dotenv()
 
+# F-26: Structured logging
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
+logger = logging.getLogger(__name__)
+
+# F-28: Sentry error tracking (no-op if SENTRY_DSN is not set)
+sentry_sdk.init(dsn=os.environ.get("SENTRY_DSN"), traces_sample_rate=0.1)
+
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 40 * 1024 * 1024
-app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "dev-key-please-set-in-production")
+
+# F-07: Fail fast if SECRET_KEY is not set
+_secret_key = os.environ.get("SECRET_KEY")
+if not _secret_key:
+    raise RuntimeError("SECRET_KEY env var must be set to a random value")
+app.config["SECRET_KEY"] = _secret_key
+
+# F-02: Secure session cookie settings
+app.config["PERMANENT_SESSION_LIFETIME"] = datetime.timedelta(hours=12)
+app.config["SESSION_COOKIE_SECURE"] = True
+app.config["SESSION_COOKIE_HTTPONLY"] = True
+app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+app.config["REMEMBER_COOKIE_DURATION"] = datetime.timedelta(hours=12)
+app.config["REMEMBER_COOKIE_SECURE"] = True
+app.config["REMEMBER_COOKIE_HTTPONLY"] = True
 
 login_manager = LoginManager(app)
 login_manager.login_view = "login_page"
 
-client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
+# F-08/F-03: Rate limiting
+limiter = Limiter(get_remote_address, app=app, default_limits=[], storage_uri="memory://")
+
+# F-17: Timeout on Anthropic API calls so hung streams release gunicorn threads
+client = anthropic.Anthropic(
+    api_key=os.environ.get("ANTHROPIC_API_KEY"),
+    timeout=httpx.Timeout(connect=5.0, read=120.0, write=10.0, pool=5.0),
+)
 
 # ---------------------------------------------------------------------------
 # Env vars
@@ -37,6 +73,22 @@ APP_URL = os.environ.get("APP_URL", "https://automation.omnigroupuae.com")
 def is_overloaded(exc):
     return isinstance(exc, (anthropic.InternalServerError, anthropic.APIStatusError)) and \
            "overloaded" in str(exc).lower()
+
+
+# F-09: Security response headers
+@app.after_request
+def add_security_headers(response):
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    return response
+
+
+# F-18: Health check endpoint
+@app.route("/health")
+def health():
+    return {"status": "ok"}, 200
 
 
 # ---------------------------------------------------------------------------
@@ -1659,11 +1711,42 @@ VARIATION_DOCUMENT_SLOTS = [
 # ---------------------------------------------------------------------------
 # Database
 # ---------------------------------------------------------------------------
-def get_db_conn():
-    url = os.environ.get("DATABASE_URL", "")
-    if url.startswith("postgres://"):
-        url = url.replace("postgres://", "postgresql://", 1)
-    return psycopg2.connect(url)
+_db_pool: ThreadedConnectionPool | None = None
+
+
+def _get_pool() -> ThreadedConnectionPool:
+    global _db_pool
+    if _db_pool is None:
+        url = os.environ.get("DATABASE_URL", "")
+        if url.startswith("postgres://"):
+            url = url.replace("postgres://", "postgresql://", 1)
+        _db_pool = ThreadedConnectionPool(2, 10, url)
+    return _db_pool
+
+
+class _PooledConn:
+    """Thin wrapper that returns a psycopg2 connection to the pool on close()."""
+    def __init__(self, conn, pool: ThreadedConnectionPool):
+        self._conn = conn
+        self._pool = pool
+
+    def __getattr__(self, name):
+        return getattr(self._conn, name)
+
+    def close(self):
+        self._pool.putconn(self._conn)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        self.close()
+
+
+def get_db_conn() -> "_PooledConn":
+    pool = _get_pool()
+    conn = pool.getconn()
+    return _PooledConn(conn, pool)
 
 
 def init_db():
@@ -2250,6 +2333,14 @@ def init_db():
                             (dubai_id, p_name, p_rate, p_is_base, p_order, p_tracking),
                         )
 
+            # F-06: Add missing indexes for commonly filtered columns
+            cur.execute("CREATE INDEX IF NOT EXISTS cases_task_type ON cases(task_type)")
+            cur.execute("CREATE INDEX IF NOT EXISTS cases_submitted_by ON cases(submitted_by)")
+            cur.execute("CREATE INDEX IF NOT EXISTS cases_review_status ON cases(review_status)")
+            cur.execute("CREATE INDEX IF NOT EXISTS notifications_user_read ON notifications(user_id, read)")
+            cur.execute("CREATE INDEX IF NOT EXISTS work_items_project_status ON work_items(project_id, status)")
+            cur.execute("CREATE INDEX IF NOT EXISTS arrears_cases_upload_id ON arrears_cases(upload_id)")
+
         conn.commit()
     finally:
         conn.close()
@@ -2272,7 +2363,7 @@ def init_admin():
         conn.commit()
         conn.close()
     except Exception as e:
-        print(f"Admin init failed: {e}")
+        logger.exception("Admin init failed")
 
 
 def init_user_passwords():
@@ -2302,7 +2393,7 @@ def init_user_passwords():
         conn.commit()
         conn.close()
     except Exception as e:
-        print(f"User init failed: {e}")
+        logger.exception("User init failed")
 
 
 if os.environ.get("DATABASE_URL"):
@@ -2311,17 +2402,28 @@ if os.environ.get("DATABASE_URL"):
         init_admin()
         init_user_passwords()
     except Exception as e:
-        print(f"Warning: DB init failed: {e}")
+        logger.exception("DB init failed")
 
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+_IMGHDR_TO_MIME = {"jpeg": "image/jpeg", "png": "image/png", "gif": "image/gif", "webp": "image/webp"}
+
+
 def encode_file(file):
     media_type = file.content_type or "image/jpeg"
     if media_type not in ALLOWED_TYPES:
         raise ValueError(f"Unsupported file type '{media_type}' for '{file.filename}'.")
-    return base64.standard_b64encode(file.read()).decode("utf-8"), media_type
+    data = file.read()
+    # F-10: Validate magic bytes match declared MIME type
+    detected = imghdr.what(None, h=data)
+    detected_mime = _IMGHDR_TO_MIME.get(detected)
+    if detected_mime and detected_mime != media_type:
+        raise ValueError(
+            f"File '{file.filename}' content does not match declared type '{media_type}' (detected: '{detected_mime}')."
+        )
+    return base64.standard_b64encode(data).decode("utf-8"), media_type
 
 
 def variation_file_to_block(file):
@@ -2410,6 +2512,7 @@ def require_email():
 # Auth routes
 # ---------------------------------------------------------------------------
 @app.route("/login", methods=["GET", "POST"])
+@limiter.limit("5 per minute", methods=["POST"])
 def login_page():
     if current_user.is_authenticated:
         return redirect(url_for("home"))
@@ -2469,6 +2572,7 @@ def set_email():
 
 
 @app.route("/forgot-password", methods=["GET", "POST"])
+@limiter.limit("5 per hour", methods=["POST"])
 def forgot_password():
     submitted = False
     if request.method == "POST":
@@ -2748,7 +2852,9 @@ def analyze_termination():
                         conn.commit()
                         conn.close()
                     except Exception as e:
-                        print(f"Failed to save termination case: {e}")
+                        logger.exception("Failed to save termination case")
+                        yield f"data: {json.dumps({'error': 'save_failed'})}\n\n"
+                        return
 
                 yield f"data: {json.dumps({'done': True, 'case_id': case_id, 'usage': {'input_tokens': usage.input_tokens, 'output_tokens': usage.output_tokens, 'cache_creation_tokens': getattr(usage, 'cache_creation_input_tokens', 0), 'cache_read_tokens': getattr(usage, 'cache_read_input_tokens', 0)}})}\n\n"
 
@@ -2919,7 +3025,9 @@ def analyze_variation():
                             conn.commit()
                             conn.close()
                         except Exception as e:
-                            print(f"Failed to save variation case: {e}")
+                            logger.exception("Failed to save variation case")
+                            yield f"data: {json.dumps({'error': 'save_failed'})}\n\n"
+                            return
 
                     yield f"data: {json.dumps({'done': True, 'case_id': case_id, 'usage': {'input_tokens': usage.input_tokens, 'output_tokens': usage.output_tokens, 'cache_creation_tokens': getattr(usage, 'cache_creation_input_tokens', 0), 'cache_read_tokens': getattr(usage, 'cache_read_input_tokens', 0)}})}\n\n"
                     return
@@ -4395,7 +4503,9 @@ def analyze():
                         conn.commit()
                         conn.close()
                     except Exception as e:
-                        print(f"Failed to save case: {e}")
+                        logger.exception("Failed to save case")
+                        yield f"data: {json.dumps({'error': 'save_failed'})}\n\n"
+                        return
 
                 yield f"data: {json.dumps({'done': True, 'case_id': case_id, 'usage': {'input_tokens': usage.input_tokens, 'output_tokens': usage.output_tokens, 'cache_creation_tokens': getattr(usage, 'cache_creation_input_tokens', 0), 'cache_read_tokens': getattr(usage, 'cache_read_input_tokens', 0)}})}\n\n"
 
@@ -5872,7 +5982,7 @@ def dss_api_entry_post():
                     _bust_perf_cache(team_id2, work_date)
             conn2.close()
         except Exception as rollup_err:
-            print(f"Warning: rollup maintenance failed: {rollup_err}")
+            logger.warning("Rollup maintenance failed: %s", rollup_err)
 
         # Return updated grid data
         return dss_api_entry_get()
@@ -6485,4 +6595,4 @@ def dss_agent_performance_api():
 
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(debug=os.environ.get("FLASK_DEBUG", "false").lower() == "true")
