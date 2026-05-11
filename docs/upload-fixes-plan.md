@@ -1,6 +1,10 @@
 # Upload Fixes Plan
 
-**Status:** Awaiting approval — no code has been changed yet.
+**Status:** Approved — Phase 2 in progress.
+
+**Approved clarifications (applied below):**
+- PDF-only for R&P in both workflows — no DOC/DOCX. Frontend `accept=` and helper text: "Accepted: JPEG, PNG, GIF, WebP (screenshots) or PDF". Backend: `variation_file_to_block()` handles image + PDF only for R&P.
+- All fields mandatory in both workflows. Terminations: rp, contribution_schedule, modifications, eos. Completions: rp, contribution_schedule, modifications, eos, creditor_claims. Modifications satisfied by EITHER image upload OR non-empty paste text. Frontend blocks submit with named missing fields; backend also returns 400.
 
 ---
 
@@ -47,20 +51,20 @@
 
 **Frontend (`templates/terminations.html`):**
 
-1. **R&P card** — Add a mode toggle (Screenshot / PDF or DOC) above the upload area. In Screenshot mode: keep current `accept="image/*"`. In PDF/DOC mode: swap to a second `<input id="inp-rp-doc" accept=".pdf,.docx,.doc,application/pdf,...">`. Add helper text: *"Accepted: JPEG, PNG, GIF, WebP (screenshots) or PDF, DOCX, DOC"*.
+1. **R&P card** — Add a mode toggle (Screenshot / PDF) above the upload area. In Screenshot mode: keep current `accept="image/*"`. In PDF mode: swap to a second `<input id="inp-rp-doc" accept=".pdf,application/pdf">`. Add helper text: *"Accepted: JPEG, PNG, GIF, WebP (screenshots) or PDF"*.
 2. **All other cards** — Add helper text below each upload area: *"Accepted: JPEG, PNG, GIF, WebP screenshots"*.
-3. **Front-end mandatory validation** — In the submit handler, verify all 4 mandatory slots (`rp`, `contribution_schedule`, `modifications`, `eos`) have at least one file (or paste text for modifications) before allowing submit. Alert the user if any are missing.
+3. **Front-end mandatory validation** — In the submit handler, verify all 4 mandatory slots (`rp`, `contribution_schedule`, `modifications`, `eos`) have at least one file (or paste text for modifications). Block submit with a message naming any missing fields.
 
 **Backend (`app.py` — `analyze_termination`, ~line 2782):**
 
-4. In the slot loop for `rp`, detect whether any uploaded file has a PDF/DOC MIME type. If so, call `variation_file_to_block(page)` instead of `encode_file(page)`. This already handles PDF as a `document` block and DOC/DOCX as a text placeholder. The `encode_file()` path remains for image uploads.
-5. No change needed for other slots — they remain image-only.
+4. In the slot loop for `rp`, detect whether any uploaded file has MIME `application/pdf`. If so, call `variation_file_to_block(page)` instead of `encode_file(page)`. The `encode_file()` path remains for image uploads.
+5. Add backend mandatory validation: after the slot loop, return 400 if any of rp, contribution_schedule, modifications (or modifications_text), eos are missing.
+6. No change needed for other slots — they remain image-only.
 
 ### Risks / open questions
 
-- The Termination prompt was designed around screenshot images. PDF and DOC blocks are already understood by Claude (via `document` type or text placeholder). Verify prompt output quality is unchanged.
-- DOCX sent as a text placeholder `[Attached file: ...]` gives Claude no actual content — acceptable only if users understand this limitation. Consider adding a note in the UI for DOC/DOCX files.
-- `analyze_termination` currently has no `modifications_text` support (see Scope 1). R&P PDF addition is independent and can be committed separately.
+- The Termination prompt was designed around screenshot images. PDF blocks are already understood by Claude via the `document` type.
+- `analyze_termination` currently has no `modifications_text` support — that is added in Scope 1 (committed before this scope).
 
 ---
 
@@ -78,17 +82,16 @@
 
 **Frontend (`templates/completions.html`):**
 
-1. **R&P card** — Add mode toggle (Screenshot / PDF or DOC) above the upload area. In Screenshot mode: `accept="image/*"`. In PDF/DOC mode: second input `accept=".pdf,.docx,.doc,application/pdf,..."`. Add JS `setRpMode(mode)` function. Add helper text: *"Accepted: JPEG, PNG, GIF, WebP (screenshots) or PDF, DOCX, DOC"*.
-2. **Front-end form submit** — When PDF mode is active for R&P, append the document file instead of image file. Backend already handles this.
-3. **Helper messages** — Add a small `<p class="upload-helper">` below each upload area for all 5 fields showing accepted types.
-4. **Mandatory validation** — Verify `contribution_schedule`, `rp`, `eos` have at least one file before submit. `modifications` is optional (can use paste text). `creditor_claims` is optional.
+1. **R&P card** — Add mode toggle (Screenshot / PDF) above the upload area. In Screenshot mode: `accept="image/*"`. In PDF mode: second input `accept=".pdf,application/pdf"`. Add JS `setRpMode(mode)` function. Add helper text: *"Accepted: JPEG, PNG, GIF, WebP (screenshots) or PDF"*.
+2. **Front-end form submit** — When PDF mode is active for R&P, append the document file instead of image file. Backend already handles PDF for R&P at app.py:4420.
+3. **Helper messages** — Add `<p class="upload-helper">` below each upload area for all 5 fields showing accepted types.
+4. **Mandatory validation** — All 5 fields (rp, contribution_schedule, modifications, eos, creditor_claims) are mandatory. Modifications satisfied by file OR paste text. Block submit with named missing fields.
 
-**Backend:** No changes required — R&P PDF path exists at app.py:4420.
+**Backend:** Add mandatory field validation — after the slot loop, return 400 if any of rp, contribution_schedule, modifications (or modifications_text), eos, creditor_claims are missing. The R&P PDF path already exists at app.py:4420.
 
 ### Risks / open questions
 
-- The Completions backend already handles PDF for R&P. DOC/DOCX for R&P would fall through to `encode_file()` and raise a `ValueError`. If we add DOC/DOCX to the frontend, we must also handle it in the backend (same as Scope 2 — use `variation_file_to_block()`).
-- Decision needed: add DOC/DOCX support to completions R&P backend, or advertise PDF-only for documents? Recommending PDF-only for simplicity (DOC/DOCX gives Claude no readable content anyway).
+- None outstanding — PDF-only policy confirmed; mandatory rules confirmed.
 
 ---
 

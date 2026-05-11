@@ -2422,6 +2422,9 @@ def _detect_image_mime(data: bytes) -> str | None:
         return "image/gif"
     if data[:4] == b"RIFF" and data[8:12] == b"WEBP":
         return "image/webp"
+    # HEIC/HEIF: ftyp box at offset 4 with brand heic, heis, hevc, mif1, or msf1
+    if len(data) >= 12 and data[4:8] == b"ftyp" and data[8:12] in (b"heic", b"heis", b"hevc", b"mif1", b"msf1"):
+        return "image/heic"
     return None
 
 
@@ -2455,7 +2458,15 @@ def variation_file_to_block(file):
         }.get(ext, media_type)
     if media_type not in VARIATION_ALLOWED_TYPES:
         raise ValueError(f"Unsupported file type '{media_type}' for '{file.filename}'.")
-    data = base64.standard_b64encode(file.read()).decode("utf-8")
+    raw = file.read()
+    # Magic-byte validation for image types — same defence as encode_file()
+    if media_type.startswith("image/"):
+        detected = _detect_image_mime(raw)
+        if detected and detected != media_type:
+            raise ValueError(
+                f"File '{file.filename}' content does not match declared type '{media_type}' (detected: '{detected}')."
+            )
+    data = base64.standard_b64encode(raw).decode("utf-8")
     if media_type == "application/pdf":
         return {"type": "document", "source": {"type": "base64", "media_type": media_type, "data": data}}
     if media_type.startswith("image/"):
@@ -3935,6 +3946,10 @@ def upload_work_items():
     f = request.files.get("file")
     if not f:
         return jsonify({"error": "file required"}), 400
+    _ct = (f.content_type or "").lower().split(";")[0].strip()
+    _fn = (f.filename or "").lower()
+    if _ct not in ("text/csv", "application/csv", "text/plain") and not _fn.endswith(".csv"):
+        return jsonify({"error": "Only CSV files are accepted."}), 400
     try:
         content = f.read().decode("utf-8-sig")
         reader = csv.DictReader(io.StringIO(content))
@@ -4573,6 +4588,10 @@ def arrears_upload():
     f = request.files.get("file")
     if not f:
         return jsonify({"error": "file required"}), 400
+    _ct = (f.content_type or "").lower().split(";")[0].strip()
+    _fn = (f.filename or "").lower()
+    if _ct not in ("text/csv", "application/csv", "text/plain") and not _fn.endswith(".csv"):
+        return jsonify({"error": "Only CSV files are accepted."}), 400
     try:
         content = f.read().decode("utf-8-sig")
         reader = csv.DictReader(io.StringIO(content))
@@ -4887,7 +4906,10 @@ def pp_upload():
     try:
         for key in required_files:
             f = request.files[key]
-            dest = os.path.join(tmp_dir, f.filename or key)
+            ext = (f.filename or "").rsplit(".", 1)[-1].lower()
+            if ext not in ("xlsx", "xls"):
+                return jsonify({"error": f"File '{key}' must be an Excel file (.xlsx or .xls)."}), 400
+            dest = os.path.join(tmp_dir, f"{key}.xlsx")
             f.save(dest)
             file_paths[key] = dest
 
