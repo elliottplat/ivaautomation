@@ -2787,10 +2787,19 @@ def analyze_termination():
     if eos_state not in ("NON_VMOC", "VMOC_AGREED", "VMOC_UNAGREED"):
         eos_state = "NON_VMOC"
 
+    modifications_text = request.form.get("modifications_text", "").strip()
+
     content = []
     any_document = False
 
     for field_name, label in TERMINATION_DOCUMENT_SLOTS:
+        # Modifications may arrive as pasted text instead of image files
+        if field_name == "modifications" and modifications_text:
+            any_document = True
+            content.append({"type": "text", "text": "--- Modifications (pasted text) ---"})
+            content.append({"type": "text", "text": f"Modifications text:\n{modifications_text}"})
+            continue
+
         files = request.files.getlist(field_name)
         pages = [f for f in files if f and f.filename]
         if not pages:
@@ -2803,11 +2812,19 @@ def analyze_termination():
             doc_label = label
         content.append({"type": "text", "text": f"--- {doc_label} ({len(pages)} page(s)) ---"})
         for page in pages:
-            try:
-                image_data, media_type = encode_file(page)
-            except ValueError as e:
-                return jsonify({"error": str(e)}), 400
-            content.append({"type": "image", "source": {"type": "base64", "media_type": media_type, "data": image_data}})
+            mime = (page.content_type or "").lower().split(";")[0].strip()
+            if field_name == "rp" and mime == "application/pdf":
+                pdf_data = base64.b64encode(page.read()).decode()
+                content.append({
+                    "type": "document",
+                    "source": {"type": "base64", "media_type": "application/pdf", "data": pdf_data},
+                })
+            else:
+                try:
+                    image_data, media_type = encode_file(page)
+                except ValueError as e:
+                    return jsonify({"error": str(e)}), 400
+                content.append({"type": "image", "source": {"type": "base64", "media_type": media_type, "data": image_data}})
 
     # Attach VMOC Modifications as the fifth document when state is VMOC_UNAGREED
     if eos_state == "VMOC_UNAGREED":
@@ -2822,8 +2839,21 @@ def analyze_termination():
                 return jsonify({"error": str(e)}), 400
             content.append({"type": "image", "source": {"type": "base64", "media_type": media_type, "data": image_data}})
 
-    if not any_document:
-        return jsonify({"error": "Please upload at least one document."}), 400
+    # Mandatory field validation — all four slots required
+    _term_mandatory = {
+        "rp": "Receipts & Payments",
+        "contribution_schedule": "Contribution Schedule",
+        "modifications": "Modifications",
+        "eos": "EOS",
+    }
+    _term_missing = []
+    for _slot, _label in _term_mandatory.items():
+        has_files = bool([f for f in request.files.getlist(_slot) if f and f.filename])
+        has_text = (_slot == "modifications" and bool(modifications_text))
+        if not has_files and not has_text:
+            _term_missing.append(_label)
+    if _term_missing:
+        return jsonify({"error": f"Missing required document(s): {', '.join(_term_missing)}."}), 400
 
     content.append({"type": "text", "text": f"EOS STATE: {eos_state}\n\nCALCULATE"})
 

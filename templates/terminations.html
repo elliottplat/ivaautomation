@@ -128,6 +128,15 @@
     .vmoc-options label.selected-yes { border-color: #6366f1; background: #6366f1; color: #fff; }
     .vmoc-options label.selected-no  { border-color: #6366f1; background: #fff; color: #6366f1; }
     .vmoc-hidden { display: none; }
+
+    /* ── Input mode toggle (Screenshot / Paste text) ── */
+    .input-mode-toggle { display: flex; gap: 0.4rem; margin-bottom: 0.6rem; }
+    .mode-btn { flex: 1; padding: 0.35rem 0.6rem; border: 1.5px solid #d0d5dd; border-radius: 6px; background: #fff; font-size: 0.78rem; font-weight: 600; color: #777; cursor: pointer; transition: border-color 0.15s, background 0.15s, color 0.15s; }
+    .mode-btn.active { border-color: #6366f1; background: #6366f1; color: #fff; }
+    .paste-area { display: none; width: 100%; min-height: 120px; border: 1.5px solid #d0d5dd; border-radius: 8px; padding: 0.75rem; font-size: 0.82rem; color: #333; resize: vertical; box-sizing: border-box; margin-top: 0.25rem; }
+    .paste-area.visible { display: block; }
+    .upload-helper { font-size: 0.72rem; color: #aaa; margin-top: 0.4rem; }
+
     .btn-spinner { width: 16px; height: 16px; border: 2.5px solid rgba(255,255,255,0.4); border-top-color: #fff; border-radius: 50%; animation: spin 0.7s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
 
@@ -348,11 +357,19 @@
 
           <div class="card">
             <div class="slot-label"><span class="dot" id="dot-modifications"></span>Modifications</div>
-            <div class="upload-area" id="area-modifications">
-              <span class="area-text">Click or drag images here</span>
-              <input type="file" name="modifications" id="inp-modifications" accept="image/*" multiple />
+            <div class="input-mode-toggle">
+              <button type="button" class="mode-btn active" id="term-mods-btn-screenshot" onclick="setTermModsMode('screenshot')">Screenshot</button>
+              <button type="button" class="mode-btn" id="term-mods-btn-paste" onclick="setTermModsMode('paste')">Paste text</button>
             </div>
-            <div class="file-list" id="list-modifications"></div>
+            <div id="term-mods-screenshot-area">
+              <div class="upload-area" id="area-modifications">
+                <span class="area-text">Click or drag images here</span>
+                <input type="file" name="modifications" id="inp-modifications" accept="image/*" multiple />
+              </div>
+              <div class="file-list" id="list-modifications"></div>
+            </div>
+            <textarea class="paste-area" id="term-mods-paste-area" placeholder="Paste full modifications text here…"></textarea>
+            <p class="upload-helper">Accepted: JPEG, PNG, GIF, WebP screenshots — or paste the modifications text</p>
           </div>
 
           <div class="card">
@@ -850,6 +867,14 @@
     refreshSlot(slot);
   });
 
+  // ── Paste-text mode toggle for Modifications ─────────────────────────────
+  function setTermModsMode(mode) {
+    document.getElementById('term-mods-screenshot-area').style.display = mode === 'screenshot' ? '' : 'none';
+    document.getElementById('term-mods-paste-area').classList.toggle('visible', mode === 'paste');
+    document.getElementById('term-mods-btn-screenshot').classList.toggle('active', mode === 'screenshot');
+    document.getElementById('term-mods-btn-paste').classList.toggle('active', mode === 'paste');
+  }
+
   // ── VMOC question logic ───────────────────────────────────────────────────
   function getEosState() {
     const isVmoc   = document.querySelector('input[name="eos_is_vmoc"]:checked').value === 'yes';
@@ -899,6 +924,8 @@
     e.preventDefault();
 
     const eosState = getEosState();
+    const modsInPasteMode = document.getElementById('term-mods-btn-paste').classList.contains('active');
+    const modsPasteText   = document.getElementById('term-mods-paste-area').value.trim();
 
     // Validate VMOC_UNAGREED requires VMOC Modifications document
     if (eosState === 'VMOC_UNAGREED' && fileMap['vmoc_modifications'].length === 0) {
@@ -906,8 +933,15 @@
       return;
     }
 
-    const totalFiles = slots.reduce((n, s) => n + fileMap[s].length, 0);
-    if (!totalFiles) { alert('Please upload at least one document.'); return; }
+    // Mandatory field validation
+    const TERM_LABELS = { rp: 'Receipts & Payments', contribution_schedule: 'Contribution Schedule', modifications: 'Modifications', eos: 'EOS' };
+    const missing = [];
+    for (const [slot, label] of Object.entries(TERM_LABELS)) {
+      const hasFiles = fileMap[slot] && fileMap[slot].length > 0;
+      const hasText  = slot === 'modifications' && modsInPasteMode && modsPasteText.length > 0;
+      if (!hasFiles && !hasText) missing.push(label);
+    }
+    if (missing.length) { alert('Missing required document(s): ' + missing.join(', ') + '.'); return; }
 
     const caseNumber = document.getElementById('case-number').value.trim();
     const tempKey    = 'temp-' + Date.now();
@@ -922,7 +956,12 @@
     fd.append('eos_state',   eosState);
     const workItemId = document.getElementById('hidden-work-item-id').value;
     if (workItemId) fd.append('work_item_id', workItemId);
-    slots.forEach(slot => fileMap[slot].forEach(f => fd.append(slot, f)));
+    // Append files for all slots except modifications when paste mode is active
+    slots.forEach(slot => {
+      if (slot === 'modifications' && modsInPasteMode) return;
+      fileMap[slot].forEach(f => fd.append(slot, f));
+    });
+    if (modsInPasteMode && modsPasteText) fd.append('modifications_text', modsPasteText);
     // VMOC Modifications only sent when state requires it
     if (eosState === 'VMOC_UNAGREED') {
       fileMap['vmoc_modifications'].forEach(f => fd.append('vmoc_modifications', f));
