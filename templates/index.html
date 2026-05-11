@@ -131,18 +131,22 @@
 
     @media (max-width: 640px) { .eos-inner { grid-template-columns: 1fr; } }
 
-    /* VMOC toggle */
+    /* VMOC flow */
     .vmoc-block {
       border: 1.5px solid #e5e7eb;
       border-radius: 8px;
       padding: 0.9rem 1rem;
-      min-width: 180px;
+      min-width: 200px;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
     }
-    .vmoc-block p {
+    .vmoc-question { display: flex; flex-direction: column; gap: 0.4rem; }
+    .vmoc-question p {
       font-size: 0.82rem;
       font-weight: 600;
       color: #444;
-      margin-bottom: 0.6rem;
+      margin: 0;
     }
     .vmoc-options { display: flex; gap: 0.5rem; }
     .vmoc-options label {
@@ -160,9 +164,76 @@
       transition: border-color 0.15s, background 0.15s, color 0.15s;
     }
     .vmoc-options input[type="radio"] { display: none; }
-    .vmoc-options input[type="radio"]:checked + span { /* handled by JS */ }
     .vmoc-options label.selected-yes { border-color: #6366f1; background: #6366f1; color: #fff; }
     .vmoc-options label.selected-no  { border-color: #6366f1; background: #fff; color: #6366f1; }
+    .vmoc-q2 { display: none; }
+    .vmoc-q2.visible { display: flex; flex-direction: column; gap: 0.4rem; }
+
+    /* Paste mode toggle */
+    .input-mode-toggle {
+      display: flex; gap: 0.4rem; margin-bottom: 0.5rem;
+    }
+    .mode-btn {
+      flex: 1;
+      padding: 0.35rem 0.5rem;
+      border: 1.5px solid #d0d5dd;
+      border-radius: 6px;
+      background: #fff;
+      color: #666;
+      font-size: 0.78rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s, color 0.15s;
+    }
+    .mode-btn.active { border-color: #6366f1; background: #6366f1; color: #fff; }
+
+    /* Pasted text indicator */
+    .paste-indicator {
+      display: none;
+      border: 1.5px solid #6366f1;
+      border-radius: 8px;
+      padding: 0.75rem;
+      background: #f5f5ff;
+      font-size: 0.82rem;
+      color: #4f46e5;
+    }
+    .paste-indicator.visible { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+    .paste-indicator span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .paste-indicator button { border: none; background: none; color: #6366f1; cursor: pointer; font-size: 0.8rem; font-weight: 600; flex-shrink: 0; }
+
+    /* Paste modal */
+    .modal-overlay {
+      display: none;
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.45);
+      z-index: 1000;
+      align-items: center; justify-content: center;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal-box {
+      background: #fff;
+      border-radius: 12px;
+      padding: 1.5rem;
+      width: min(600px, 95vw);
+      box-shadow: 0 8px 40px rgba(0,0,0,0.18);
+      display: flex; flex-direction: column; gap: 1rem;
+    }
+    .modal-box h3 { font-size: 1rem; font-weight: 700; color: #1a1a2e; margin: 0; }
+    .modal-box textarea {
+      min-height: 220px; font-size: 0.85rem; font-family: monospace;
+      resize: vertical;
+    }
+    .modal-actions { display: flex; gap: 0.6rem; justify-content: flex-end; }
+    .modal-actions button {
+      padding: 0.55rem 1.2rem; border-radius: 7px; border: none;
+      font-size: 0.88rem; font-weight: 600; cursor: pointer;
+    }
+    .btn-cancel { background: #f3f4f6; color: #444; }
+    .btn-save   { background: #6366f1; color: #fff; }
+
+    /* VMOC Mods card — hidden by default */
+    .vmoc-mods-card { grid-column: 1 / -1; display: none; }
+    .vmoc-mods-card.visible { display: block; }
 
     /* Prompt + submit — full width */
     .bottom-section { grid-column: 1 / -1; }
@@ -269,12 +340,22 @@
         <span class="dot" id="dot-modifications"></span>
         Modifications
       </div>
-      <div class="upload-area" id="area-modifications">
-        <span class="area-text">Click or drag images here</span>
-        <input type="file" name="modifications" id="inp-modifications"
-               accept="image/*" multiple />
+      <div class="input-mode-toggle">
+        <button type="button" class="mode-btn active" id="mods-btn-screenshot" onclick="setModsMode('screenshot')">Screenshot</button>
+        <button type="button" class="mode-btn" id="mods-btn-paste" onclick="setModsMode('paste')">Paste text</button>
       </div>
-      <div class="file-list" id="list-modifications"></div>
+      <div id="mods-screenshot-area">
+        <div class="upload-area" id="area-modifications">
+          <span class="area-text">Click or drag images here</span>
+          <input type="file" name="modifications" id="inp-modifications"
+                 accept="image/*" multiple />
+        </div>
+        <div class="file-list" id="list-modifications"></div>
+      </div>
+      <div class="paste-indicator" id="mods-paste-indicator">
+        <span id="mods-paste-preview">Modifications text saved</span>
+        <button type="button" onclick="openPasteModal('modifications')">Edit</button>
+      </div>
     </div>
 
     <!-- R&P -->
@@ -283,12 +364,26 @@
         <span class="dot" id="dot-rp"></span>
         Receipts &amp; Payments (R&amp;P)
       </div>
-      <div class="upload-area" id="area-rp">
-        <span class="area-text">Click or drag images here</span>
-        <input type="file" name="rp" id="inp-rp"
-               accept="image/*" multiple />
+      <div class="input-mode-toggle">
+        <button type="button" class="mode-btn active" id="rp-btn-screenshot" onclick="setRpMode('screenshot')">Screenshot(s)</button>
+        <button type="button" class="mode-btn" id="rp-btn-document" onclick="setRpMode('document')">PDF document</button>
       </div>
-      <div class="file-list" id="list-rp"></div>
+      <div id="rp-screenshot-area">
+        <div class="upload-area" id="area-rp">
+          <span class="area-text">Click or drag images here</span>
+          <input type="file" name="rp" id="inp-rp"
+                 accept="image/*" multiple />
+        </div>
+        <div class="file-list" id="list-rp"></div>
+      </div>
+      <div id="rp-document-area" style="display:none;">
+        <div class="upload-area" id="area-rp-doc">
+          <span class="area-text">Click or drag PDF here</span>
+          <input type="file" name="rp" id="inp-rp-doc"
+                 accept=".pdf,application/pdf" />
+        </div>
+        <div class="file-list" id="list-rp-doc"></div>
+      </div>
     </div>
 
     <!-- Creditor Claims -->
@@ -322,18 +417,57 @@
         </div>
 
         <div class="vmoc-block">
-          <p>Is this EOS from a VMOC?</p>
-          <div class="vmoc-options">
-            <label id="lbl-yes">
-              <input type="radio" name="eos_from_vmoc" value="yes" />
-              <span>Yes</span>
-            </label>
-            <label id="lbl-no" class="selected-no">
-              <input type="radio" name="eos_from_vmoc" value="no" checked />
-              <span>No</span>
-            </label>
+          <div class="vmoc-question">
+            <p>Is this EOS from a VMOC?</p>
+            <div class="vmoc-options">
+              <label id="q1-lbl-yes">
+                <input type="radio" name="eos_is_vmoc" value="yes" />
+                <span>Yes</span>
+              </label>
+              <label id="q1-lbl-no" class="selected-no">
+                <input type="radio" name="eos_is_vmoc" value="no" checked />
+                <span>No</span>
+              </label>
+            </div>
+          </div>
+          <div class="vmoc-question vmoc-q2" id="vmoc-q2">
+            <p>Is this a Revised Agreed EOS?</p>
+            <div class="vmoc-options">
+              <label id="q2-lbl-yes">
+                <input type="radio" name="eos_vmoc_agreed" value="yes" />
+                <span>Yes</span>
+              </label>
+              <label id="q2-lbl-no" class="selected-no">
+                <input type="radio" name="eos_vmoc_agreed" value="no" checked />
+                <span>No</span>
+              </label>
+            </div>
           </div>
         </div>
+      </div>
+    </div>
+
+    <!-- VMOC Modifications (shown only for VMOC_UNAGREED) -->
+    <div class="card vmoc-mods-card" id="vmoc-mods-card">
+      <div class="slot-label">
+        <span class="dot" id="dot-vmoc_modifications"></span>
+        VMOC Modifications
+      </div>
+      <div class="input-mode-toggle">
+        <button type="button" class="mode-btn active" id="vmocmods-btn-screenshot" onclick="setVmocModsMode('screenshot')">Screenshot</button>
+        <button type="button" class="mode-btn" id="vmocmods-btn-paste" onclick="setVmocModsMode('paste')">Paste text</button>
+      </div>
+      <div id="vmocmods-screenshot-area">
+        <div class="upload-area" id="area-vmoc_modifications">
+          <span class="area-text">Click or drag images here</span>
+          <input type="file" name="vmoc_modifications" id="inp-vmoc_modifications"
+                 accept="image/*" multiple />
+        </div>
+        <div class="file-list" id="list-vmoc_modifications"></div>
+      </div>
+      <div class="paste-indicator" id="vmocmods-paste-indicator">
+        <span id="vmocmods-paste-preview">VMOC Modifications text saved</span>
+        <button type="button" onclick="openPasteModal('vmoc_modifications')">Edit</button>
       </div>
     </div>
 
@@ -356,11 +490,27 @@
   <div class="usage-row" id="usage-row" style="display:none;"></div>
 </div>
 
+<!-- Paste modal -->
+<div class="modal-overlay" id="paste-modal">
+  <div class="modal-box">
+    <h3 id="modal-title">Paste text</h3>
+    <textarea id="modal-textarea" placeholder="Paste the full document text here…"></textarea>
+    <div class="modal-actions">
+      <button type="button" class="btn-cancel" onclick="closePasteModal()">Cancel</button>
+      <button type="button" class="btn-save"   onclick="savePasteModal()">Save</button>
+    </div>
+  </div>
+</div>
+
 <script>
   // ── File management ──────────────────────────────────────────────────────
   const slots = ['contribution_schedule', 'eos', 'modifications', 'rp', 'creditor_claims'];
+  const allSlots = [...slots, 'vmoc_modifications'];
   const fileMap = {}; // slot -> File[]
-  slots.forEach(s => fileMap[s] = []);
+  allSlots.forEach(s => fileMap[s] = []);
+
+  // Pasted text store
+  const pastedText = { modifications: '', vmoc_modifications: '' };
 
   function refreshSlot(slot) {
     const files = fileMap[slot];
@@ -424,9 +574,10 @@
     refreshSlot(slot);
   }
 
-  slots.forEach(slot => {
+  allSlots.forEach(slot => {
     const inp  = document.getElementById('inp-' + slot);
     const area = document.getElementById('area-' + slot);
+    if (!inp || !area) return; // vmoc_modifications only exists when card is shown
 
     inp.addEventListener('change', () => {
       addFiles(slot, inp.files);
@@ -443,18 +594,133 @@
     });
   });
 
-  // ── VMOC radio styling ───────────────────────────────────────────────────
-  document.querySelectorAll('input[name="eos_from_vmoc"]').forEach(radio => {
-    radio.addEventListener('change', () => {
-      document.getElementById('lbl-yes').className = '';
-      document.getElementById('lbl-no').className  = '';
-      if (radio.value === 'yes') {
-        document.getElementById('lbl-yes').classList.add('selected-yes');
-      } else {
-        document.getElementById('lbl-no').classList.add('selected-no');
-      }
+  // ── EOS state (three-state) ─────────────────────────────────────────────
+  function getEosState() {
+    const q1 = document.querySelector('input[name="eos_is_vmoc"]:checked');
+    if (!q1 || q1.value !== 'yes') return 'NON_VMOC';
+    const q2 = document.querySelector('input[name="eos_vmoc_agreed"]:checked');
+    return (q2 && q2.value === 'yes') ? 'VMOC_AGREED' : 'VMOC_UNAGREED';
+  }
+
+  function applyEosState() {
+    const state = getEosState();
+    const q2Block = document.getElementById('vmoc-q2');
+    const modsCard = document.getElementById('vmoc-mods-card');
+    q2Block.classList.toggle('visible', state !== 'NON_VMOC');
+    modsCard.classList.toggle('visible', state === 'VMOC_UNAGREED');
+  }
+
+  function styleRadio(yesId, noId, value) {
+    document.getElementById(yesId).className = value === 'yes' ? 'selected-yes' : '';
+    document.getElementById(noId).className  = value === 'yes' ? '' : 'selected-no';
+  }
+
+  document.querySelectorAll('input[name="eos_is_vmoc"]').forEach(r => {
+    r.addEventListener('change', () => {
+      styleRadio('q1-lbl-yes', 'q1-lbl-no', r.value);
+      applyEosState();
     });
   });
+  document.querySelectorAll('input[name="eos_vmoc_agreed"]').forEach(r => {
+    r.addEventListener('change', () => {
+      styleRadio('q2-lbl-yes', 'q2-lbl-no', r.value);
+      applyEosState();
+    });
+  });
+
+  // ── Input mode toggles ───────────────────────────────────────────────────
+  function setModsMode(mode) {
+    document.getElementById('mods-btn-screenshot').classList.toggle('active', mode === 'screenshot');
+    document.getElementById('mods-btn-paste').classList.toggle('active', mode === 'paste');
+    document.getElementById('mods-screenshot-area').style.display = mode === 'screenshot' ? '' : 'none';
+    const ind = document.getElementById('mods-paste-indicator');
+    ind.classList.toggle('visible', mode === 'paste' && !!pastedText.modifications);
+    if (mode === 'paste' && !pastedText.modifications) openPasteModal('modifications');
+  }
+
+  function setVmocModsMode(mode) {
+    document.getElementById('vmocmods-btn-screenshot').classList.toggle('active', mode === 'screenshot');
+    document.getElementById('vmocmods-btn-paste').classList.toggle('active', mode === 'paste');
+    document.getElementById('vmocmods-screenshot-area').style.display = mode === 'screenshot' ? '' : 'none';
+    const ind = document.getElementById('vmocmods-paste-indicator');
+    ind.classList.toggle('visible', mode === 'paste' && !!pastedText.vmoc_modifications);
+    if (mode === 'paste' && !pastedText.vmoc_modifications) openPasteModal('vmoc_modifications');
+  }
+
+  function setRpMode(mode) {
+    document.getElementById('rp-btn-screenshot').classList.toggle('active', mode === 'screenshot');
+    document.getElementById('rp-btn-document').classList.toggle('active', mode === 'document');
+    document.getElementById('rp-screenshot-area').style.display = mode === 'screenshot' ? '' : 'none';
+    document.getElementById('rp-document-area').style.display  = mode === 'document'  ? '' : 'none';
+  }
+
+  // ── Paste modal ──────────────────────────────────────────────────────────
+  let _modalTarget = null;
+  const MODAL_TITLES = { modifications: 'Paste Modifications text', vmoc_modifications: 'Paste VMOC Modifications text' };
+
+  function openPasteModal(target) {
+    _modalTarget = target;
+    document.getElementById('modal-title').textContent = MODAL_TITLES[target] || 'Paste text';
+    document.getElementById('modal-textarea').value = pastedText[target] || '';
+    document.getElementById('paste-modal').classList.add('open');
+    setTimeout(() => document.getElementById('modal-textarea').focus(), 50);
+  }
+
+  function closePasteModal() {
+    document.getElementById('paste-modal').classList.remove('open');
+    _modalTarget = null;
+  }
+
+  function savePasteModal() {
+    const text = document.getElementById('modal-textarea').value.trim();
+    if (!text) { alert('Please paste some text before saving.'); return; }
+    pastedText[_modalTarget] = text;
+    const preview = document.getElementById((_modalTarget === 'modifications' ? 'mods' : 'vmocmods') + '-paste-preview');
+    if (preview) preview.textContent = text.length + ' characters saved';
+    const ind = document.getElementById((_modalTarget === 'modifications' ? 'mods' : 'vmocmods') + '-paste-indicator');
+    if (ind) ind.classList.add('visible');
+    const dot = document.getElementById('dot-' + (_modalTarget === 'modifications' ? 'modifications' : 'vmoc_modifications'));
+    if (dot) dot.classList.add('filled');
+    closePasteModal();
+  }
+
+  document.getElementById('paste-modal').addEventListener('click', e => {
+    if (e.target === document.getElementById('paste-modal')) closePasteModal();
+  });
+
+  // ── R&P document upload (PDF) ────────────────────────────────────────────
+  const rpDocInp  = document.getElementById('inp-rp-doc');
+  const rpDocArea = document.getElementById('area-rp-doc');
+  const rpDocList = document.getElementById('list-rp-doc');
+
+  rpDocInp.addEventListener('change', () => {
+    renderRpDoc(rpDocInp.files[0]);
+    rpDocInp.value = '';
+  });
+  rpDocArea.addEventListener('dragover', e => { e.preventDefault(); rpDocArea.classList.add('drag-over'); });
+  rpDocArea.addEventListener('dragleave', () => rpDocArea.classList.remove('drag-over'));
+  rpDocArea.addEventListener('drop', e => {
+    e.preventDefault();
+    rpDocArea.classList.remove('drag-over');
+    const f = e.dataTransfer.files[0];
+    if (f && f.type === 'application/pdf') renderRpDoc(f);
+  });
+
+  let rpDocFile = null;
+  function renderRpDoc(f) {
+    if (!f) return;
+    rpDocFile = f;
+    rpDocArea.classList.add('has-files');
+    document.getElementById('dot-rp').classList.add('filled');
+    rpDocList.innerHTML = `<div class="file-item"><span class="fname" title="${f.name}">${f.name}</span>
+      <button type="button" onclick="clearRpDoc()">×</button></div>`;
+  }
+  function clearRpDoc() {
+    rpDocFile = null;
+    rpDocArea.classList.remove('has-files');
+    document.getElementById('dot-rp').classList.remove('filled');
+    rpDocList.innerHTML = '';
+  }
 
   // ── Form submit ──────────────────────────────────────────────────────────
   const form      = document.getElementById('analyze-form');
@@ -467,13 +733,53 @@
   form.addEventListener('submit', async e => {
     e.preventDefault();
 
+    const eosState = getEosState();
+    const modsText = pastedText.modifications;
+    const vmocModsText = pastedText.vmoc_modifications;
+    const rpMode = document.getElementById('rp-btn-document').classList.contains('active') ? 'document' : 'screenshot';
+    const modsMode = document.getElementById('mods-btn-paste').classList.contains('active') ? 'paste' : 'screenshot';
+
     const totalFiles = slots.reduce((n, s) => n + fileMap[s].length, 0);
-    if (!totalFiles) { alert('Please upload at least one document.'); return; }
+    const hasRpDoc = rpMode === 'document' && rpDocFile;
+    const hasModsText = modsMode === 'paste' && modsText;
+    const hasVmocMods = eosState !== 'VMOC_UNAGREED' ||
+      vmocModsText ||
+      fileMap['vmoc_modifications']?.length ||
+      document.querySelectorAll('#list-vmoc_modifications .file-item').length;
+
+    if (!totalFiles && !hasRpDoc && !hasModsText) {
+      alert('Please upload at least one document.'); return;
+    }
+    if (eosState === 'VMOC_UNAGREED' && !vmocModsText &&
+        !(fileMap['vmoc_modifications'] && fileMap['vmoc_modifications'].length)) {
+      alert('Please provide the VMOC Modifications document (screenshot or pasted text).'); return;
+    }
 
     const fd = new FormData();
     fd.append('notes', document.getElementById('notes').value.trim());
-    fd.append('eos_from_vmoc', document.querySelector('input[name="eos_from_vmoc"]:checked').value);
-    slots.forEach(slot => fileMap[slot].forEach(f => fd.append(slot, f)));
+    fd.append('eos_state', eosState);
+
+    // Standard slots (excluding modifications if in paste mode)
+    slots.forEach(slot => {
+      if (slot === 'modifications' && hasModsText) return; // handled as text below
+      if (slot === 'rp' && rpMode === 'document') return;  // handled as doc below
+      fileMap[slot].forEach(f => fd.append(slot, f));
+    });
+
+    // R&P as PDF document
+    if (hasRpDoc) fd.append('rp', rpDocFile);
+
+    // Modifications as pasted text
+    if (hasModsText) fd.append('modifications_text', modsText);
+
+    // VMOC Modifications
+    if (eosState === 'VMOC_UNAGREED') {
+      if (vmocModsText) {
+        fd.append('vmoc_modifications_text', vmocModsText);
+      } else if (fileMap['vmoc_modifications']) {
+        fileMap['vmoc_modifications'].forEach(f => fd.append('vmoc_modifications', f));
+      }
+    }
 
     // Loading
     submitBtn.disabled = true;
