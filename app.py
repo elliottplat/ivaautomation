@@ -8,7 +8,6 @@ import hashlib
 import secrets
 import logging
 import datetime
-import imghdr
 import anthropic
 import httpx
 import psycopg2
@@ -2413,7 +2412,17 @@ if os.environ.get("DATABASE_URL"):
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
-_IMGHDR_TO_MIME = {"jpeg": "image/jpeg", "png": "image/png", "gif": "image/gif", "webp": "image/webp"}
+def _detect_image_mime(data: bytes) -> str | None:
+    """Detect image MIME type from magic bytes (replaces removed imghdr stdlib module)."""
+    if data[:8] == b"\x89PNG\r\n\x1a\n":
+        return "image/png"
+    if data[:2] == b"\xff\xd8":
+        return "image/jpeg"
+    if data[:6] in (b"GIF87a", b"GIF89a"):
+        return "image/gif"
+    if data[:4] == b"RIFF" and data[8:12] == b"WEBP":
+        return "image/webp"
+    return None
 
 
 def encode_file(file):
@@ -2422,8 +2431,7 @@ def encode_file(file):
         raise ValueError(f"Unsupported file type '{media_type}' for '{file.filename}'.")
     data = file.read()
     # F-10: Validate magic bytes match declared MIME type
-    detected = imghdr.what(None, h=data)
-    detected_mime = _IMGHDR_TO_MIME.get(detected)
+    detected_mime = _detect_image_mime(data)
     if detected_mime and detected_mime != media_type:
         raise ValueError(
             f"File '{file.filename}' content does not match declared type '{media_type}' (detected: '{detected_mime}')."
