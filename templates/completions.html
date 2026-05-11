@@ -475,6 +475,7 @@
     .mode-btn.active { border-color: #6366f1; background: #6366f1; color: #fff; }
     .paste-area { width: 100%; min-height: 90px; border: 1.5px solid #d0d5dd; border-radius: 8px; padding: 0.65rem; font-size: 0.85rem; font-family: inherit; resize: vertical; display: none; }
     .paste-area.visible { display: block; }
+    .upload-helper { font-size: 0.72rem; color: #aaa; margin-top: 0.4rem; }
 
     /* VMOC Modifications card — hidden until VMOC_UNAGREED */
     .vmoc-mods-card { grid-column: 1 / -1; display: none; }
@@ -777,6 +778,7 @@
               <input type="file" name="contribution_schedule" id="inp-contribution_schedule" accept="image/*" multiple />
             </div>
             <div class="file-list" id="list-contribution_schedule"></div>
+            <p class="upload-helper">Accepted: JPEG, PNG, GIF, WebP screenshots</p>
           </div>
 
           <div class="card">
@@ -793,15 +795,30 @@
               <div class="file-list" id="list-modifications"></div>
             </div>
             <textarea class="paste-area" id="mods-paste-area" placeholder="Paste full modifications text here…"></textarea>
+            <p class="upload-helper">Accepted: JPEG, PNG, GIF, WebP screenshots — or paste the modifications text</p>
           </div>
 
           <div class="card">
             <div class="slot-label"><span class="dot" id="dot-rp"></span>Receipts &amp; Payments (R&amp;P)</div>
-            <div class="upload-area" id="area-rp">
-              <span class="area-text">Click or drag images here</span>
-              <input type="file" name="rp" id="inp-rp" accept="image/*" multiple />
+            <div class="input-mode-toggle">
+              <button type="button" class="mode-btn active" id="rp-btn-screenshot" onclick="setRpMode('screenshot')">Screenshot</button>
+              <button type="button" class="mode-btn" id="rp-btn-pdf" onclick="setRpMode('pdf')">PDF</button>
             </div>
-            <div class="file-list" id="list-rp"></div>
+            <div id="rp-screenshot-area">
+              <div class="upload-area" id="area-rp">
+                <span class="area-text">Click or drag images here</span>
+                <input type="file" name="rp" id="inp-rp" accept="image/*" multiple />
+              </div>
+              <div class="file-list" id="list-rp"></div>
+            </div>
+            <div id="rp-pdf-area" style="display:none;">
+              <div class="upload-area" id="area-rp-pdf">
+                <span class="area-text">Click or drag PDF here</span>
+                <input type="file" name="rp" id="inp-rp-doc" accept=".pdf,application/pdf" />
+              </div>
+              <div class="file-list" id="list-rp-pdf"></div>
+            </div>
+            <p class="upload-helper">Accepted: JPEG, PNG, GIF, WebP (screenshots) or PDF</p>
           </div>
 
           <div class="card">
@@ -811,6 +828,7 @@
               <input type="file" name="creditor_claims" id="inp-creditor_claims" accept="image/*" multiple />
             </div>
             <div class="file-list" id="list-creditor_claims"></div>
+            <p class="upload-helper">Accepted: JPEG, PNG, GIF, WebP screenshots</p>
           </div>
 
           <div class="card eos-card">
@@ -822,6 +840,7 @@
                   <input type="file" name="eos" id="inp-eos" accept="image/*" multiple />
                 </div>
                 <div class="file-list" id="list-eos"></div>
+                <p class="upload-helper">Accepted: JPEG, PNG, GIF, WebP screenshots</p>
               </div>
               <div class="vmoc-block">
                 <div class="vmoc-question">
@@ -857,6 +876,7 @@
               <div class="file-list" id="list-vmoc_modifications"></div>
             </div>
             <textarea class="paste-area" id="vmocmods-paste-area" placeholder="Paste full VMOC Modifications text here…"></textarea>
+            <p class="upload-helper">Accepted: JPEG, PNG, GIF, WebP screenshots — or paste the VMOC modifications text</p>
           </div>
 
           <div class="card bottom-section">
@@ -1096,6 +1116,33 @@
     document.getElementById('vmocmods-btn-screenshot').classList.toggle('active', mode === 'screenshot');
     document.getElementById('vmocmods-btn-paste').classList.toggle('active', mode === 'paste');
   }
+
+  // ── R&P mode toggle (Screenshot / PDF) ───────────────────────────────────
+  function setRpMode(mode) {
+    document.getElementById('rp-screenshot-area').style.display = mode === 'screenshot' ? '' : 'none';
+    document.getElementById('rp-pdf-area').style.display        = mode === 'pdf'        ? '' : 'none';
+    document.getElementById('rp-btn-screenshot').classList.toggle('active', mode === 'screenshot');
+    document.getElementById('rp-btn-pdf').classList.toggle('active', mode === 'pdf');
+    // Clear the other mode's files when switching
+    if (mode === 'screenshot') fileMap['rp'] = fileMap['rp'].filter(f => f.type !== 'application/pdf');
+    else fileMap['rp'] = fileMap['rp'].filter(f => f.type === 'application/pdf');
+    refreshSlot('rp');
+  }
+  const rpPdfInput = document.getElementById('inp-rp-doc');
+  const rpPdfArea  = document.getElementById('area-rp-pdf');
+  rpPdfArea.addEventListener('click', e => { if (e.target !== rpPdfInput) rpPdfInput.click(); });
+  rpPdfInput.addEventListener('change', () => {
+    fileMap['rp'] = [...rpPdfInput.files];
+    rpPdfInput.value = '';
+    refreshSlot('rp');
+  });
+  rpPdfArea.addEventListener('dragover', e => { e.preventDefault(); rpPdfArea.classList.add('drag-over'); });
+  rpPdfArea.addEventListener('dragleave', () => rpPdfArea.classList.remove('drag-over'));
+  rpPdfArea.addEventListener('drop', e => {
+    e.preventDefault(); rpPdfArea.classList.remove('drag-over');
+    fileMap['rp'] = [...e.dataTransfer.files];
+    refreshSlot('rp');
+  });
   {% endif %}
 
   // ── Result store ─────────────────────────────────────────────────────────
@@ -1599,10 +1646,24 @@
     e.preventDefault();
 
     const eosState = getEosState();
-    const coreSlots = slots.filter(s => s !== 'vmoc_modifications');
-    const modsText = document.getElementById('mods-paste-area').value.trim();
-    const totalFiles = coreSlots.reduce((n, s) => n + fileMap[s].length, 0) + (modsText ? 1 : 0);
-    if (!totalFiles) { alert('Please upload at least one document.'); return; }
+    const modsText  = document.getElementById('mods-paste-area').value.trim();
+    const modsInPasteMode = document.getElementById('mods-btn-paste').classList.contains('active');
+
+    // Mandatory field validation (all 5 fields required)
+    const COMP_LABELS = {
+      contribution_schedule: 'Contribution Schedule',
+      modifications:         'Modifications',
+      rp:                    'Receipts & Payments',
+      creditor_claims:       'Creditor Claims',
+      eos:                   'EOS',
+    };
+    const missing = [];
+    for (const [slot, label] of Object.entries(COMP_LABELS)) {
+      const hasFiles = (fileMap[slot] || []).length > 0;
+      const hasText  = slot === 'modifications' && modsInPasteMode && modsText.length > 0;
+      if (!hasFiles && !hasText) missing.push(label);
+    }
+    if (missing.length) { alert('Missing required document(s): ' + missing.join(', ') + '.'); return; }
 
     const caseNumber = document.getElementById('case-number').value.trim();
     const tempKey    = 'temp-' + Date.now();
@@ -1629,8 +1690,7 @@
     if (workItemId) fd.append('work_item_id', workItemId);
 
     // Modifications — pasted text takes priority over screenshots
-    const modsText = document.getElementById('mods-paste-area').value.trim();
-    if (modsText) {
+    if (modsInPasteMode && modsText) {
       fd.append('modifications_text', modsText);
     } else {
       (fileMap['modifications'] || []).forEach(f => fd.append('modifications', f));

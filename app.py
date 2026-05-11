@@ -4500,8 +4500,23 @@ def analyze():
                     return jsonify({"error": str(e)}), 400
                 content.append({"type": "image", "source": {"type": "base64", "media_type": media_type, "data": image_data}})
 
-    if not any_document:
-        return jsonify({"error": "Please upload at least one document."}), 400
+    # Mandatory field validation — all five slots required
+    _mods_text_check = request.form.get("modifications_text", "").strip()
+    _comp_mandatory = {
+        "contribution_schedule": "Contribution Schedule",
+        "modifications": "Modifications",
+        "rp": "Receipts & Payments",
+        "creditor_claims": "Creditor Claims",
+        "eos": "EOS",
+    }
+    _comp_missing = []
+    for _slot, _label in _comp_mandatory.items():
+        has_files = bool([f for f in request.files.getlist(_slot) if f and f.filename])
+        has_text = (_slot == "modifications" and bool(_mods_text_check))
+        if not has_files and not has_text:
+            _comp_missing.append(_label)
+    if _comp_missing:
+        return jsonify({"error": f"Missing required document(s): {', '.join(_comp_missing)}."}), 400
 
     trigger_parts = [f"eos_state: {eos_state}"]
     if additional_notes:
