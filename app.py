@@ -2812,6 +2812,7 @@ def analyze_termination():
 
     content = []
     any_document = False
+    stored_images = {}
 
     for field_name, label in TERMINATION_DOCUMENT_SLOTS:
         # Modifications may arrive as pasted text instead of image files
@@ -2832,6 +2833,7 @@ def analyze_termination():
         else:
             doc_label = label
         content.append({"type": "text", "text": f"--- {doc_label} ({len(pages)} page(s)) ---"})
+        slot_imgs = []
         for page in pages:
             mime = (page.content_type or "").lower().split(";")[0].strip()
             if field_name == "rp" and mime == "application/pdf":
@@ -2846,6 +2848,9 @@ def analyze_termination():
                 except ValueError as e:
                     return jsonify({"error": str(e)}), 400
                 content.append({"type": "image", "source": {"type": "base64", "media_type": media_type, "data": image_data}})
+                slot_imgs.append({"name": page.filename, "data": f"data:{media_type};base64,{image_data}"})
+        if slot_imgs:
+            stored_images[field_name] = slot_imgs
 
     # Attach VMOC Modifications as the fifth document when state is VMOC_UNAGREED
     if eos_state == "VMOC_UNAGREED":
@@ -2899,15 +2904,17 @@ def analyze_termination():
                     try:
                         conn = get_db_conn()
                         with conn.cursor() as cur:
+                            variation_data_json = json.dumps({"images": stored_images}) if stored_images else None
                             cur.execute(
                                 """INSERT INTO cases
                                    (case_number, result, input_tokens, output_tokens,
                                     cache_creation_tokens, cache_read_tokens, submitted_by,
-                                    project_id, task_type)
-                                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'termination') RETURNING id""",
+                                    project_id, task_type, variation_data)
+                                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'termination', %s) RETURNING id""",
                                 (case_number, "".join(full_text), usage.input_tokens, usage.output_tokens,
                                  getattr(usage, "cache_creation_input_tokens", 0),
-                                 getattr(usage, "cache_read_input_tokens", 0), submitted_by, project_id),
+                                 getattr(usage, "cache_read_input_tokens", 0), submitted_by, project_id,
+                                 variation_data_json),
                             )
                             case_id = cur.fetchone()[0]
                             if work_item_id:
@@ -4270,22 +4277,29 @@ def get_case(case_id):
         conn.close()
         if not row:
             return jsonify({"error": "Not found"}), 404
-        # Resolve structured result: variation_data holds JSON for variations,
-        # result holds the raw Claude output for completions/terminations.
-        raw_result = row["result"] or ""
-        structured = row.get("variation_data")
-        if structured and isinstance(structured, str):
-            try:
-                structured = json.loads(structured)
-            except (ValueError, TypeError):
-                structured = None
 
-        images = row.get("images") or {}
-        if isinstance(images, str):
+        raw_result = row["result"] or ""
+
+        # variation_data stores {"images": {...}, "eos": {...}, "ie": {...}, "reason": ..., "saved": {...}}.
+        # Images are always inside this JSON bag — there is no separate "images" column.
+        raw_vd = row.get("variation_data")
+        vd = {}
+        if raw_vd:
             try:
-                images = json.loads(images) if images else {}
+                vd = json.loads(raw_vd) if isinstance(raw_vd, str) else (raw_vd or {})
             except (ValueError, TypeError):
-                images = {}
+                vd = {}
+        images = vd.get("images") or {}
+
+        # For variations the Claude output is a JSON string; parse it so the frontend
+        # gets an object and getStructuredResult() can work without a second parse.
+        parsed_result = None
+        stripped = raw_result.strip()
+        if stripped.startswith("{"):
+            try:
+                parsed_result = json.loads(stripped)
+            except (ValueError, TypeError):
+                pass
 
         result_override = row.get("result_override")
         if isinstance(result_override, str):
@@ -4298,7 +4312,7 @@ def get_case(case_id):
             "id": row["id"], "case_number": row["case_number"],
             "task_type": row.get("task_type"),
             "created_at": row["created_at"].isoformat(),
-            "result": structured or raw_result,
+            "result": parsed_result or raw_result,
             "full_text": raw_result,
             "cashier_instruction": row.get("cashier_instruction_override") or extract_cashier_instruction(raw_result),
             "input_tokens": row["input_tokens"], "output_tokens": row["output_tokens"],
