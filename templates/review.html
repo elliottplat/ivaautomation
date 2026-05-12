@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Review — Omni Automation</title>
+<title>Review — OMNI Automation</title>
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -186,15 +186,26 @@ body {
 .review-tab-content p { margin: 0.4em 0; line-height: 1.6; }
 .review-tab-content ul,.review-tab-content ol { padding-left: 1.4em; margin: 0.4em 0; }
 
+/* ── Footer ── */
 .review-footer {
     border-top: 1px solid #e4e4e7; padding: 12px 24px; background: #fafafa; flex-shrink: 0;
 }
+.review-footer-note { margin-bottom: 12px; }
+.review-footer-note label { display: block; font-size: 12px; font-weight: 600; color: #52525b; margin-bottom: 4px; }
+.review-footer-note textarea {
+    width: 100%; min-height: 70px; padding: 8px 10px;
+    border: 1px solid #d4d4d8; border-radius: 6px;
+    font-family: inherit; font-size: 13px; resize: vertical;
+}
+.review-footer-note textarea.edited { background: #fef3c7; border-color: #f59e0b; }
+.review-footer-note textarea:disabled { background: #f4f4f5; color: #71717a; }
+
 .review-footer-default, .review-footer-reject { display: flex; gap: 8px; }
 .review-footer-default { justify-content: flex-end; }
 .review-footer-reject { flex-direction: column; }
 .review-footer-reject textarea {
     width: 100%; min-height: 60px; padding: 8px; border: 1px solid #d4d4d8;
-    border-radius: 6px; font-family: inherit; resize: vertical; font-size: 13px;
+    border-radius: 6px; font-family: inherit; font-size: 13px; resize: vertical;
 }
 .review-footer-actions { display: flex; gap: 8px; justify-content: flex-end; }
 
@@ -230,19 +241,65 @@ body {
 .review-flags ul { margin: 0; padding-left: 20px; }
 .review-flags li { font-size: 13px; margin-bottom: 4px; }
 
-.edit-textarea { width: 100%; min-height: 120px; padding: 10px; border: 1px solid #d4d4d8; border-radius: 6px; font-family: inherit; font-size: 13px; resize: vertical; }
-.edit-textarea.edited { background: #fef3c7; border-color: #f59e0b; }
-.edit-label { display: block; font-size: 12px; font-weight: 600; color: #52525b; margin-bottom: 4px; }
+/* ── Evidence grid ── */
+.ev-section { margin-bottom: 24px; }
+.ev-section h4 { margin: 0 0 10px; font-size: 13px; color: #52525b; }
+.ev-gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; }
+.ev-card {
+    aspect-ratio: 1; border: 1px solid #e4e4e7; border-radius: 6px; cursor: pointer;
+    overflow: hidden; transition: all 120ms; background: #fafafa;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    position: relative;
+}
+.ev-card:hover { transform: scale(1.02); border-color: #2563eb; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+.ev-card img { width: 100%; height: 100%; object-fit: cover; }
+.ev-card.ev-pdf, .ev-card.ev-text { padding: 16px; }
+.ev-card .ev-icon { font-size: 36px; margin-bottom: 8px; }
+.ev-card .ev-name { font-size: 11px; padding: 0 6px; text-align: center; word-break: break-word; color: #3f3f46; line-height: 1.3; }
+.ev-card .ev-type-tag {
+    position: absolute; top: 6px; right: 6px;
+    background: rgba(0,0,0,0.6); color: #fff; padding: 1px 6px;
+    border-radius: 3px; font-size: 9px; font-weight: 700; text-transform: uppercase;
+}
+.ev-empty { color: #71717a; font-style: italic; padding: 16px; }
+.ev-empty small { display: block; margin-top: 6px; color: #a1a1aa; font-style: normal; }
+.ev-empty code { background: #f4f4f5; padding: 1px 4px; border-radius: 3px; font-size: 11px; }
 
-/* ── Screenshots ── */
-.ss-section { margin-bottom: 24px; }
-.ss-section h4 { margin: 0 0 8px; font-size: 13px; color: #52525b; }
-.ss-gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 8px; }
-.ss-gallery img { width: 100%; border: 1px solid #e4e4e7; border-radius: 4px; cursor: pointer; transition: transform 120ms; }
-.ss-gallery img:hover { transform: scale(1.02); }
-.ss-empty { color: #71717a; font-style: italic; padding: 16px; }
-.ss-empty small { display: block; margin-top: 6px; color: #a1a1aa; font-style: normal; }
-.ss-empty code { background: #f4f4f5; padding: 1px 4px; border-radius: 3px; font-size: 11px; }
+/* ── Lightbox / carousel ── */
+.lightbox-overlay {
+    position: fixed; inset: 0; background: rgba(15,15,20,0.92); z-index: 10000;
+    display: flex; flex-direction: column;
+}
+.lightbox-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 20px; color: #fff; border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+.lightbox-title { font-size: 13px; font-weight: 500; }
+.lightbox-title .lb-count { opacity: 0.6; margin: 0 8px; }
+.lightbox-close { background: transparent; border: none; color: #fff; font-size: 28px; cursor: pointer; line-height: 1; padding: 0 8px; }
+.lightbox-close:hover { opacity: 0.7; }
+.lightbox-body {
+    flex: 1; display: flex; align-items: center; justify-content: center;
+    padding: 20px; overflow: auto; position: relative;
+}
+.lightbox-image { max-width: 100%; max-height: 100%; object-fit: contain; }
+.lightbox-pdf { width: 90vw; height: calc(100vh - 140px); border: none; background: #fff; border-radius: 4px; }
+.lightbox-text {
+    max-width: 900px; max-height: 80vh; overflow: auto;
+    background: #fff; color: #18181b;
+    padding: 24px 28px; border-radius: 6px;
+    white-space: pre-wrap; font-size: 14px; line-height: 1.6; font-family: inherit;
+}
+.lightbox-nav-btn {
+    position: absolute; top: 50%; transform: translateY(-50%);
+    background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2);
+    color: #fff; width: 44px; height: 44px; border-radius: 50%;
+    font-size: 20px; cursor: pointer; display: flex; align-items: center; justify-content: center;
+}
+.lightbox-nav-btn:hover { background: rgba(255,255,255,0.2); }
+.lightbox-nav-btn.prev { left: 16px; }
+.lightbox-nav-btn.next { right: 16px; }
+.lightbox-nav-btn:disabled { opacity: 0.3; cursor: not-allowed; }
 
 /* ── Toast ── */
 .toast-container { position: fixed; bottom: 24px; right: 24px; z-index: 9999; display: flex; flex-direction: column; gap: 8px; }
@@ -331,13 +388,18 @@ body {
       <section class="review-tab-content" id="review-tab-content"></section>
 
       <footer class="review-footer">
+        <div class="review-footer-note">
+          <label id="footer-note-label" for="footer-note-textarea">Cashier instruction</label>
+          <textarea id="footer-note-textarea" placeholder="Note…"></textarea>
+        </div>
+
         <div class="review-footer-default" id="review-footer-default">
           <button id="btn-review-reject" class="btn btn-secondary">Reject</button>
           <button id="btn-review-approve" class="btn btn-approve">Approve</button>
         </div>
+
         <div class="review-footer-reject" id="review-footer-reject" hidden>
           <textarea id="reject-note" placeholder="Reason for rejection (required)…"></textarea>
-          <textarea id="reject-instruction" placeholder="Instructions for the cashier (optional)…"></textarea>
           <div class="review-footer-actions">
             <button id="btn-cancel-reject" class="btn btn-secondary">Cancel</button>
             <button id="btn-submit-reject" class="btn btn-reject">Submit rejection</button>
@@ -348,17 +410,45 @@ body {
   </main>
 </div>
 
+<!-- Lightbox / carousel overlay -->
+<div class="lightbox-overlay" id="lightbox" hidden>
+  <div class="lightbox-header">
+    <div class="lightbox-title" id="lightbox-title"></div>
+    <button class="lightbox-close" id="lightbox-close" aria-label="Close">×</button>
+  </div>
+  <div class="lightbox-body" id="lightbox-body">
+    <button class="lightbox-nav-btn prev" id="lightbox-prev" aria-label="Previous">‹</button>
+    <button class="lightbox-nav-btn next" id="lightbox-next" aria-label="Next">›</button>
+    <div id="lightbox-content"></div>
+  </div>
+</div>
+
 <div class="toast-container" id="toast-container"></div>
 
 <script>
+// ============================================================================
+// Constants & state
+// ============================================================================
 const USER_ROLE = "{{ current_user.role }}";
 const USER_NAME = "{{ current_user.username }}";
 
-// ============================================================================
-// State
-// ============================================================================
-const store  = {};   // id -> case object
-const drafts = {};   // id -> { eos: {...}, notes: "...", recommendation_basis: "..." }
+const EVIDENCE_SLOT_LABELS = {
+    rp: 'Receipts & Payments', receipts_payments: 'Receipts & Payments',
+    receipts: 'Receipts & Payments', r_and_p: 'Receipts & Payments',
+    cc: 'Creditor Claims', creditor_claims: 'Creditor Claims',
+    creditors: 'Creditor Claims', claims: 'Creditor Claims',
+    eos: 'Estimated Outcome Statement', estimated_outcome: 'Estimated Outcome Statement',
+    estimated_outcome_statement: 'Estimated Outcome Statement', outcome_statement: 'Estimated Outcome Statement',
+    cs: 'Contribution Schedule', contribution_schedule: 'Contribution Schedule',
+    contributions: 'Contribution Schedule', schedule: 'Contribution Schedule',
+    modifications: 'Modifications'
+};
+function getSlotLabel(slot) {
+    return EVIDENCE_SLOT_LABELS[slot] || EVIDENCE_SLOT_LABELS[(slot || '').toLowerCase()] || slot;
+}
+
+const store  = {};
+const drafts = {};  // id -> { eos: {...}, note_override: "..." }
 let currentCaseId = null;
 let filterType    = 'all';
 let filterStatus  = 'pending';
@@ -367,12 +457,11 @@ let searchTerm    = '';
 function getDraft(caseId) { return drafts[caseId] || (drafts[caseId] = {}); }
 function hasDraftEdits(caseId) {
     const d = drafts[caseId]; if (!d) return false;
-    return Object.keys(d).some(k => {
-        const v = d[k];
-        if (v == null) return false;
-        if (typeof v === 'object') return Object.keys(v).length > 0;
-        return v !== '';
-    });
+    if (d.note_override != null) return true;
+    if (d.eos && Object.keys(d.eos).length > 0) {
+        return Object.values(d.eos).some(v => v && Object.keys(v).length > 0);
+    }
+    return false;
 }
 
 // ============================================================================
@@ -396,10 +485,7 @@ function fmtNumber(n, dp) {
     if (n == null) return '—';
     return Number(n).toLocaleString(undefined, { minimumFractionDigits: dp || 0, maximumFractionDigits: dp || 2 });
 }
-function fmtPct(n) {
-    if (n == null) return '—';
-    return Number(n).toFixed(2) + '%';
-}
+function fmtPct(n) { return (n == null) ? '—' : Number(n).toFixed(2) + '%'; }
 function renderMarkdown(s) {
     if (typeof marked !== 'undefined') return marked.parse(s || '');
     return '<pre style="white-space:pre-wrap">' + escHtml(s || '') + '</pre>';
@@ -418,88 +504,263 @@ function updateDirtyIndicator() {
         const d = drafts[currentCaseId] || {};
         const tabId = btn.dataset.tab;
         let edited = false;
-        if (tabId === 'eos' && d.eos && Object.keys(d.eos).length) edited = true;
-        if (tabId === 'reasoning' && (d.notes != null || d.recommendation_basis != null)) edited = true;
+        if (tabId === 'eos' && d.eos && Object.values(d.eos).some(v => Object.keys(v).length)) edited = true;
         btn.classList.toggle('has-edits', edited);
     });
 }
-
-// Parse variation structured result from c.result (when it's an object)
-// or fall back to variation_data JSON string.
 function getStructuredResult(c) {
     if (c.result && typeof c.result === 'object') return c.result;
     const text = c.full_text || c.fullText || '';
     if (typeof text === 'string' && text.trim().startsWith('{')) {
-        try { return JSON.parse(text); } catch (e) { /* not JSON */ }
+        try { return JSON.parse(text); } catch (e) {}
     }
     return null;
 }
 
 // ============================================================================
-// REVIEW CONFIGS — render functions are inline so REVIEW_CONFIGS must be
-// declared after all render functions it references.
+// Evidence: type detection & rendering
 // ============================================================================
-function renderCashier(container, c) {
-    const text = c.cashier_instruction_override || c.cashier_instruction || '_(no cashier instruction)_';
-    const div = document.createElement('div');
-    div.innerHTML = renderMarkdown(text);
-    container.appendChild(div);
+function detectEvidenceType(item) {
+    if (item.type && ['image', 'pdf', 'text'].includes(item.type)) return item.type;
+    const mt = (item.mime_type || item.mimeType || '').toLowerCase();
+    if (mt.startsWith('image/')) return 'image';
+    if (mt === 'application/pdf') return 'pdf';
+    if (mt.startsWith('text/')) return 'text';
+    const name = (item.name || item.filename || '').toLowerCase();
+    if (name.endsWith('.pdf')) return 'pdf';
+    if (/\.(png|jpe?g|gif|webp|svg|bmp)$/.test(name)) return 'image';
+    if (/\.(txt|md|html?|json|csv)$/.test(name)) return 'text';
+    const data = item.data || item.base64 || '';
+    if (typeof data === 'string') {
+        if (data.startsWith('data:image/')) return 'image';
+        if (data.startsWith('data:application/pdf')) return 'pdf';
+        if (data.startsWith('data:text/')) return 'text';
+        if (data.startsWith('JVBERi0')) return 'pdf';
+        if (/^(iVBORw0KGgo|\/9j\/|R0lGOD|UklGR)/.test(data)) return 'image';
+    }
+    if (item.text || item.content) return 'text';
+    return 'image';
 }
-function renderFullText(container, c) {
-    const div = document.createElement('div');
-    div.innerHTML = renderMarkdown(c.full_text || c.fullText || '');
-    container.appendChild(div);
-}
-function renderScreenshots(container, c) {
-    let images = c.images || c.screenshots || {};
-    console.log('[review] renderScreenshots case', c.id, 'images:', images, '| keys:', Object.keys(c));
 
-    if (Array.isArray(images)) {
+function renderEvidence(container, c) {
+    let raw = c.images || c.screenshots || c.evidence || {};
+    console.log('[review] renderEvidence case', c.id, 'received:', raw, '| case keys:', Object.keys(c));
+
+    if (Array.isArray(raw)) {
         const grouped = {};
-        for (const img of images) {
-            const slot = img.slot || img.slot_name || img.label || 'screenshots';
-            (grouped[slot] = grouped[slot] || []).push(img);
+        for (const item of raw) {
+            const slot = item.slot || item.slot_name || item.category || 'evidence';
+            (grouped[slot] = grouped[slot] || []).push(item);
         }
-        images = grouped;
+        raw = grouped;
     }
 
-    const slots = Object.keys(images).filter(s => Array.isArray(images[s]) && images[s].length);
+    const slots = Object.keys(raw).filter(s => Array.isArray(raw[s]) && raw[s].length);
     if (!slots.length) {
         const div = document.createElement('div');
-        div.className = 'ss-empty';
-        div.innerHTML = 'No screenshots in API response.' +
-            '<small>Open browser console to see the response shape. ' +
-            'The backend <code>GET /api/cases/&lt;id&gt;</code> needs to include the <code>images</code> field — ' +
-            'see the backend snippet for how to add it.</small>';
+        div.className = 'ev-empty';
+        div.innerHTML = 'No evidence in API response.' +
+            '<small>Open browser console to inspect the case payload. ' +
+            'The backend <code>GET /api/cases/&lt;id&gt;</code> needs to include the <code>images</code> field.</small>';
         container.appendChild(div);
         return;
     }
+
+    const flatList = [];
+    for (const slot of slots) {
+        for (const item of raw[slot]) {
+            flatList.push({ ...item, slot, slotLabel: getSlotLabel(slot), type: detectEvidenceType(item) });
+        }
+    }
+
     for (const slot of slots) {
         const section = document.createElement('section');
-        section.className = 'ss-section';
-        const h = document.createElement('h4'); h.textContent = slot;
+        section.className = 'ev-section';
+        const h = document.createElement('h4'); h.textContent = getSlotLabel(slot);
         section.appendChild(h);
-        const gallery = document.createElement('div'); gallery.className = 'ss-gallery';
-        for (const img of images[slot]) {
-            const im = document.createElement('img');
-            const data = img.data || img.base64 || img.content || '';
-            im.src = data.startsWith('data:') ? data : 'data:image/png;base64,' + data;
-            im.alt = img.name || img.filename || slot;
-            im.loading = 'lazy';
-            im.addEventListener('click', () => window.open(im.src, '_blank'));
-            gallery.appendChild(im);
-        }
+
+        const gallery = document.createElement('div'); gallery.className = 'ev-gallery';
+
+        raw[slot].forEach((item) => {
+            const type = detectEvidenceType(item);
+            const flatIdx = flatList.findIndex(x =>
+                x.slot === slot &&
+                (x.name || x.filename || '') === (item.name || item.filename || '') &&
+                (x.data || x.base64 || x.content || x.text) === (item.data || item.base64 || item.content || item.text)
+            );
+
+            const card = document.createElement('div');
+            card.className = 'ev-card ev-' + type;
+
+            if (type === 'image') {
+                const im = document.createElement('img');
+                const data = item.data || item.base64 || '';
+                im.src = data.startsWith('data:') ? data : 'data:image/png;base64,' + data;
+                im.alt = item.name || slot;
+                im.loading = 'lazy';
+                card.appendChild(im);
+            } else {
+                const icon = document.createElement('div'); icon.className = 'ev-icon';
+                icon.textContent = type === 'pdf' ? '📄' : '📝';
+                card.appendChild(icon);
+                const name = document.createElement('div'); name.className = 'ev-name';
+                name.textContent = item.name || item.filename || (type === 'pdf' ? 'PDF document' : 'Text');
+                card.appendChild(name);
+            }
+
+            const tag = document.createElement('span'); tag.className = 'ev-type-tag';
+            tag.textContent = type;
+            card.appendChild(tag);
+
+            card.addEventListener('click', () => openLightbox(flatList, flatIdx));
+            gallery.appendChild(card);
+        });
+
         section.appendChild(gallery);
         container.appendChild(section);
     }
 }
 
-// ── Variation-specific renderers ──────────────────────────────────────────
+// ============================================================================
+// Lightbox / carousel
+// ============================================================================
+const lightboxState = { items: [], index: 0 };
+
+function openLightbox(items, index) {
+    lightboxState.items = items;
+    lightboxState.index = Math.max(0, index || 0);
+    document.getElementById('lightbox').hidden = false;
+    document.body.style.overflow = 'hidden';
+    renderLightbox();
+    document.addEventListener('keydown', lightboxKeyHandler);
+}
+function closeLightbox() {
+    document.getElementById('lightbox').hidden = true;
+    document.body.style.overflow = '';
+    document.getElementById('lightbox-content').innerHTML = '';
+    document.removeEventListener('keydown', lightboxKeyHandler);
+}
+function lightboxNext() {
+    if (lightboxState.items.length < 2) return;
+    lightboxState.index = (lightboxState.index + 1) % lightboxState.items.length;
+    renderLightbox();
+}
+function lightboxPrev() {
+    if (lightboxState.items.length < 2) return;
+    lightboxState.index = (lightboxState.index - 1 + lightboxState.items.length) % lightboxState.items.length;
+    renderLightbox();
+}
+function lightboxKeyHandler(e) {
+    if (e.key === 'Escape') closeLightbox();
+    else if (e.key === 'ArrowRight') lightboxNext();
+    else if (e.key === 'ArrowLeft') lightboxPrev();
+}
+function renderLightbox() {
+    const item = lightboxState.items[lightboxState.index];
+    if (!item) return;
+
+    const titleEl = document.getElementById('lightbox-title');
+    titleEl.innerHTML = '';
+    const tSlot = document.createElement('span'); tSlot.textContent = item.slotLabel;
+    const tCount = document.createElement('span'); tCount.className = 'lb-count';
+    tCount.textContent = '· ' + (lightboxState.index + 1) + ' of ' + lightboxState.items.length;
+    titleEl.append(tSlot, tCount);
+    if (item.name || item.filename) {
+        const tName = document.createElement('span'); tName.style.opacity = '0.7';
+        tName.textContent = ' · ' + (item.name || item.filename);
+        titleEl.append(tName);
+    }
+
+    const content = document.getElementById('lightbox-content');
+    content.innerHTML = '';
+
+    if (item.type === 'image') {
+        const im = document.createElement('img');
+        const data = item.data || item.base64 || '';
+        im.src = data.startsWith('data:') ? data : 'data:image/png;base64,' + data;
+        im.className = 'lightbox-image'; im.alt = item.name || '';
+        content.appendChild(im);
+    } else if (item.type === 'pdf') {
+        const embed = document.createElement('embed');
+        const data = item.data || item.base64 || '';
+        embed.src = data.startsWith('data:') ? data : 'data:application/pdf;base64,' + data;
+        embed.type = 'application/pdf'; embed.className = 'lightbox-pdf';
+        content.appendChild(embed);
+    } else {
+        const pre = document.createElement('pre'); pre.className = 'lightbox-text';
+        pre.textContent = item.text || item.content || item.data || '';
+        content.appendChild(pre);
+    }
+
+    const multi = lightboxState.items.length > 1;
+    document.getElementById('lightbox-prev').disabled = !multi;
+    document.getElementById('lightbox-next').disabled = !multi;
+}
+document.getElementById('lightbox-close').addEventListener('click', closeLightbox);
+document.getElementById('lightbox-prev').addEventListener('click', e => { e.stopPropagation(); lightboxPrev(); });
+document.getElementById('lightbox-next').addEventListener('click', e => { e.stopPropagation(); lightboxNext(); });
+document.getElementById('lightbox').addEventListener('click', e => {
+    if (e.target.id === 'lightbox' || e.target.id === 'lightbox-body') closeLightbox();
+});
+
+// ============================================================================
+// Per-type tab configs
+// ============================================================================
+const REVIEW_CONFIGS = {
+    completion: {
+        label: 'Completion',
+        cssClass: 'type-completion',
+        noteLabel: 'Cashier instruction',
+        getOriginalNote: (c) => c.cashier_instruction_override || c.cashier_instruction || '',
+        tabs: [
+            { id: 'fulltext',  label: 'Full output', render: renderFullText },
+            { id: 'evidence',  label: 'Evidence',    render: renderEvidence }
+        ]
+    },
+    variation: {
+        label: 'Variation',
+        cssClass: 'type-variation',
+        noteLabel: 'Reasoning',
+        getOriginalNote: (c) => {
+            const d = getStructuredResult(c);
+            return d?.summary?.recommendation_basis || '';
+        },
+        tabs: [
+            { id: 'eos',          label: 'EOS',            render: renderVariationEOS, editable: true },
+            { id: 'locked_model', label: 'Locked model',   render: renderVariationLockedModel },
+            { id: 'compliance',   label: 'Cap compliance', render: renderVariationCompliance },
+            { id: 'summary',      label: 'Summary',        render: renderVariationSummary },
+            { id: 'evidence',     label: 'Evidence',       render: renderEvidence }
+        ]
+    },
+    termination: {
+        label: 'Termination',
+        cssClass: 'type-termination',
+        noteLabel: 'Cashier instruction',
+        getOriginalNote: (c) => c.cashier_instruction_override || c.cashier_instruction || '',
+        tabs: [
+            { id: 'fulltext', label: 'Full output', render: renderFullText },
+            { id: 'evidence', label: 'Evidence',    render: renderEvidence }
+        ]
+    }
+};
+
+// ============================================================================
+// Generic renderers
+// ============================================================================
+function renderFullText(container, c) {
+    const div = document.createElement('div');
+    div.innerHTML = renderMarkdown(c.full_text || c.fullText || '');
+    container.appendChild(div);
+}
+
+// ============================================================================
+// Variation renderers
+// ============================================================================
 function makeSection(title) {
     const sec = document.createElement('div'); sec.className = 'var-section';
     const h = document.createElement('h3'); h.textContent = title;
-    sec.appendChild(h);
-    return sec;
+    sec.appendChild(h); return sec;
 }
 function addKV(dl, label, value, suffix) {
     const dt = document.createElement('dt'); dt.textContent = label;
@@ -510,20 +771,18 @@ function addKV(dl, label, value, suffix) {
 
 function renderVariationEOS(container, c) {
     const data = getStructuredResult(c);
-    if (!data || !data.eos) {
-        container.innerHTML = '<div class="ss-empty">No EOS data found in case result.</div>'; return;
-    }
+    if (!data || !data.eos) { container.innerHTML = '<div class="ev-empty">No EOS data found.</div>'; return; }
     const eos = data.eos;
     const draft = getDraft(c.id);
     const draftEos = draft.eos = draft.eos || {};
     const editable = c.review_status === 'pending';
 
-    if (eos.assets_available && eos.assets_available.length) {
+    if (eos.assets_available?.length) {
         const sec = makeSection('Assets Available');
         sec.appendChild(makeEOSTable(eos.assets_available, draftEos, 'assets_available', editable, eos.total_assets_available));
         container.appendChild(sec);
     }
-    if (eos.costs_and_disbursements && eos.costs_and_disbursements.length) {
+    if (eos.costs_and_disbursements?.length) {
         const sec = makeSection('Costs & Disbursements');
         sec.appendChild(makeEOSTable(eos.costs_and_disbursements, draftEos, 'costs_and_disbursements', editable, eos.total_costs));
         container.appendChild(sec);
@@ -531,18 +790,10 @@ function renderVariationEOS(container, c) {
 
     const sec = makeSection('Distribution');
     const dl = document.createElement('dl'); dl.className = 'kv-list';
-    addKV(dl, 'Available for distribution',
-        fmtCurrency(eos.available_for_distribution?.current),
-        '(was ' + fmtCurrency(eos.available_for_distribution?.last_agreed) + ')');
-    addKV(dl, 'Unsecured creditors',
-        fmtCurrency(eos.unsecured_creditors?.current),
-        '(was ' + fmtCurrency(eos.unsecured_creditors?.last_agreed) + ')');
-    addKV(dl, 'Surplus / deficiency',
-        fmtCurrency(eos.surplus_deficiency?.current),
-        '(was ' + fmtCurrency(eos.surplus_deficiency?.last_agreed) + ')');
-    addKV(dl, 'Est. dividend (p/£)',
-        fmtNumber(eos.estimated_dividend_pence_per_pound?.current, 2) + 'p',
-        '(was ' + fmtNumber(eos.estimated_dividend_pence_per_pound?.last_agreed, 2) + 'p)');
+    addKV(dl, 'Available for distribution', fmtCurrency(eos.available_for_distribution?.current), '(was ' + fmtCurrency(eos.available_for_distribution?.last_agreed) + ')');
+    addKV(dl, 'Unsecured creditors',        fmtCurrency(eos.unsecured_creditors?.current),        '(was ' + fmtCurrency(eos.unsecured_creditors?.last_agreed) + ')');
+    addKV(dl, 'Surplus / deficiency',       fmtCurrency(eos.surplus_deficiency?.current),         '(was ' + fmtCurrency(eos.surplus_deficiency?.last_agreed) + ')');
+    addKV(dl, 'Est. dividend (p/£)',        fmtNumber(eos.estimated_dividend_pence_per_pound?.current, 2) + 'p', '(was ' + fmtNumber(eos.estimated_dividend_pence_per_pound?.last_agreed, 2) + 'p)');
     sec.appendChild(dl);
     container.appendChild(sec);
 }
@@ -552,13 +803,11 @@ function makeEOSTable(rows, draftSection, fieldKey, editable, total) {
     table.className = 'eos-table';
     table.innerHTML = '<thead><tr><th>Item</th><th class="num">Last Agreed</th><th class="num">Current</th></tr></thead>';
     const tbody = document.createElement('tbody');
-
     rows.forEach((row, i) => {
         const tr = document.createElement('tr');
         const tdLabel = document.createElement('td'); tdLabel.textContent = row.label;
-        const tdLast  = document.createElement('td'); tdLast.className = 'num'; tdLast.textContent = fmtCurrency(row.last_agreed);
-        const tdCurr  = document.createElement('td'); tdCurr.className = 'num';
-
+        const tdLast = document.createElement('td'); tdLast.className = 'num'; tdLast.textContent = fmtCurrency(row.last_agreed);
+        const tdCurr = document.createElement('td'); tdCurr.className = 'num';
         if (editable) {
             const input = document.createElement('input');
             input.type = 'number'; input.step = '0.01';
@@ -567,28 +816,20 @@ function makeEOSTable(rows, draftSection, fieldKey, editable, total) {
             if (i in draftField && Number(draftField[i]) !== Number(row.current)) input.classList.add('edited');
             input.addEventListener('input', () => {
                 const v = input.value === '' ? null : Number(input.value);
-                if (v == null || Number(v) === Number(row.current)) {
-                    delete draftField[i]; input.classList.remove('edited');
-                } else {
-                    draftField[i] = v; input.classList.add('edited');
-                }
+                if (v == null || Number(v) === Number(row.current)) { delete draftField[i]; input.classList.remove('edited'); }
+                else { draftField[i] = v; input.classList.add('edited'); }
                 updateDirtyIndicator();
             });
             tdCurr.appendChild(input);
-        } else {
-            tdCurr.textContent = fmtCurrency(row.current);
-        }
-        tr.append(tdLabel, tdLast, tdCurr);
-        tbody.appendChild(tr);
+        } else { tdCurr.textContent = fmtCurrency(row.current); }
+        tr.append(tdLabel, tdLast, tdCurr); tbody.appendChild(tr);
     });
-
     if (total) {
         const tr = document.createElement('tr'); tr.className = 'total';
         const td1 = document.createElement('td'); td1.textContent = 'Total';
         const td2 = document.createElement('td'); td2.className = 'num'; td2.textContent = fmtCurrency(total.last_agreed);
         const td3 = document.createElement('td'); td3.className = 'num'; td3.textContent = fmtCurrency(total.current);
-        tr.append(td1, td2, td3);
-        tbody.appendChild(tr);
+        tr.append(td1, td2, td3); tbody.appendChild(tr);
     }
     table.appendChild(tbody);
     return table;
@@ -596,30 +837,25 @@ function makeEOSTable(rows, draftSection, fieldKey, editable, total) {
 
 function renderVariationLockedModel(container, c) {
     const data = getStructuredResult(c);
-    if (!data || !data.locked_model) {
-        container.innerHTML = '<div class="ss-empty">No locked model data found.</div>'; return;
-    }
+    if (!data?.locked_model) { container.innerHTML = '<div class="ev-empty">No locked model data found.</div>'; return; }
     const m = data.locked_model;
     const sec = makeSection('Locked Model');
     const dl = document.createElement('dl'); dl.className = 'kv-list';
-    addKV(dl, 'Total cost cap',               fmtCurrency(m.total_cost_cap));
+    addKV(dl, 'Total cost cap', fmtCurrency(m.total_cost_cap));
     addKV(dl, 'Nominee disbursements subcap', m.nominee_disbursements_subcap == null ? 'None' : fmtCurrency(m.nominee_disbursements_subcap));
-    addKV(dl, 'Supervisor cap',               fmtCurrency(m.supervisor_cap));
-    addKV(dl, 'Specific bond',                fmtCurrency(m.specific_bond));
-    addKV(dl, 'BIS registration',             fmtCurrency(m.bis_registration));
-    addKV(dl, 'Agreed nominee fee',           fmtCurrency(m.agreed_nominee_fee));
-    addKV(dl, 'Agreed disbursements',         fmtCurrency(m.agreed_disbursements));
-    addKV(dl, 'Term (months)',                m.term_months);
-    addKV(dl, 'Additional asset fee %',       m.additional_asset_fee_percent + '%');
-    sec.appendChild(dl);
-    container.appendChild(sec);
+    addKV(dl, 'Supervisor cap', fmtCurrency(m.supervisor_cap));
+    addKV(dl, 'Specific bond', fmtCurrency(m.specific_bond));
+    addKV(dl, 'BIS registration', fmtCurrency(m.bis_registration));
+    addKV(dl, 'Agreed nominee fee', fmtCurrency(m.agreed_nominee_fee));
+    addKV(dl, 'Agreed disbursements', fmtCurrency(m.agreed_disbursements));
+    addKV(dl, 'Term (months)', m.term_months);
+    addKV(dl, 'Additional asset fee %', m.additional_asset_fee_percent + '%');
+    sec.appendChild(dl); container.appendChild(sec);
 }
 
 function renderVariationCompliance(container, c) {
     const data = getStructuredResult(c);
-    if (!data || !data.compliance) {
-        container.innerHTML = '<div class="ss-empty">No compliance data found.</div>'; return;
-    }
+    if (!data?.compliance) { container.innerHTML = '<div class="ev-empty">No compliance data found.</div>'; return; }
     const cm = data.compliance;
     const sec = makeSection('Cap Compliance');
     const dl = document.createElement('dl'); dl.className = 'kv-list';
@@ -631,143 +867,53 @@ function renderVariationCompliance(container, c) {
         span.textContent = s || '—';
         return span;
     };
-
     const dt1 = document.createElement('dt'); dt1.textContent = 'Total cost cap';
     const dd1 = document.createElement('dd'); dd1.appendChild(statusEl(cm.total_cost_cap_status));
     dd1.appendChild(document.createTextNode(' · headroom ' + fmtCurrency(cm.total_cost_cap_headroom)));
     dl.append(dt1, dd1);
-
     const dt2 = document.createElement('dt'); dt2.textContent = 'Nominee disb. subcap';
     const dd2 = document.createElement('dd'); dd2.appendChild(statusEl(cm.nominee_disb_subcap_status));
-    if (cm.nominee_disb_subcap_headroom != null)
-        dd2.appendChild(document.createTextNode(' · headroom ' + fmtCurrency(cm.nominee_disb_subcap_headroom)));
+    if (cm.nominee_disb_subcap_headroom != null) dd2.appendChild(document.createTextNode(' · headroom ' + fmtCurrency(cm.nominee_disb_subcap_headroom)));
     dl.append(dt2, dd2);
-
     addKV(dl, 'COA disbursements actual',          fmtCurrency(cm.coa_disbursements_actual));
     addKV(dl, 'COA above original model',          fmtCurrency(cm.coa_disbursements_above_original_model));
     addKV(dl, 'Nominee fee reduction required',    fmtCurrency(cm.nominee_fee_reduction_required));
     addKV(dl, 'Supervisor fee reduction required', fmtCurrency(cm.supervisor_fee_reduction_required));
-    sec.appendChild(dl);
-    container.appendChild(sec);
+    sec.appendChild(dl); container.appendChild(sec);
+
+    if (cm.notes) {
+        const sec2 = makeSection('Compliance Notes');
+        const p = document.createElement('p'); p.style.fontSize = '13px'; p.style.lineHeight = '1.5';
+        p.textContent = cm.notes;
+        sec2.appendChild(p); container.appendChild(sec2);
+    }
 }
 
 function renderVariationSummary(container, c) {
     const data = getStructuredResult(c);
-    if (!data || !data.summary) {
-        container.innerHTML = '<div class="ss-empty">No summary data found.</div>'; return;
-    }
+    if (!data?.summary) { container.innerHTML = '<div class="ev-empty">No summary data found.</div>'; return; }
     const s = data.summary;
-
     const sec1 = makeSection('Outcome Uplift');
     const dl = document.createElement('dl'); dl.className = 'kv-list';
     addKV(dl, 'Uplift (p/£)', fmtNumber(s.outcome_uplift_pence_per_pound, 2) + 'p');
     addKV(dl, 'Uplift (%)',   fmtPct(s.outcome_uplift_percent));
-    sec1.appendChild(dl);
-    container.appendChild(sec1);
+    sec1.appendChild(dl); container.appendChild(sec1);
 
-    const sec2 = makeSection('Recommendation Basis');
-    const p = document.createElement('p'); p.style.fontSize = '13px';
-    p.textContent = s.recommendation_basis || '—';
-    sec2.appendChild(p);
-    container.appendChild(sec2);
-
-    if (s.review_flags && s.review_flags.length) {
+    if (s.review_flags?.length) {
         const sec3 = makeSection('Review Flags');
         const wrap = document.createElement('div'); wrap.className = 'review-flags';
         const ul = document.createElement('ul');
-        for (const flag of s.review_flags) {
-            const li = document.createElement('li'); li.textContent = flag; ul.appendChild(li);
-        }
-        wrap.appendChild(ul);
-        sec3.appendChild(wrap);
-        container.appendChild(sec3);
+        for (const flag of s.review_flags) { const li = document.createElement('li'); li.textContent = flag; ul.appendChild(li); }
+        wrap.appendChild(ul); sec3.appendChild(wrap); container.appendChild(sec3);
     }
 }
 
-function renderVariationReasoning(container, c) {
-    const data = getStructuredResult(c);
-    const draft = getDraft(c.id);
-    const editable = c.review_status === 'pending';
-    const originalNotes = data?.compliance?.notes || '';
-    const originalRec   = data?.summary?.recommendation_basis || '';
-
-    const sec1 = makeSection('Compliance Notes');
-    const lbl1 = document.createElement('label'); lbl1.className = 'edit-label';
-    lbl1.textContent = 'Notes on cap compliance, modifications, anomalies';
-    sec1.appendChild(lbl1);
-    const ta1 = document.createElement('textarea');
-    ta1.className = 'edit-textarea'; ta1.disabled = !editable;
-    ta1.value = (draft.notes != null) ? draft.notes : originalNotes;
-    if (draft.notes != null && draft.notes !== originalNotes) ta1.classList.add('edited');
-    ta1.addEventListener('input', () => {
-        if (ta1.value === originalNotes) delete draft.notes;
-        else draft.notes = ta1.value;
-        ta1.classList.toggle('edited', draft.notes != null);
-        updateDirtyIndicator();
-    });
-    sec1.appendChild(ta1);
-    container.appendChild(sec1);
-
-    const sec2 = makeSection('Recommendation Basis');
-    const lbl2 = document.createElement('label'); lbl2.className = 'edit-label';
-    lbl2.textContent = 'Reasoning for approval / rejection recommendation';
-    sec2.appendChild(lbl2);
-    const ta2 = document.createElement('textarea');
-    ta2.className = 'edit-textarea'; ta2.disabled = !editable;
-    ta2.value = (draft.recommendation_basis != null) ? draft.recommendation_basis : originalRec;
-    if (draft.recommendation_basis != null && draft.recommendation_basis !== originalRec) ta2.classList.add('edited');
-    ta2.addEventListener('input', () => {
-        if (ta2.value === originalRec) delete draft.recommendation_basis;
-        else draft.recommendation_basis = ta2.value;
-        ta2.classList.toggle('edited', draft.recommendation_basis != null);
-        updateDirtyIndicator();
-    });
-    sec2.appendChild(ta2);
-    container.appendChild(sec2);
-}
-
 // ============================================================================
-// REVIEW CONFIGS (declared after renderers they reference)
-// ============================================================================
-const REVIEW_CONFIGS = {
-    completion: {
-        label: 'Completion',
-        cssClass: 'type-completion',
-        tabs: [
-            { id: 'cashier',     label: 'Cashier instruction', render: renderCashier },
-            { id: 'screenshots', label: 'Screenshots',         render: renderScreenshots },
-            { id: 'fulltext',    label: 'Full output',         render: renderFullText }
-        ]
-    },
-    variation: {
-        label: 'Variation',
-        cssClass: 'type-variation',
-        tabs: [
-            { id: 'eos',          label: 'EOS',            render: renderVariationEOS,         editable: true },
-            { id: 'locked_model', label: 'Locked model',   render: renderVariationLockedModel },
-            { id: 'compliance',   label: 'Cap compliance', render: renderVariationCompliance },
-            { id: 'summary',      label: 'Summary',        render: renderVariationSummary },
-            { id: 'screenshots',  label: 'Screenshots',    render: renderScreenshots },
-            { id: 'reasoning',    label: 'Reasoning',      render: renderVariationReasoning,   editable: true }
-        ]
-    },
-    termination: {
-        label: 'Termination',
-        cssClass: 'type-termination',
-        tabs: [
-            { id: 'screenshots', label: 'Screenshots', render: renderScreenshots },
-            { id: 'fulltext',    label: 'Full output', render: renderFullText }
-        ]
-    }
-};
-
-// ============================================================================
-// Sidebar rendering
+// Sidebar
 // ============================================================================
 function renderSidebar() {
     const list  = document.getElementById('case-list');
     const empty = document.getElementById('case-list-empty');
-
     const cases = Object.values(store).filter(c => {
         if (filterType   !== 'all' && c.task_type     !== filterType)   return false;
         if (filterStatus !== 'all' && c.review_status !== filterStatus) return false;
@@ -776,7 +922,7 @@ function renderSidebar() {
     }).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
     list.innerHTML = '';
-    if (cases.length === 0) { empty.hidden = false; return; }
+    if (!cases.length) { empty.hidden = false; return; }
     empty.hidden = true;
 
     for (const c of cases) {
@@ -790,15 +936,12 @@ function renderSidebar() {
         const cn = document.createElement('span'); cn.className = 'cn'; cn.textContent = c.case_number;
         const badge = document.createElement('span'); badge.className = 'type-badge ' + cfg.cssClass; badge.textContent = cfg.label;
         const dt = document.createElement('span'); dt.className = 'dt'; dt.textContent = fmt(c.created_at);
-        top.append(cn, badge, dt);
-        item.appendChild(top);
+        top.append(cn, badge, dt); item.appendChild(top);
 
         if (c.review_status === 'approved' || c.review_status === 'rejected') {
             const meta = document.createElement('div'); meta.className = 'ci-meta';
             const verb = c.review_status === 'approved' ? 'Approved' : 'Rejected';
-            meta.textContent = verb +
-                (c.reviewer_name ? ' by ' + c.reviewer_name : '') +
-                (c.reviewed_at   ? ' · ' + fmt(c.reviewed_at) : '');
+            meta.textContent = verb + (c.reviewer_name ? ' by ' + c.reviewer_name : '') + (c.reviewed_at ? ' · ' + fmt(c.reviewed_at) : '');
             item.appendChild(meta);
         }
         list.appendChild(item);
@@ -806,40 +949,31 @@ function renderSidebar() {
 }
 
 // ============================================================================
-// Filter & click wiring
+// Filter wiring
 // ============================================================================
 document.querySelectorAll('[data-filter-type]').forEach(btn => {
     btn.addEventListener('click', () => {
         document.querySelectorAll('[data-filter-type]').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        filterType = btn.dataset.filterType;
-        renderSidebar();
+        btn.classList.add('active'); filterType = btn.dataset.filterType; renderSidebar();
     });
 });
 document.querySelectorAll('[data-filter-status]').forEach(btn => {
     btn.addEventListener('click', () => {
         document.querySelectorAll('[data-filter-status]').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        filterStatus = btn.dataset.filterStatus;
-        renderSidebar();
+        btn.classList.add('active'); filterStatus = btn.dataset.filterStatus; renderSidebar();
     });
 });
-document.getElementById('case-search').addEventListener('input', e => {
-    searchTerm = e.target.value;
-    renderSidebar();
-});
+document.getElementById('case-search').addEventListener('input', e => { searchTerm = e.target.value; renderSidebar(); });
 document.getElementById('case-list').addEventListener('click', e => {
     const item = e.target.closest('.case-item');
-    if (!item) return;
-    openCase(item.dataset.key);
+    if (item) openCase(item.dataset.key);
 });
 
 // ============================================================================
-// Open case (lazy-loads full content)
+// Open case
 // ============================================================================
 async function openCase(key) {
-    const summary = store[key];
-    if (!summary) return;
+    const summary = store[key]; if (!summary) return;
 
     if (!summary._fullLoaded) {
         try {
@@ -850,8 +984,7 @@ async function openCase(key) {
             summary._fullLoaded = true;
             console.log('[review] loaded case', key, 'keys:', Object.keys(summary));
         } catch (err) {
-            toast('Could not load case: ' + err.message, 'error');
-            return;
+            toast('Could not load case: ' + err.message, 'error'); return;
         }
     }
 
@@ -874,13 +1007,9 @@ async function openCase(key) {
     const meta = document.getElementById('review-meta');
     if (c.review_status === 'approved' || c.review_status === 'rejected') {
         const verb = c.review_status === 'approved' ? 'Approved' : 'Rejected';
-        meta.textContent = verb +
-            (c.reviewer_name ? ' by ' + c.reviewer_name : '') +
-            (c.reviewed_at   ? ' on ' + fmt(c.reviewed_at) : '');
+        meta.textContent = verb + (c.reviewer_name ? ' by ' + c.reviewer_name : '') + (c.reviewed_at ? ' on ' + fmt(c.reviewed_at) : '');
         meta.hidden = false;
-    } else {
-        meta.hidden = true;
-    }
+    } else { meta.hidden = true; }
 
     const tabsEl = document.getElementById('review-tabs');
     tabsEl.innerHTML = '';
@@ -894,6 +1023,8 @@ async function openCase(key) {
     });
     activateTab(cfg.tabs[0]);
 
+    setupFooterNote(c, cfg);
+
     setRejectMode(false);
     const isPending = c.review_status === 'pending';
     document.getElementById('btn-review-approve').disabled = !isPending;
@@ -904,28 +1035,42 @@ async function openCase(key) {
 }
 
 function activateTab(tab) {
-    document.querySelectorAll('#review-tabs .tab-btn').forEach(b => {
-        b.classList.toggle('active', b.dataset.tab === tab.id);
-    });
+    document.querySelectorAll('#review-tabs .tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab.id));
     const content = document.getElementById('review-tab-content');
     content.innerHTML = '';
     const c = store[currentCaseId]; if (!c) return;
-    try {
-        tab.render(content, c);
-    } catch (err) {
+    try { tab.render(content, c); }
+    catch (err) {
         console.error('[review] render error in tab', tab.id, err);
-        content.innerHTML = '<div class="ss-empty">Render error: ' + escHtml(err.message) + '</div>';
+        content.innerHTML = '<div class="ev-empty">Render error: ' + escHtml(err.message) + '</div>';
     }
     updateDirtyIndicator();
+}
+
+function setupFooterNote(c, cfg) {
+    const label = document.getElementById('footer-note-label');
+    const ta    = document.getElementById('footer-note-textarea');
+
+    const originalNote = cfg.getOriginalNote(c) || '';
+    const draft = getDraft(c.id);
+    label.textContent = cfg.noteLabel;
+
+    ta.value = (draft.note_override != null) ? draft.note_override : originalNote;
+    ta.disabled = c.review_status !== 'pending';
+    ta.classList.toggle('edited', draft.note_override != null && draft.note_override !== originalNote);
+
+    ta.oninput = () => {
+        if (ta.value === originalNote) delete draft.note_override;
+        else draft.note_override = ta.value;
+        ta.classList.toggle('edited', draft.note_override != null);
+        updateDirtyIndicator();
+    };
 }
 
 function setRejectMode(on) {
     document.getElementById('review-footer-default').hidden = on;
     document.getElementById('review-footer-reject').hidden  = !on;
-    if (!on) {
-        document.getElementById('reject-note').value = '';
-        document.getElementById('reject-instruction').value = '';
-    }
+    if (!on) { document.getElementById('reject-note').value = ''; }
 }
 
 document.getElementById('btn-review-reject').addEventListener('click', () => setRejectMode(true));
@@ -933,9 +1078,8 @@ document.getElementById('btn-cancel-reject').addEventListener('click', () => set
 document.getElementById('btn-review-approve').addEventListener('click', () => submitReview('approve'));
 document.getElementById('btn-submit-reject').addEventListener('click', () => {
     const note = document.getElementById('reject-note').value.trim();
-    const instruction = document.getElementById('reject-instruction').value.trim();
     if (!note) { toast('Please provide a reason for rejection.', 'error'); return; }
-    submitReview('reject', { note, instruction: instruction || undefined });
+    submitReview('reject', { note });
 });
 
 async function submitReview(action, extra) {
@@ -944,8 +1088,12 @@ async function submitReview(action, extra) {
         .map(id => document.getElementById(id));
     buttons.forEach(b => b.disabled = true);
 
+    const draft = drafts[currentCaseId] || {};
     const payload = { action, ...(extra || {}) };
-    if (hasDraftEdits(currentCaseId)) payload.result_override = drafts[currentCaseId];
+    if (draft.note_override != null) payload.note_override = draft.note_override;
+    if (draft.eos && Object.values(draft.eos).some(v => Object.keys(v).length)) {
+        payload.result_override = { eos: draft.eos };
+    }
 
     try {
         const r = await fetch('/api/cases/' + encodeURIComponent(currentCaseId) + '/review', {
@@ -991,9 +1139,7 @@ const _preopen = _params.get('case');
 if (_preopen) setTimeout(() => { if (store[_preopen]) openCase(_preopen); }, 600);
 
 window.addEventListener('beforeunload', e => {
-    if (currentCaseId && hasDraftEdits(currentCaseId)) {
-        e.preventDefault(); e.returnValue = '';
-    }
+    if (currentCaseId && hasDraftEdits(currentCaseId)) { e.preventDefault(); e.returnValue = ''; }
 });
 
 // ============================================================================

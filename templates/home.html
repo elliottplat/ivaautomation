@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Omni Group – IVA Automation</title>
+  <title>Omni Group – OMNI Automation</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: system-ui, -apple-system, sans-serif; background: #f0f2f5; color: #1a1a2e; min-height: 100vh; display: flex; flex-direction: column; }
@@ -140,7 +140,7 @@
 
 <div class="topbar">
   <img src="/static/logo.png" alt="Omni Group" />
-  <span class="topbar-title">IVA Automation Suite</span>
+  <span class="topbar-title">OMNI Automation Suite</span>
   <div class="topbar-spacer"></div>
   <div class="topbar-right">
     {% if current_user.role in ['reviewer', 'admin'] %}
@@ -269,7 +269,7 @@
       {% endif %}
       {% if current_user.role in ['reviewer', 'admin'] %}
       <div class="tool-card active">
-        <div class="tool-icon" style="background:#f0fdf4;">✅</div>
+        <div class="tool-icon" style="background:#f0fdf4;">🔍</div>
         <h3>Review</h3>
         <p>Approve or reject pending cases across all workflows</p>
         <a href="/review" class="tool-btn">Open</a>

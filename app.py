@@ -143,7 +143,7 @@ def roles_required(*roles):
     return decorator
 
 
-REVIEWER_ROLES = ('reviewer', 'admin')
+REVIEWER_ROLES = ('reviewer', 'admin', 'owner')
 
 
 def review_required(fn):
@@ -4452,10 +4452,8 @@ def save_cashier_instruction(case_id):
 
 
 @app.route("/api/cases/<int:case_id>/review", methods=["POST"])
-@login_required
+@review_required
 def review_case(case_id):
-    if current_user.role not in ("reviewer", "admin"):
-        return jsonify({"error": "Forbidden"}), 403
     data = request.get_json() or {}
     action = data.get("action")
     if action not in ("approve", "reject"):
@@ -4463,14 +4461,16 @@ def review_case(case_id):
     note = (data.get("note") or "").strip()
     if action == "reject" and not note:
         return jsonify({"error": "Rejection note required"}), 400
-    instruction = data.get("instruction")
+    note_override   = data.get("note_override")
     result_override = data.get("result_override")
-    override_json = json.dumps(result_override) if result_override is not None else None
     status = "approved" if action == "approve" else "rejected"
     try:
         conn = get_db_conn()
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            cur.execute("SELECT review_status, submitted_by, case_number FROM cases WHERE id = %s FOR UPDATE", (case_id,))
+            cur.execute(
+                "SELECT review_status, task_type, result, submitted_by, case_number FROM cases WHERE id = %s FOR UPDATE",
+                (case_id,)
+            )
             existing = cur.fetchone()
             if not existing:
                 conn.close()
@@ -4478,21 +4478,62 @@ def review_case(case_id):
             if existing["review_status"] != "pending":
                 conn.close()
                 return jsonify({"error": f"Case already {existing['review_status']}"}), 409
+
             cur.execute(
-                """UPDATE cases SET review_status=%s, review_note=%s,
-                   reviewed_by=%s, reviewed_at=NOW(),
-                   cashier_instruction_override=COALESCE(%s, cashier_instruction_override),
-                   result_override=%s
+                """UPDATE cases SET review_status=%s, review_note=%s, reviewed_by=%s, reviewed_at=NOW()
                    WHERE id=%s""",
-                (status, note or None, int(current_user.id), instruction, override_json, case_id),
+                (status, note or None, int(current_user.id), case_id),
             )
+
+            # On approve: push reviewer edits back to the original row
+            if action == "approve":
+                task_type = existing["task_type"]
+
+                if note_override is not None:
+                    if task_type in ("completion", "termination"):
+                        cur.execute(
+                            "UPDATE cases SET cashier_instruction_override=%s WHERE id=%s",
+                            (note_override, case_id)
+                        )
+                    elif task_type == "variation":
+                        raw = existing["result"] or "{}"
+                        try:
+                            res = json.loads(raw) if isinstance(raw, str) else (raw or {})
+                        except (ValueError, TypeError):
+                            res = {}
+                        res.setdefault("summary", {})["recommendation_basis"] = note_override
+                        cur.execute("UPDATE cases SET result=%s WHERE id=%s", (json.dumps(res), case_id))
+
+                if result_override and task_type == "variation":
+                    cur.execute("SELECT result FROM cases WHERE id=%s", (case_id,))
+                    raw = (cur.fetchone() or {}).get("result") or "{}"
+                    try:
+                        res = json.loads(raw) if isinstance(raw, str) else (raw or {})
+                    except (ValueError, TypeError):
+                        res = {}
+                    eos_edits = result_override.get("eos") or {}
+                    eos = res.setdefault("eos", {})
+                    for field_key in ("assets_available", "costs_and_disbursements"):
+                        edits = eos_edits.get(field_key) or {}
+                        rows_list = eos.get(field_key) or []
+                        for idx_str, new_val in edits.items():
+                            try:
+                                idx = int(idx_str)
+                            except (TypeError, ValueError):
+                                continue
+                            if 0 <= idx < len(rows_list):
+                                rows_list[idx]["current"] = new_val
+                    cur.execute("UPDATE cases SET result=%s WHERE id=%s", (json.dumps(res), case_id))
+
             if action == "approve" and existing["submitted_by"]:
                 cur.execute(
                     "INSERT INTO notifications (user_id, case_id, message) VALUES (%s, %s, %s)",
                     (existing["submitted_by"], case_id, f"Case approved — ready to action: {existing['case_number']}"),
                 )
+
             cur.execute(
-                """SELECT c.id, c.review_status, c.reviewed_at, c.result_override,
+                """SELECT c.id, c.case_number, c.task_type, c.review_status, c.reviewed_at,
+                          c.cashier_instruction_override, c.result,
                           u.username AS reviewer_name
                    FROM cases c LEFT JOIN users u ON u.id = c.reviewed_by
                    WHERE c.id = %s""",
@@ -4501,21 +4542,29 @@ def review_case(case_id):
             updated = cur.fetchone()
         conn.commit()
         conn.close()
-        ro = updated["result_override"]
-        if isinstance(ro, str):
+
+        raw_result = updated["result"] or ""
+        parsed_result = None
+        if raw_result.strip().startswith("{"):
             try:
-                ro = json.loads(ro)
+                parsed_result = json.loads(raw_result)
             except (ValueError, TypeError):
-                ro = None
+                pass
+
         return jsonify({
             "ok": True,
             "id": updated["id"],
+            "case_number": updated["case_number"],
+            "task_type": updated["task_type"],
             "review_status": updated["review_status"],
             "reviewed_at": updated["reviewed_at"].isoformat() if updated["reviewed_at"] else None,
             "reviewer_name": updated["reviewer_name"],
-            "result_override": ro,
+            "cashier_instruction": updated["cashier_instruction_override"] or extract_cashier_instruction(raw_result),
+            "result": parsed_result or raw_result,
+            "full_text": raw_result,
         })
     except Exception as e:
+        logger.exception("Failed to submit review")
         return jsonify({"error": str(e)}), 500
 
 
