@@ -468,8 +468,9 @@ function renderScreenshots(container, c) {
         const div = document.createElement('div');
         div.className = 'ss-empty';
         div.innerHTML = 'No screenshots in API response.' +
-            '<small>Screenshots are not currently stored in the database — only the Claude text output is saved. ' +
-            'This tab will populate if image storage is added in a future update.</small>';
+            '<small>Open browser console to see the response shape. ' +
+            'The backend <code>GET /api/cases/&lt;id&gt;</code> needs to include the <code>images</code> field — ' +
+            'see the backend snippet for how to add it.</small>';
         container.appendChild(div);
         return;
     }
