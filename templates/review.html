@@ -1,0 +1,784 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Review — Omni Automation</title>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+    font-family: system-ui, -apple-system, sans-serif;
+    background: #f0f2f5;
+    color: #1a1a2e;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+/* ── Topbar ── */
+.topbar {
+    background: #fff;
+    border-bottom: 1px solid #e5e7eb;
+    padding: 0.75rem 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    flex-shrink: 0;
+}
+.topbar img { height: 36px; width: auto; }
+.topbar h1 { font-size: 1.05rem; font-weight: 700; }
+.topbar-spacer { flex: 1; }
+.topbar-right { display: flex; align-items: center; gap: 0.85rem; }
+.topbar-user { font-size: 0.82rem; color: #777; }
+.topbar-user strong { color: #333; }
+.topbar-link {
+    font-size: 0.82rem; font-weight: 600;
+    color: #6366f1; text-decoration: none;
+}
+.topbar-link:hover { color: #4f46e5; }
+
+/* ── Notification bell ── */
+.notif-wrap { position: relative; }
+.notif-btn {
+    background: none; border: none; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    padding: 0.35rem; position: relative; color: inherit;
+}
+.notif-btn:hover { opacity: 0.7; }
+.notif-badge {
+    position: absolute; top: -2px; right: -2px;
+    background: #ef4444; color: #fff; font-size: 0.65rem; font-weight: 700;
+    border-radius: 10px; min-width: 16px; height: 16px;
+    display: none; align-items: center; justify-content: center; padding: 0 3px;
+}
+.notif-dropdown {
+    position: absolute; top: calc(100% + 8px); right: 0;
+    background: #fff; border-radius: 12px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+    border: 1px solid #e5e7eb;
+    width: 300px; max-height: 380px; display: none;
+    flex-direction: column; overflow: hidden; z-index: 200;
+}
+.notif-dropdown.open { display: flex; }
+.notif-dropdown-header {
+    padding: 0.75rem 1rem; border-bottom: 1px solid #f0f0f0;
+    display: flex; align-items: center; justify-content: space-between; flex-shrink: 0;
+}
+.notif-dropdown-header span { font-size: 0.85rem; font-weight: 700; color: #333; }
+.notif-mark-all { font-size: 0.75rem; color: #6366f1; cursor: pointer; background: none; border: none; font-weight: 600; }
+.notif-mark-all:hover { color: #4f46e5; }
+.notif-list { flex: 1; overflow-y: auto; }
+.notif-empty { padding: 1.5rem; text-align: center; color: #bbb; font-size: 0.82rem; }
+.notif-item {
+    padding: 0.75rem 1rem; border-bottom: 1px solid #f5f5f5;
+    cursor: pointer; transition: background 0.1s;
+    display: flex; align-items: flex-start; gap: 0.5rem;
+}
+.notif-item:hover { background: #f5f5ff; }
+.notif-item.unread { background: #fafafe; }
+.notif-dot { width: 8px; height: 8px; border-radius: 50%; background: #6366f1; flex-shrink: 0; margin-top: 5px; }
+.notif-item.read .notif-dot { background: transparent; }
+.notif-item-text { font-size: 0.82rem; color: #333; line-height: 1.4; }
+.notif-item-time { font-size: 0.72rem; color: #aaa; margin-top: 0.2rem; }
+
+/* ── Shell layout ── */
+.shell {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+    height: calc(100vh - 53px);
+}
+
+.sidebar {
+    width: 300px;
+    flex-shrink: 0;
+    background: #fff;
+    border-right: 1px solid #e5e7eb;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+.sidebar-header { flex-shrink: 0; }
+
+.main-col {
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+}
+
+/* ── Filter chips ── */
+.filter-chips { display: flex; gap: 6px; flex-wrap: wrap; padding: 8px 12px 4px; }
+.filter-chips .chip {
+    border: 1px solid #d4d4d8; background: #fff; color: #3f3f46;
+    padding: 4px 10px; border-radius: 999px; font-size: 12px;
+    cursor: pointer; transition: all 120ms;
+}
+.filter-chips .chip:hover { background: #f4f4f5; }
+.filter-chips .chip.active { background: #18181b; color: #fff; border-color: #18181b; }
+.filter-chips.status-chips .chip.active { background: #2563eb; border-color: #2563eb; }
+
+.case-search {
+    width: calc(100% - 24px); margin: 8px 12px; padding: 6px 10px;
+    border: 1px solid #d4d4d8; border-radius: 6px; font-size: 13px;
+}
+
+/* ── Type badges ── */
+.type-badge {
+    display: inline-block; padding: 2px 8px; border-radius: 4px;
+    font-size: 11px; font-weight: 600; letter-spacing: 0.02em;
+    text-transform: uppercase;
+}
+.type-completion  { background: #dbeafe; color: #1e40af; }
+.type-variation   { background: #fef3c7; color: #92400e; }
+.type-termination { background: #fee2e2; color: #991b1b; }
+
+/* ── Case list ── */
+.case-list { flex: 1; overflow-y: auto; }
+.case-item {
+    padding: 10px 12px; border-bottom: 1px solid #f4f4f5;
+    cursor: pointer; transition: background 80ms;
+}
+.case-item:hover { background: #f9fafb; }
+.case-item.active { outline: 2px solid #2563eb; outline-offset: -2px; }
+.case-item .ci-top { display: flex; align-items: center; gap: 8px; }
+.case-item .ci-top .cn { font-weight: 600; font-size: 13px; }
+.case-item .ci-top .dt { margin-left: auto; font-size: 11px; color: #71717a; }
+.case-item .ci-meta { font-size: 11px; color: #52525b; margin-top: 4px; }
+
+/* ── Review panel ── */
+.review-empty { padding: 48px; text-align: center; color: #71717a; flex: 1; }
+.review-panel { display: flex; flex-direction: column; flex: 1; }
+
+.review-header {
+    display: flex; justify-content: space-between; align-items: flex-start;
+    padding: 16px 24px; border-bottom: 1px solid #e4e4e7; flex-shrink: 0;
+}
+.review-title { display: flex; align-items: center; gap: 10px; }
+.review-title .case-number { font-size: 18px; font-weight: 700; }
+.review-meta { font-size: 12px; color: #52525b; margin-top: 4px; }
+
+.status-badge {
+    padding: 2px 8px; border-radius: 4px; font-size: 11px;
+    font-weight: 600; text-transform: uppercase;
+}
+.status-badge.status-pending  { background: #fef3c7; color: #854d0e; }
+.status-badge.status-approved { background: #d1fae5; color: #065f46; }
+.status-badge.status-rejected { background: #fee2e2; color: #991b1b; }
+
+.review-tabs {
+    display: flex; gap: 4px; padding: 0 24px;
+    border-bottom: 1px solid #e4e4e7; flex-shrink: 0;
+}
+.review-tabs .tab-btn {
+    background: transparent; border: none; padding: 10px 14px;
+    cursor: pointer; font-size: 13px; color: #52525b;
+    border-bottom: 2px solid transparent;
+}
+.review-tabs .tab-btn.active { color: #18181b; border-bottom-color: #2563eb; }
+
+.review-tab-content { flex: 1; overflow-y: auto; padding: 20px 24px; }
+.review-tab-content pre { white-space: pre-wrap; font-family: inherit; font-size: 13px; line-height: 1.6; }
+.review-tab-content h1,.review-tab-content h2,.review-tab-content h3 { margin: 1em 0 0.4em; }
+.review-tab-content p { margin: 0.4em 0; line-height: 1.6; }
+.review-tab-content ul,.review-tab-content ol { padding-left: 1.4em; margin: 0.4em 0; }
+
+.review-footer {
+    border-top: 1px solid #e4e4e7; padding: 12px 24px; background: #fafafa; flex-shrink: 0;
+}
+.review-footer-default, .review-footer-reject { display: flex; gap: 8px; }
+.review-footer-default { justify-content: flex-end; }
+.review-footer-reject { flex-direction: column; }
+.review-footer-reject textarea {
+    width: 100%; min-height: 60px; padding: 8px; border: 1px solid #d4d4d8;
+    border-radius: 6px; font-family: inherit; resize: vertical; font-size: 13px;
+}
+.review-footer-actions { display: flex; gap: 8px; justify-content: flex-end; }
+
+.btn {
+    padding: 8px 16px; border-radius: 6px; border: 1px solid transparent;
+    font-weight: 600; cursor: pointer; font-size: 13px;
+}
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-approve { background: #16a34a; color: #fff; border-color: #16a34a; }
+.btn-reject  { background: #dc2626; color: #fff; border-color: #dc2626; }
+.btn-secondary { background: #fff; border-color: #d4d4d8; color: #3f3f46; }
+
+/* ── Screenshots ── */
+.ss-section { margin-bottom: 24px; }
+.ss-section h4 { margin: 0 0 8px; font-size: 13px; color: #52525b; }
+.ss-gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 8px; }
+.ss-gallery img {
+    width: 100%; border: 1px solid #e4e4e7; border-radius: 4px;
+    cursor: pointer; transition: transform 120ms;
+}
+.ss-gallery img:hover { transform: scale(1.02); }
+.ss-empty { color: #71717a; font-style: italic; }
+
+/* ── Toast ── */
+.toast-container {
+    position: fixed; bottom: 24px; right: 24px; z-index: 9999;
+    display: flex; flex-direction: column; gap: 8px;
+}
+.toast {
+    padding: 12px 16px; border-radius: 6px; min-width: 240px;
+    background: #18181b; color: #fff; font-size: 13px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    transition: opacity 300ms, transform 300ms;
+}
+.toast-success { background: #16a34a; }
+.toast-error   { background: #dc2626; }
+.toast-out { opacity: 0; transform: translateY(8px); }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <a href="/" class="topbar-link" style="display:flex;align-items:center;gap:0.3rem;">← Home</a>
+  <h1>Review</h1>
+  <div class="topbar-spacer"></div>
+  <div class="topbar-right">
+    <div class="notif-wrap">
+      <button class="notif-btn" id="notif-btn" aria-label="Notifications">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+             style="width:20px;height:20px;display:block;">
+          <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/>
+          <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>
+        </svg>
+        <span class="notif-badge" id="notif-badge"></span>
+      </button>
+      <div class="notif-dropdown" id="notif-dropdown">
+        <div class="notif-dropdown-header">
+          <span>Notifications</span>
+          <button class="notif-mark-all" id="notif-mark-all">Mark all read</button>
+        </div>
+        <div class="notif-list" id="notif-list">
+          <div class="notif-empty">No notifications</div>
+        </div>
+      </div>
+    </div>
+    <span class="topbar-user">Signed in as <strong>{{ current_user.username }}</strong></span>
+  </div>
+</div>
+
+<div class="shell">
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <h2 style="margin: 12px; font-size: 14px; font-weight: 700;">Review queue</h2>
+
+      <div class="filter-chips" role="tablist" aria-label="Filter by type">
+        <button class="chip active" data-filter-type="all">All</button>
+        <button class="chip" data-filter-type="completion">Completion</button>
+        <button class="chip" data-filter-type="variation">Variation</button>
+        <button class="chip" data-filter-type="termination">Termination</button>
+      </div>
+
+      <div class="filter-chips status-chips" role="tablist" aria-label="Filter by status">
+        <button class="chip active" data-filter-status="pending">Pending</button>
+        <button class="chip" data-filter-status="approved">Approved</button>
+        <button class="chip" data-filter-status="rejected">Rejected</button>
+        <button class="chip" data-filter-status="all">All</button>
+      </div>
+
+      <input type="search" id="case-search" placeholder="Search case number…" class="case-search">
+    </div>
+
+    <div class="case-list" id="case-list"></div>
+    <div id="case-list-empty" hidden
+         style="padding: 24px; text-align: center; color: #71717a; font-size: 13px;">
+      No cases match the current filter.
+    </div>
+  </aside>
+
+  <main class="main-col">
+    <div class="review-empty" id="review-empty">
+      <h2>Select a case to review</h2>
+      <p style="margin-top:8px;">Choose a case from the sidebar to begin.</p>
+    </div>
+
+    <div class="review-panel" id="review-panel" hidden>
+      <header class="review-header">
+        <div>
+          <div class="review-title">
+            <span class="case-number" id="review-case-number"></span>
+            <span class="type-badge" id="review-type-badge"></span>
+            <span class="status-badge" id="review-status-badge"></span>
+          </div>
+          <div class="review-meta" id="review-meta" hidden></div>
+        </div>
+      </header>
+
+      <nav class="review-tabs" id="review-tabs"></nav>
+
+      <section class="review-tab-content" id="review-tab-content"></section>
+
+      <footer class="review-footer">
+        <div class="review-footer-default" id="review-footer-default">
+          <button id="btn-review-reject" class="btn btn-secondary">Reject</button>
+          <button id="btn-review-approve" class="btn btn-approve">Approve</button>
+        </div>
+
+        <div class="review-footer-reject" id="review-footer-reject" hidden>
+          <textarea id="reject-note" placeholder="Reason for rejection (required)…"></textarea>
+          <textarea id="reject-instruction" placeholder="Instructions for the cashier (optional)…"></textarea>
+          <div class="review-footer-actions">
+            <button id="btn-cancel-reject" class="btn btn-secondary">Cancel</button>
+            <button id="btn-submit-reject" class="btn btn-reject">Submit rejection</button>
+          </div>
+        </div>
+      </footer>
+    </div>
+  </main>
+</div>
+
+<div class="toast-container" id="toast-container"></div>
+
+<script>
+const USER_ROLE = "{{ current_user.role }}";
+const USER_NAME = "{{ current_user.username }}";
+
+// Per-type tab configuration
+const REVIEW_CONFIGS = {
+    completion: {
+        label: 'Completion',
+        cssClass: 'type-completion',
+        tabs: [
+            { id: 'cashier',     label: 'Cashier instruction' },
+            { id: 'screenshots', label: 'Screenshots' },
+            { id: 'fulltext',    label: 'Full output' }
+        ]
+    },
+    variation: {
+        label: 'Variation',
+        cssClass: 'type-variation',
+        tabs: [
+            { id: 'screenshots', label: 'Screenshots' },
+            { id: 'fulltext',    label: 'Full output' }
+        ]
+    },
+    termination: {
+        label: 'Termination',
+        cssClass: 'type-termination',
+        tabs: [
+            { id: 'screenshots', label: 'Screenshots' },
+            { id: 'fulltext',    label: 'Full output' }
+        ]
+    }
+};
+
+const store = {};
+let currentCaseId = null;
+let filterType    = 'all';
+let filterStatus  = 'pending';
+let searchTerm    = '';
+
+function escHtml(s) {
+    if (s == null) return '';
+    return String(s)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+function fmt(d) {
+    if (!d) return '';
+    const dt = new Date(d);
+    return dt.toLocaleDateString() + ' ' +
+        dt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+
+function renderMarkdown(s) {
+    if (typeof marked !== 'undefined') return marked.parse(s || '');
+    return '<pre>' + escHtml(s || '') + '</pre>';
+}
+
+function toast(msg, type) {
+    const c = document.getElementById('toast-container');
+    const t = document.createElement('div');
+    t.className = 'toast toast-' + (type || 'info');
+    t.textContent = msg;
+    c.appendChild(t);
+    setTimeout(() => {
+        t.classList.add('toast-out');
+        setTimeout(() => t.remove(), 300);
+    }, 3500);
+}
+
+// === Sidebar rendering ===
+function renderSidebar() {
+    const list  = document.getElementById('case-list');
+    const empty = document.getElementById('case-list-empty');
+
+    const cases = Object.values(store).filter(c => {
+        if (filterType   !== 'all' && c.task_type     !== filterType)   return false;
+        if (filterStatus !== 'all' && c.review_status !== filterStatus) return false;
+        if (searchTerm && !(c.case_number || '').toLowerCase().includes(searchTerm.toLowerCase())) return false;
+        return true;
+    }).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+    list.innerHTML = '';
+    if (cases.length === 0) { empty.hidden = false; return; }
+    empty.hidden = true;
+
+    for (const c of cases) {
+        const cfg = REVIEW_CONFIGS[c.task_type] || { label: c.task_type, cssClass: '' };
+
+        const item = document.createElement('div');
+        item.className = 'case-item status-' + (c.review_status || 'pending');
+        if (String(c.id) === String(currentCaseId)) item.classList.add('active');
+        item.dataset.key = c.id;
+
+        const top = document.createElement('div');
+        top.className = 'ci-top';
+
+        const cn = document.createElement('span');
+        cn.className = 'cn';
+        cn.textContent = c.case_number;
+
+        const badge = document.createElement('span');
+        badge.className = 'type-badge ' + cfg.cssClass;
+        badge.textContent = cfg.label;
+
+        const dt = document.createElement('span');
+        dt.className = 'dt';
+        dt.textContent = fmt(c.created_at);
+
+        top.append(cn, badge, dt);
+        item.appendChild(top);
+
+        if (c.review_status === 'approved' || c.review_status === 'rejected') {
+            const meta = document.createElement('div');
+            meta.className = 'ci-meta';
+            const verb = c.review_status === 'approved' ? 'Approved' : 'Rejected';
+            meta.textContent = verb +
+                (c.reviewer_name ? ' by ' + c.reviewer_name : '') +
+                (c.reviewed_at   ? ' · ' + fmt(c.reviewed_at) : '');
+            item.appendChild(meta);
+        }
+
+        list.appendChild(item);
+    }
+}
+
+// === Filter wiring ===
+document.querySelectorAll('[data-filter-type]').forEach(btn => {
+    btn.addEventListener('click', () => {
+        document.querySelectorAll('[data-filter-type]').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        filterType = btn.dataset.filterType;
+        renderSidebar();
+    });
+});
+
+document.querySelectorAll('[data-filter-status]').forEach(btn => {
+    btn.addEventListener('click', () => {
+        document.querySelectorAll('[data-filter-status]').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        filterStatus = btn.dataset.filterStatus;
+        renderSidebar();
+    });
+});
+
+document.getElementById('case-search').addEventListener('input', e => {
+    searchTerm = e.target.value;
+    renderSidebar();
+});
+
+document.getElementById('case-list').addEventListener('click', e => {
+    const item = e.target.closest('.case-item');
+    if (!item) return;
+    openCase(item.dataset.key);
+});
+
+// === Open a case (lazy-loads full content) ===
+async function openCase(key) {
+    const summary = store[key];
+    if (!summary) return;
+
+    if (!summary._fullLoaded) {
+        try {
+            const r = await fetch('/api/cases/' + encodeURIComponent(key));
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+            const full = await r.json();
+            Object.assign(summary, full);
+            summary._fullLoaded = true;
+        } catch (err) {
+            toast('Could not load case: ' + err.message, 'error');
+            return;
+        }
+    }
+
+    currentCaseId = key;
+    const c = summary;
+    const cfg = REVIEW_CONFIGS[c.task_type] || REVIEW_CONFIGS.completion;
+
+    document.getElementById('review-empty').hidden = true;
+    document.getElementById('review-panel').hidden = false;
+    document.getElementById('review-case-number').textContent = c.case_number;
+
+    const typeBadge = document.getElementById('review-type-badge');
+    typeBadge.className = 'type-badge ' + cfg.cssClass;
+    typeBadge.textContent = cfg.label;
+
+    const statusBadge = document.getElementById('review-status-badge');
+    statusBadge.className = 'status-badge status-' + c.review_status;
+    statusBadge.textContent = c.review_status;
+
+    const meta = document.getElementById('review-meta');
+    if (c.review_status === 'approved' || c.review_status === 'rejected') {
+        const verb = c.review_status === 'approved' ? 'Approved' : 'Rejected';
+        meta.textContent = verb +
+            (c.reviewer_name ? ' by ' + c.reviewer_name : '') +
+            (c.reviewed_at   ? ' on ' + fmt(c.reviewed_at) : '');
+        meta.hidden = false;
+    } else {
+        meta.hidden = true;
+    }
+
+    const tabsEl = document.getElementById('review-tabs');
+    tabsEl.innerHTML = '';
+    cfg.tabs.forEach((tab, i) => {
+        const btn = document.createElement('button');
+        btn.className = 'tab-btn' + (i === 0 ? ' active' : '');
+        btn.dataset.tab = tab.id;
+        btn.textContent = tab.label;
+        btn.addEventListener('click', () => activateTab(tab.id));
+        tabsEl.appendChild(btn);
+    });
+    activateTab(cfg.tabs[0].id);
+
+    setRejectMode(false);
+    const isPending = c.review_status === 'pending';
+    document.getElementById('btn-review-approve').disabled = !isPending;
+    document.getElementById('btn-review-reject').disabled  = !isPending;
+
+    renderSidebar();
+}
+
+function activateTab(tabId) {
+    document.querySelectorAll('#review-tabs .tab-btn').forEach(b => {
+        b.classList.toggle('active', b.dataset.tab === tabId);
+    });
+
+    const content = document.getElementById('review-tab-content');
+    const c = store[currentCaseId];
+    if (!c) return;
+    content.innerHTML = '';
+
+    if (tabId === 'cashier') {
+        const div = document.createElement('div');
+        div.innerHTML = renderMarkdown(
+            c.cashier_instruction_override || c.cashier_instruction || '_(no cashier instruction)_'
+        );
+        content.appendChild(div);
+    } else if (tabId === 'screenshots') {
+        renderScreenshots(content, c.images || {});
+    } else if (tabId === 'fulltext') {
+        const div = document.createElement('div');
+        div.innerHTML = renderMarkdown(c.full_text || c.result || '');
+        content.appendChild(div);
+    }
+}
+
+function renderScreenshots(container, images) {
+    const slots = Object.keys(images);
+    if (slots.length === 0) {
+        const e = document.createElement('div');
+        e.className = 'ss-empty';
+        e.textContent = 'No screenshots attached.';
+        container.appendChild(e);
+        return;
+    }
+    for (const slot of slots) {
+        const section = document.createElement('section');
+        section.className = 'ss-section';
+
+        const h = document.createElement('h4');
+        h.textContent = slot;
+        section.appendChild(h);
+
+        const gallery = document.createElement('div');
+        gallery.className = 'ss-gallery';
+        for (const img of (images[slot] || [])) {
+            const im = document.createElement('img');
+            im.src = (img.data || '').startsWith('data:')
+                ? img.data
+                : 'data:image/png;base64,' + img.data;
+            im.alt = img.name || slot;
+            im.loading = 'lazy';
+            gallery.appendChild(im);
+        }
+        section.appendChild(gallery);
+        container.appendChild(section);
+    }
+}
+
+// === Reject mode toggle ===
+function setRejectMode(on) {
+    document.getElementById('review-footer-default').hidden = on;
+    document.getElementById('review-footer-reject').hidden  = !on;
+    if (!on) {
+        document.getElementById('reject-note').value = '';
+        document.getElementById('reject-instruction').value = '';
+    }
+}
+
+document.getElementById('btn-review-reject').addEventListener('click', () => setRejectMode(true));
+document.getElementById('btn-cancel-reject').addEventListener('click', () => setRejectMode(false));
+document.getElementById('btn-review-approve').addEventListener('click', () => submitReview('approve', {}));
+
+document.getElementById('btn-submit-reject').addEventListener('click', () => {
+    const note = document.getElementById('reject-note').value.trim();
+    const instruction = document.getElementById('reject-instruction').value.trim();
+    if (!note) { toast('Please provide a reason for rejection.', 'error'); return; }
+    submitReview('reject', { note, instruction: instruction || undefined });
+});
+
+async function submitReview(action, payload) {
+    if (!currentCaseId) return;
+    const buttons = [
+        'btn-review-approve', 'btn-review-reject',
+        'btn-submit-reject',  'btn-cancel-reject'
+    ].map(id => document.getElementById(id));
+    buttons.forEach(b => b.disabled = true);
+
+    try {
+        const r = await fetch('/api/cases/' + encodeURIComponent(currentCaseId) + '/review', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action, ...payload })
+        });
+        if (!r.ok) {
+            const body = await r.json().catch(() => ({}));
+            throw new Error(body.error || ('HTTP ' + r.status));
+        }
+        const updated = await r.json();
+        Object.assign(store[currentCaseId], updated);
+        toast(action === 'approve' ? 'Approved.' : 'Rejected.', 'success');
+        setRejectMode(false);
+        openCase(currentCaseId);
+    } catch (err) {
+        toast('Review failed: ' + err.message, 'error');
+    } finally {
+        buttons.forEach(b => b.disabled = false);
+    }
+}
+
+// === Initial load ===
+async function loadCases() {
+    try {
+        const r = await fetch('/api/cases/pending-review?status=all');
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        const cases = await r.json();
+        cases.forEach(c => { store[c.id] = c; });
+        renderSidebar();
+    } catch (err) {
+        toast('Could not load cases: ' + err.message, 'error');
+    }
+}
+
+loadCases();
+
+// === Auto-open if ?case=<id> in URL ===
+const _params = new URLSearchParams(window.location.search);
+const _preopen = _params.get('case');
+if (_preopen) {
+    setTimeout(() => { if (store[_preopen]) openCase(_preopen); }, 600);
+}
+
+// === Notifications ===
+const notifBtn      = document.getElementById('notif-btn');
+const notifBadge    = document.getElementById('notif-badge');
+const notifDropdown = document.getElementById('notif-dropdown');
+const notifList     = document.getElementById('notif-list');
+
+let notifications = [];
+
+async function loadNotifications() {
+    try {
+        const res = await fetch('/api/notifications');
+        notifications = await res.json();
+        renderNotifications();
+    } catch {}
+}
+
+function renderNotifications() {
+    const unread = notifications.filter(n => !n.read).length;
+    if (unread > 0) {
+        notifBadge.textContent = unread > 99 ? '99+' : unread;
+        notifBadge.style.display = 'flex';
+    } else {
+        notifBadge.style.display = 'none';
+    }
+    notifList.innerHTML = '';
+    if (!notifications.length) {
+        notifList.innerHTML = '<div class="notif-empty">No notifications</div>';
+        return;
+    }
+    notifications.forEach(n => {
+        const div = document.createElement('div');
+        div.className = 'notif-item ' + (n.read ? 'read' : 'unread');
+        const dt = new Date(n.created_at).toLocaleString('en-GB', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' });
+        div.innerHTML = `
+            <div class="notif-dot"></div>
+            <div>
+              <div class="notif-item-text">${escHtml(n.message)}</div>
+              <div class="notif-item-time">${dt}</div>
+            </div>`;
+        div.addEventListener('click', async () => {
+            if (!n.read) {
+                await fetch(`/api/notifications/${n.id}/read`, { method: 'POST' });
+                n.read = true;
+                renderNotifications();
+            }
+            notifDropdown.classList.remove('open');
+            const id = String(n.case_id);
+            if (store[id]) {
+                openCase(id);
+            } else {
+                // Case not in current filter — load it then open
+                try {
+                    const res = await fetch('/api/cases/' + id);
+                    const data = await res.json();
+                    store[id] = { id: data.id, case_number: data.case_number,
+                                  task_type: data.task_type, review_status: data.review_status,
+                                  created_at: data.created_at, reviewed_at: data.reviewed_at,
+                                  reviewer_name: data.reviewer_name };
+                    Object.assign(store[id], data);
+                    store[id]._fullLoaded = true;
+                    openCase(id);
+                } catch {}
+            }
+        });
+        notifList.appendChild(div);
+    });
+}
+
+notifBtn.addEventListener('click', e => {
+    e.stopPropagation();
+    notifDropdown.classList.toggle('open');
+});
+
+document.addEventListener('click', e => {
+    if (!notifDropdown.contains(e.target) && e.target !== notifBtn) {
+        notifDropdown.classList.remove('open');
+    }
+});
+
+document.getElementById('notif-mark-all').addEventListener('click', async e => {
+    e.stopPropagation();
+    await fetch('/api/notifications/read-all', { method: 'POST' });
+    notifications.forEach(n => n.read = true);
+    renderNotifications();
+});
+
+loadNotifications();
+setInterval(loadNotifications, 30000);
+</script>
+</body>
+</html>

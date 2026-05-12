@@ -143,6 +143,19 @@ def roles_required(*roles):
     return decorator
 
 
+REVIEWER_ROLES = ('reviewer', 'admin')
+
+
+def review_required(fn):
+    @wraps(fn)
+    @login_required
+    def wrapped(*args, **kwargs):
+        if current_user.role not in REVIEWER_ROLES:
+            abort(403)
+        return fn(*args, **kwargs)
+    return wrapped
+
+
 # ---------------------------------------------------------------------------
 # Task type visibility
 # ---------------------------------------------------------------------------
@@ -2344,6 +2357,7 @@ def init_db():
             cur.execute("CREATE INDEX IF NOT EXISTS notifications_user_read ON notifications(user_id, read)")
             cur.execute("CREATE INDEX IF NOT EXISTS work_items_project_status ON work_items(project_id, status)")
             cur.execute("CREATE INDEX IF NOT EXISTS arrears_cases_upload_id ON arrears_cases(upload_id)")
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_cases_review_lookup ON cases(review_status, task_type, created_at DESC)")
 
         conn.commit()
     finally:
@@ -2699,6 +2713,12 @@ def reset_password():
 @login_required
 def home():
     return render_template("home.html")
+
+
+@app.route("/review")
+@review_required
+def review_page():
+    return render_template("review.html")
 
 
 @app.route("/completions")
@@ -4111,6 +4131,58 @@ def dashboard_stats():
 # ---------------------------------------------------------------------------
 # Cases API
 # ---------------------------------------------------------------------------
+@app.route("/api/cases/pending-review")
+@review_required
+def api_cases_pending_review():
+    """Return lightweight case summaries for the review sidebar.
+    Query params: type (completion|variation|termination|all), status (pending|approved|rejected|all), limit (int).
+    """
+    task_type = request.args.get('type', 'all')
+    status    = request.args.get('status', 'pending')
+    limit     = min(int(request.args.get('limit', 200)), 1000)
+
+    where = []
+    params = []
+    if task_type != 'all':
+        where.append('c.task_type = %s')
+        params.append(task_type)
+    if status != 'all':
+        where.append('c.review_status = %s')
+        params.append(status)
+
+    where_sql = ('WHERE ' + ' AND '.join(where)) if where else ''
+
+    sql = f"""
+        SELECT c.id, c.case_number, c.task_type, c.review_status,
+               c.created_at, c.reviewed_at,
+               u.username AS reviewer_name
+        FROM cases c
+        LEFT JOIN users u ON u.id = c.reviewed_by
+        {where_sql}
+        ORDER BY c.created_at DESC
+        LIMIT %s
+    """
+    params.append(limit)
+
+    try:
+        conn = get_db_conn()
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute(sql, params)
+            rows = cur.fetchall()
+        conn.close()
+        return jsonify([{
+            'id':            r['id'],
+            'case_number':   r['case_number'],
+            'task_type':     r['task_type'],
+            'review_status': r['review_status'],
+            'created_at':    r['created_at'].isoformat() if r['created_at'] else None,
+            'reviewed_at':   r['reviewed_at'].isoformat() if r['reviewed_at'] else None,
+            'reviewer_name': r['reviewer_name'],
+        } for r in rows])
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route("/api/cases")
 @login_required
 def list_cases():
@@ -4187,18 +4259,29 @@ def get_case(case_id):
     try:
         conn = get_db_conn()
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            cur.execute("SELECT * FROM cases WHERE id = %s", (case_id,))
+            cur.execute("""
+                SELECT c.*, u.username AS reviewer_name
+                FROM cases c
+                LEFT JOIN users u ON u.id = c.reviewed_by
+                WHERE c.id = %s
+            """, (case_id,))
             row = cur.fetchone()
         conn.close()
         if not row:
             return jsonify({"error": "Not found"}), 404
         return jsonify({
             "id": row["id"], "case_number": row["case_number"],
+            "task_type": row.get("task_type"),
             "created_at": row["created_at"].isoformat(), "result": row["result"],
+            "full_text": row["result"],
+            "cashier_instruction": row.get("cashier_instruction_override") or extract_cashier_instruction(row["result"] or ""),
             "input_tokens": row["input_tokens"], "output_tokens": row["output_tokens"],
             "cache_creation_tokens": row["cache_creation_tokens"], "cache_read_tokens": row["cache_read_tokens"],
             "cashier_instruction_override": row.get("cashier_instruction_override"),
             "review_status": row.get("review_status"),
+            "review_note": row.get("review_note"),
+            "reviewed_at": row["reviewed_at"].isoformat() if row.get("reviewed_at") else None,
+            "reviewer_name": row.get("reviewer_name"),
             "variation_data": row.get("variation_data"),
             "submitted_by": row.get("submitted_by"),
             "variation_subtype": row.get("variation_subtype"),
@@ -4331,16 +4414,26 @@ def save_cashier_instruction(case_id):
 def review_case(case_id):
     if current_user.role not in ("reviewer", "admin"):
         return jsonify({"error": "Forbidden"}), 403
-    data = request.get_json()
+    data = request.get_json() or {}
     action = data.get("action")
     if action not in ("approve", "reject"):
         return jsonify({"error": "Invalid action"}), 400
-    note = data.get("note", "").strip()
+    note = (data.get("note") or "").strip()
+    if action == "reject" and not note:
+        return jsonify({"error": "Rejection note required"}), 400
     instruction = data.get("instruction")
     status = "approved" if action == "approve" else "rejected"
     try:
         conn = get_db_conn()
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute("SELECT review_status, submitted_by, case_number FROM cases WHERE id = %s FOR UPDATE", (case_id,))
+            existing = cur.fetchone()
+            if not existing:
+                conn.close()
+                return jsonify({"error": "Case not found"}), 404
+            if existing["review_status"] != "pending":
+                conn.close()
+                return jsonify({"error": f"Case already {existing['review_status']}"}), 409
             if instruction is not None:
                 cur.execute(
                     """UPDATE cases SET review_status=%s, review_note=%s,
@@ -4354,17 +4447,27 @@ def review_case(case_id):
                        reviewed_by=%s, reviewed_at=NOW() WHERE id=%s""",
                     (status, note or None, int(current_user.id), case_id),
                 )
-            if action == "approve":
-                cur.execute("SELECT submitted_by, case_number FROM cases WHERE id = %s", (case_id,))
-                row = cur.fetchone()
-                if row and row["submitted_by"]:
-                    cur.execute(
-                        "INSERT INTO notifications (user_id, case_id, message) VALUES (%s, %s, %s)",
-                        (row["submitted_by"], case_id, f"Variation approved — ready to action: {row['case_number']}"),
-                    )
+            if action == "approve" and existing["submitted_by"]:
+                cur.execute(
+                    "INSERT INTO notifications (user_id, case_id, message) VALUES (%s, %s, %s)",
+                    (existing["submitted_by"], case_id, f"Case approved — ready to action: {existing['case_number']}"),
+                )
+            cur.execute(
+                """SELECT c.id, c.review_status, c.reviewed_at, u.username AS reviewer_name
+                   FROM cases c LEFT JOIN users u ON u.id = c.reviewed_by
+                   WHERE c.id = %s""",
+                (case_id,),
+            )
+            updated = cur.fetchone()
         conn.commit()
         conn.close()
-        return jsonify({"ok": True, "status": status})
+        return jsonify({
+            "ok": True,
+            "id": updated["id"],
+            "review_status": updated["review_status"],
+            "reviewed_at": updated["reviewed_at"].isoformat() if updated["reviewed_at"] else None,
+            "reviewer_name": updated["reviewer_name"],
+        })
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
