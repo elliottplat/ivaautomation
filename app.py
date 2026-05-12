@@ -2358,6 +2358,7 @@ def init_db():
             cur.execute("CREATE INDEX IF NOT EXISTS work_items_project_status ON work_items(project_id, status)")
             cur.execute("CREATE INDEX IF NOT EXISTS arrears_cases_upload_id ON arrears_cases(upload_id)")
             cur.execute("CREATE INDEX IF NOT EXISTS idx_cases_review_lookup ON cases(review_status, task_type, created_at DESC)")
+            cur.execute("ALTER TABLE cases ADD COLUMN IF NOT EXISTS result_override JSONB")
 
         conn.commit()
     finally:
@@ -4269,12 +4270,37 @@ def get_case(case_id):
         conn.close()
         if not row:
             return jsonify({"error": "Not found"}), 404
+        # Resolve structured result: variation_data holds JSON for variations,
+        # result holds the raw Claude output for completions/terminations.
+        raw_result = row["result"] or ""
+        structured = row.get("variation_data")
+        if structured and isinstance(structured, str):
+            try:
+                structured = json.loads(structured)
+            except (ValueError, TypeError):
+                structured = None
+
+        images = row.get("images") or {}
+        if isinstance(images, str):
+            try:
+                images = json.loads(images) if images else {}
+            except (ValueError, TypeError):
+                images = {}
+
+        result_override = row.get("result_override")
+        if isinstance(result_override, str):
+            try:
+                result_override = json.loads(result_override)
+            except (ValueError, TypeError):
+                result_override = None
+
         return jsonify({
             "id": row["id"], "case_number": row["case_number"],
             "task_type": row.get("task_type"),
-            "created_at": row["created_at"].isoformat(), "result": row["result"],
-            "full_text": row["result"],
-            "cashier_instruction": row.get("cashier_instruction_override") or extract_cashier_instruction(row["result"] or ""),
+            "created_at": row["created_at"].isoformat(),
+            "result": structured or raw_result,
+            "full_text": raw_result,
+            "cashier_instruction": row.get("cashier_instruction_override") or extract_cashier_instruction(raw_result),
             "input_tokens": row["input_tokens"], "output_tokens": row["output_tokens"],
             "cache_creation_tokens": row["cache_creation_tokens"], "cache_read_tokens": row["cache_read_tokens"],
             "cashier_instruction_override": row.get("cashier_instruction_override"),
@@ -4282,6 +4308,8 @@ def get_case(case_id):
             "review_note": row.get("review_note"),
             "reviewed_at": row["reviewed_at"].isoformat() if row.get("reviewed_at") else None,
             "reviewer_name": row.get("reviewer_name"),
+            "images": images,
+            "result_override": result_override,
             "variation_data": row.get("variation_data"),
             "submitted_by": row.get("submitted_by"),
             "variation_subtype": row.get("variation_subtype"),
@@ -4422,6 +4450,8 @@ def review_case(case_id):
     if action == "reject" and not note:
         return jsonify({"error": "Rejection note required"}), 400
     instruction = data.get("instruction")
+    result_override = data.get("result_override")
+    override_json = json.dumps(result_override) if result_override is not None else None
     status = "approved" if action == "approve" else "rejected"
     try:
         conn = get_db_conn()
@@ -4434,26 +4464,22 @@ def review_case(case_id):
             if existing["review_status"] != "pending":
                 conn.close()
                 return jsonify({"error": f"Case already {existing['review_status']}"}), 409
-            if instruction is not None:
-                cur.execute(
-                    """UPDATE cases SET review_status=%s, review_note=%s,
-                       reviewed_by=%s, reviewed_at=NOW(),
-                       cashier_instruction_override=%s WHERE id=%s""",
-                    (status, note or None, int(current_user.id), instruction, case_id),
-                )
-            else:
-                cur.execute(
-                    """UPDATE cases SET review_status=%s, review_note=%s,
-                       reviewed_by=%s, reviewed_at=NOW() WHERE id=%s""",
-                    (status, note or None, int(current_user.id), case_id),
-                )
+            cur.execute(
+                """UPDATE cases SET review_status=%s, review_note=%s,
+                   reviewed_by=%s, reviewed_at=NOW(),
+                   cashier_instruction_override=COALESCE(%s, cashier_instruction_override),
+                   result_override=%s
+                   WHERE id=%s""",
+                (status, note or None, int(current_user.id), instruction, override_json, case_id),
+            )
             if action == "approve" and existing["submitted_by"]:
                 cur.execute(
                     "INSERT INTO notifications (user_id, case_id, message) VALUES (%s, %s, %s)",
                     (existing["submitted_by"], case_id, f"Case approved — ready to action: {existing['case_number']}"),
                 )
             cur.execute(
-                """SELECT c.id, c.review_status, c.reviewed_at, u.username AS reviewer_name
+                """SELECT c.id, c.review_status, c.reviewed_at, c.result_override,
+                          u.username AS reviewer_name
                    FROM cases c LEFT JOIN users u ON u.id = c.reviewed_by
                    WHERE c.id = %s""",
                 (case_id,),
@@ -4461,12 +4487,19 @@ def review_case(case_id):
             updated = cur.fetchone()
         conn.commit()
         conn.close()
+        ro = updated["result_override"]
+        if isinstance(ro, str):
+            try:
+                ro = json.loads(ro)
+            except (ValueError, TypeError):
+                ro = None
         return jsonify({
             "ok": True,
             "id": updated["id"],
             "review_status": updated["review_status"],
             "reviewed_at": updated["reviewed_at"].isoformat() if updated["reviewed_at"] else None,
             "reviewer_name": updated["reviewer_name"],
+            "result_override": ro,
         })
     except Exception as e:
         return jsonify({"error": str(e)}), 500

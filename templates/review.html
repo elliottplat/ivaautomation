@@ -30,16 +30,12 @@ body {
     z-index: 10;
     flex-shrink: 0;
 }
-.topbar img { height: 36px; width: auto; }
 .topbar h1 { font-size: 1.05rem; font-weight: 700; }
 .topbar-spacer { flex: 1; }
 .topbar-right { display: flex; align-items: center; gap: 0.85rem; }
 .topbar-user { font-size: 0.82rem; color: #777; }
 .topbar-user strong { color: #333; }
-.topbar-link {
-    font-size: 0.82rem; font-weight: 600;
-    color: #6366f1; text-decoration: none;
-}
+.topbar-link { font-size: 0.82rem; font-weight: 600; color: #6366f1; text-decoration: none; }
 .topbar-link:hover { color: #4f46e5; }
 
 /* ── Notification bell ── */
@@ -93,7 +89,6 @@ body {
     overflow: hidden;
     height: calc(100vh - 53px);
 }
-
 .sidebar {
     width: 300px;
     flex-shrink: 0;
@@ -104,7 +99,6 @@ body {
     overflow: hidden;
 }
 .sidebar-header { flex-shrink: 0; }
-
 .main-col {
     flex: 1;
     overflow-y: auto;
@@ -122,7 +116,6 @@ body {
 .filter-chips .chip:hover { background: #f4f4f5; }
 .filter-chips .chip.active { background: #18181b; color: #fff; border-color: #18181b; }
 .filter-chips.status-chips .chip.active { background: #2563eb; border-color: #2563eb; }
-
 .case-search {
     width: calc(100% - 24px); margin: 8px 12px; padding: 6px 10px;
     border: 1px solid #d4d4d8; border-radius: 6px; font-size: 13px;
@@ -131,8 +124,7 @@ body {
 /* ── Type badges ── */
 .type-badge {
     display: inline-block; padding: 2px 8px; border-radius: 4px;
-    font-size: 11px; font-weight: 600; letter-spacing: 0.02em;
-    text-transform: uppercase;
+    font-size: 11px; font-weight: 600; letter-spacing: 0.02em; text-transform: uppercase;
 }
 .type-completion  { background: #dbeafe; color: #1e40af; }
 .type-variation   { background: #fef3c7; color: #92400e; }
@@ -159,9 +151,13 @@ body {
     display: flex; justify-content: space-between; align-items: flex-start;
     padding: 16px 24px; border-bottom: 1px solid #e4e4e7; flex-shrink: 0;
 }
-.review-title { display: flex; align-items: center; gap: 10px; }
+.review-title { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .review-title .case-number { font-size: 18px; font-weight: 700; }
 .review-meta { font-size: 12px; color: #52525b; margin-top: 4px; }
+.dirty-indicator {
+    padding: 2px 8px; border-radius: 4px;
+    background: #fef3c7; color: #92400e; font-size: 11px; font-weight: 600;
+}
 
 .status-badge {
     padding: 2px 8px; border-radius: 4px; font-size: 11px;
@@ -174,13 +170,15 @@ body {
 .review-tabs {
     display: flex; gap: 4px; padding: 0 24px;
     border-bottom: 1px solid #e4e4e7; flex-shrink: 0;
+    overflow-x: auto;
 }
 .review-tabs .tab-btn {
     background: transparent; border: none; padding: 10px 14px;
     cursor: pointer; font-size: 13px; color: #52525b;
-    border-bottom: 2px solid transparent;
+    border-bottom: 2px solid transparent; white-space: nowrap;
 }
 .review-tabs .tab-btn.active { color: #18181b; border-bottom-color: #2563eb; }
+.review-tabs .tab-btn.has-edits::after { content: '●'; color: #f59e0b; margin-left: 4px; }
 
 .review-tab-content { flex: 1; overflow-y: auto; padding: 20px 24px; }
 .review-tab-content pre { white-space: pre-wrap; font-family: inherit; font-size: 13px; line-height: 1.6; }
@@ -200,37 +198,55 @@ body {
 }
 .review-footer-actions { display: flex; gap: 8px; justify-content: flex-end; }
 
-.btn {
-    padding: 8px 16px; border-radius: 6px; border: 1px solid transparent;
-    font-weight: 600; cursor: pointer; font-size: 13px;
-}
+.btn { padding: 8px 16px; border-radius: 6px; border: 1px solid transparent; font-weight: 600; cursor: pointer; font-size: 13px; }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .btn-approve { background: #16a34a; color: #fff; border-color: #16a34a; }
 .btn-reject  { background: #dc2626; color: #fff; border-color: #dc2626; }
 .btn-secondary { background: #fff; border-color: #d4d4d8; color: #3f3f46; }
 
+/* ── Variation tables ── */
+.var-section { margin-bottom: 28px; }
+.var-section h3 { margin: 0 0 8px; font-size: 12px; color: #52525b; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700; }
+.eos-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.eos-table th { text-align: left; padding: 6px 10px; background: #fafafa; border-bottom: 1px solid #e4e4e7; font-weight: 600; }
+.eos-table th.num { text-align: right; }
+.eos-table td { padding: 6px 10px; border-bottom: 1px solid #f4f4f5; }
+.eos-table td.num { text-align: right; font-variant-numeric: tabular-nums; }
+.eos-table tr.total td { font-weight: 700; background: #fafafa; border-top: 2px solid #d4d4d8; }
+.eos-table input[type=number] { width: 110px; padding: 4px 6px; border: 1px solid #d4d4d8; border-radius: 4px; text-align: right; font-variant-numeric: tabular-nums; }
+.eos-table input[type=number]:focus { outline: 2px solid #2563eb; outline-offset: -1px; }
+.eos-table input.edited { background: #fef3c7; border-color: #f59e0b; }
+
+.kv-list { display: grid; grid-template-columns: max-content 1fr; gap: 4px 16px; font-size: 13px; }
+.kv-list dt { color: #71717a; }
+.kv-list dd { margin: 0; font-variant-numeric: tabular-nums; }
+
+.compliance-status { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+.compliance-status.within { background: #d1fae5; color: #065f46; }
+.compliance-status.breach { background: #fee2e2; color: #991b1b; }
+.compliance-status.na     { background: #f4f4f5; color: #52525b; }
+
+.review-flags { background: #fef3c7; border-left: 4px solid #f59e0b; padding: 12px 16px; border-radius: 4px; }
+.review-flags ul { margin: 0; padding-left: 20px; }
+.review-flags li { font-size: 13px; margin-bottom: 4px; }
+
+.edit-textarea { width: 100%; min-height: 120px; padding: 10px; border: 1px solid #d4d4d8; border-radius: 6px; font-family: inherit; font-size: 13px; resize: vertical; }
+.edit-textarea.edited { background: #fef3c7; border-color: #f59e0b; }
+.edit-label { display: block; font-size: 12px; font-weight: 600; color: #52525b; margin-bottom: 4px; }
+
 /* ── Screenshots ── */
 .ss-section { margin-bottom: 24px; }
 .ss-section h4 { margin: 0 0 8px; font-size: 13px; color: #52525b; }
 .ss-gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 8px; }
-.ss-gallery img {
-    width: 100%; border: 1px solid #e4e4e7; border-radius: 4px;
-    cursor: pointer; transition: transform 120ms;
-}
+.ss-gallery img { width: 100%; border: 1px solid #e4e4e7; border-radius: 4px; cursor: pointer; transition: transform 120ms; }
 .ss-gallery img:hover { transform: scale(1.02); }
-.ss-empty { color: #71717a; font-style: italic; }
+.ss-empty { color: #71717a; font-style: italic; padding: 16px; }
+.ss-empty small { display: block; margin-top: 6px; color: #a1a1aa; font-style: normal; }
+.ss-empty code { background: #f4f4f5; padding: 1px 4px; border-radius: 3px; font-size: 11px; }
 
 /* ── Toast ── */
-.toast-container {
-    position: fixed; bottom: 24px; right: 24px; z-index: 9999;
-    display: flex; flex-direction: column; gap: 8px;
-}
-.toast {
-    padding: 12px 16px; border-radius: 6px; min-width: 240px;
-    background: #18181b; color: #fff; font-size: 13px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-    transition: opacity 300ms, transform 300ms;
-}
+.toast-container { position: fixed; bottom: 24px; right: 24px; z-index: 9999; display: flex; flex-direction: column; gap: 8px; }
+.toast { padding: 12px 16px; border-radius: 6px; min-width: 240px; background: #18181b; color: #fff; font-size: 13px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); transition: opacity 300ms, transform 300ms; }
 .toast-success { background: #16a34a; }
 .toast-error   { background: #dc2626; }
 .toast-out { opacity: 0; transform: translateY(8px); }
@@ -271,24 +287,20 @@ body {
   <aside class="sidebar">
     <div class="sidebar-header">
       <h2 style="margin: 12px; font-size: 14px; font-weight: 700;">Review queue</h2>
-
       <div class="filter-chips" role="tablist" aria-label="Filter by type">
         <button class="chip active" data-filter-type="all">All</button>
         <button class="chip" data-filter-type="completion">Completion</button>
         <button class="chip" data-filter-type="variation">Variation</button>
         <button class="chip" data-filter-type="termination">Termination</button>
       </div>
-
       <div class="filter-chips status-chips" role="tablist" aria-label="Filter by status">
         <button class="chip active" data-filter-status="pending">Pending</button>
         <button class="chip" data-filter-status="approved">Approved</button>
         <button class="chip" data-filter-status="rejected">Rejected</button>
         <button class="chip" data-filter-status="all">All</button>
       </div>
-
       <input type="search" id="case-search" placeholder="Search case number…" class="case-search">
     </div>
-
     <div class="case-list" id="case-list"></div>
     <div id="case-list-empty" hidden
          style="padding: 24px; text-align: center; color: #71717a; font-size: 13px;">
@@ -309,13 +321,13 @@ body {
             <span class="case-number" id="review-case-number"></span>
             <span class="type-badge" id="review-type-badge"></span>
             <span class="status-badge" id="review-status-badge"></span>
+            <span class="dirty-indicator" id="dirty-indicator" hidden>Unsaved edits</span>
           </div>
           <div class="review-meta" id="review-meta" hidden></div>
         </div>
       </header>
 
       <nav class="review-tabs" id="review-tabs"></nav>
-
       <section class="review-tab-content" id="review-tab-content"></section>
 
       <footer class="review-footer">
@@ -323,7 +335,6 @@ body {
           <button id="btn-review-reject" class="btn btn-secondary">Reject</button>
           <button id="btn-review-approve" class="btn btn-approve">Approve</button>
         </div>
-
         <div class="review-footer-reject" id="review-footer-reject" hidden>
           <textarea id="reject-note" placeholder="Reason for rejection (required)…"></textarea>
           <textarea id="reject-instruction" placeholder="Instructions for the cashier (optional)…"></textarea>
@@ -343,73 +354,415 @@ body {
 const USER_ROLE = "{{ current_user.role }}";
 const USER_NAME = "{{ current_user.username }}";
 
-// Per-type tab configuration
-const REVIEW_CONFIGS = {
-    completion: {
-        label: 'Completion',
-        cssClass: 'type-completion',
-        tabs: [
-            { id: 'cashier',     label: 'Cashier instruction' },
-            { id: 'screenshots', label: 'Screenshots' },
-            { id: 'fulltext',    label: 'Full output' }
-        ]
-    },
-    variation: {
-        label: 'Variation',
-        cssClass: 'type-variation',
-        tabs: [
-            { id: 'screenshots', label: 'Screenshots' },
-            { id: 'fulltext',    label: 'Full output' }
-        ]
-    },
-    termination: {
-        label: 'Termination',
-        cssClass: 'type-termination',
-        tabs: [
-            { id: 'screenshots', label: 'Screenshots' },
-            { id: 'fulltext',    label: 'Full output' }
-        ]
-    }
-};
-
-const store = {};
+// ============================================================================
+// State
+// ============================================================================
+const store  = {};   // id -> case object
+const drafts = {};   // id -> { eos: {...}, notes: "...", recommendation_basis: "..." }
 let currentCaseId = null;
 let filterType    = 'all';
 let filterStatus  = 'pending';
 let searchTerm    = '';
 
-function escHtml(s) {
-    if (s == null) return '';
-    return String(s)
-        .replace(/&/g, '&amp;').replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+function getDraft(caseId) { return drafts[caseId] || (drafts[caseId] = {}); }
+function hasDraftEdits(caseId) {
+    const d = drafts[caseId]; if (!d) return false;
+    return Object.keys(d).some(k => {
+        const v = d[k];
+        if (v == null) return false;
+        if (typeof v === 'object') return Object.keys(v).length > 0;
+        return v !== '';
+    });
 }
 
+// ============================================================================
+// Helpers
+// ============================================================================
+function escHtml(s) {
+    if (s == null) return '';
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;')
+        .replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
 function fmt(d) {
     if (!d) return '';
     const dt = new Date(d);
-    return dt.toLocaleDateString() + ' ' +
-        dt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return dt.toLocaleDateString() + ' ' + dt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
-
+function fmtCurrency(n) {
+    if (n == null) return '—';
+    return '£' + Number(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+function fmtNumber(n, dp) {
+    if (n == null) return '—';
+    return Number(n).toLocaleString(undefined, { minimumFractionDigits: dp || 0, maximumFractionDigits: dp || 2 });
+}
+function fmtPct(n) {
+    if (n == null) return '—';
+    return Number(n).toFixed(2) + '%';
+}
 function renderMarkdown(s) {
     if (typeof marked !== 'undefined') return marked.parse(s || '');
-    return '<pre>' + escHtml(s || '') + '</pre>';
+    return '<pre style="white-space:pre-wrap">' + escHtml(s || '') + '</pre>';
 }
-
 function toast(msg, type) {
     const c = document.getElementById('toast-container');
     const t = document.createElement('div');
     t.className = 'toast toast-' + (type || 'info');
     t.textContent = msg;
     c.appendChild(t);
-    setTimeout(() => {
-        t.classList.add('toast-out');
-        setTimeout(() => t.remove(), 300);
-    }, 3500);
+    setTimeout(() => { t.classList.add('toast-out'); setTimeout(() => t.remove(), 300); }, 3500);
+}
+function updateDirtyIndicator() {
+    document.getElementById('dirty-indicator').hidden = !hasDraftEdits(currentCaseId);
+    document.querySelectorAll('#review-tabs .tab-btn').forEach(btn => {
+        const d = drafts[currentCaseId] || {};
+        const tabId = btn.dataset.tab;
+        let edited = false;
+        if (tabId === 'eos' && d.eos && Object.keys(d.eos).length) edited = true;
+        if (tabId === 'reasoning' && (d.notes != null || d.recommendation_basis != null)) edited = true;
+        btn.classList.toggle('has-edits', edited);
+    });
 }
 
-// === Sidebar rendering ===
+// Parse variation structured result from c.result (when it's an object)
+// or fall back to variation_data JSON string.
+function getStructuredResult(c) {
+    if (c.result && typeof c.result === 'object') return c.result;
+    const text = c.full_text || c.fullText || '';
+    if (typeof text === 'string' && text.trim().startsWith('{')) {
+        try { return JSON.parse(text); } catch (e) { /* not JSON */ }
+    }
+    return null;
+}
+
+// ============================================================================
+// REVIEW CONFIGS — render functions are inline so REVIEW_CONFIGS must be
+// declared after all render functions it references.
+// ============================================================================
+function renderCashier(container, c) {
+    const text = c.cashier_instruction_override || c.cashier_instruction || '_(no cashier instruction)_';
+    const div = document.createElement('div');
+    div.innerHTML = renderMarkdown(text);
+    container.appendChild(div);
+}
+function renderFullText(container, c) {
+    const div = document.createElement('div');
+    div.innerHTML = renderMarkdown(c.full_text || c.fullText || '');
+    container.appendChild(div);
+}
+function renderScreenshots(container, c) {
+    let images = c.images || c.screenshots || {};
+    console.log('[review] renderScreenshots case', c.id, 'images:', images, '| keys:', Object.keys(c));
+
+    if (Array.isArray(images)) {
+        const grouped = {};
+        for (const img of images) {
+            const slot = img.slot || img.slot_name || img.label || 'screenshots';
+            (grouped[slot] = grouped[slot] || []).push(img);
+        }
+        images = grouped;
+    }
+
+    const slots = Object.keys(images).filter(s => Array.isArray(images[s]) && images[s].length);
+    if (!slots.length) {
+        const div = document.createElement('div');
+        div.className = 'ss-empty';
+        div.innerHTML = 'No screenshots in API response.' +
+            '<small>Screenshots are not currently stored in the database — only the Claude text output is saved. ' +
+            'This tab will populate if image storage is added in a future update.</small>';
+        container.appendChild(div);
+        return;
+    }
+    for (const slot of slots) {
+        const section = document.createElement('section');
+        section.className = 'ss-section';
+        const h = document.createElement('h4'); h.textContent = slot;
+        section.appendChild(h);
+        const gallery = document.createElement('div'); gallery.className = 'ss-gallery';
+        for (const img of images[slot]) {
+            const im = document.createElement('img');
+            const data = img.data || img.base64 || img.content || '';
+            im.src = data.startsWith('data:') ? data : 'data:image/png;base64,' + data;
+            im.alt = img.name || img.filename || slot;
+            im.loading = 'lazy';
+            im.addEventListener('click', () => window.open(im.src, '_blank'));
+            gallery.appendChild(im);
+        }
+        section.appendChild(gallery);
+        container.appendChild(section);
+    }
+}
+
+// ── Variation-specific renderers ──────────────────────────────────────────
+function makeSection(title) {
+    const sec = document.createElement('div'); sec.className = 'var-section';
+    const h = document.createElement('h3'); h.textContent = title;
+    sec.appendChild(h);
+    return sec;
+}
+function addKV(dl, label, value, suffix) {
+    const dt = document.createElement('dt'); dt.textContent = label;
+    const dd = document.createElement('dd');
+    dd.textContent = value + (suffix ? ' ' + suffix : '');
+    dl.appendChild(dt); dl.appendChild(dd);
+}
+
+function renderVariationEOS(container, c) {
+    const data = getStructuredResult(c);
+    if (!data || !data.eos) {
+        container.innerHTML = '<div class="ss-empty">No EOS data found in case result.</div>'; return;
+    }
+    const eos = data.eos;
+    const draft = getDraft(c.id);
+    const draftEos = draft.eos = draft.eos || {};
+    const editable = c.review_status === 'pending';
+
+    if (eos.assets_available && eos.assets_available.length) {
+        const sec = makeSection('Assets Available');
+        sec.appendChild(makeEOSTable(eos.assets_available, draftEos, 'assets_available', editable, eos.total_assets_available));
+        container.appendChild(sec);
+    }
+    if (eos.costs_and_disbursements && eos.costs_and_disbursements.length) {
+        const sec = makeSection('Costs & Disbursements');
+        sec.appendChild(makeEOSTable(eos.costs_and_disbursements, draftEos, 'costs_and_disbursements', editable, eos.total_costs));
+        container.appendChild(sec);
+    }
+
+    const sec = makeSection('Distribution');
+    const dl = document.createElement('dl'); dl.className = 'kv-list';
+    addKV(dl, 'Available for distribution',
+        fmtCurrency(eos.available_for_distribution?.current),
+        '(was ' + fmtCurrency(eos.available_for_distribution?.last_agreed) + ')');
+    addKV(dl, 'Unsecured creditors',
+        fmtCurrency(eos.unsecured_creditors?.current),
+        '(was ' + fmtCurrency(eos.unsecured_creditors?.last_agreed) + ')');
+    addKV(dl, 'Surplus / deficiency',
+        fmtCurrency(eos.surplus_deficiency?.current),
+        '(was ' + fmtCurrency(eos.surplus_deficiency?.last_agreed) + ')');
+    addKV(dl, 'Est. dividend (p/£)',
+        fmtNumber(eos.estimated_dividend_pence_per_pound?.current, 2) + 'p',
+        '(was ' + fmtNumber(eos.estimated_dividend_pence_per_pound?.last_agreed, 2) + 'p)');
+    sec.appendChild(dl);
+    container.appendChild(sec);
+}
+
+function makeEOSTable(rows, draftSection, fieldKey, editable, total) {
+    const table = document.createElement('table');
+    table.className = 'eos-table';
+    table.innerHTML = '<thead><tr><th>Item</th><th class="num">Last Agreed</th><th class="num">Current</th></tr></thead>';
+    const tbody = document.createElement('tbody');
+
+    rows.forEach((row, i) => {
+        const tr = document.createElement('tr');
+        const tdLabel = document.createElement('td'); tdLabel.textContent = row.label;
+        const tdLast  = document.createElement('td'); tdLast.className = 'num'; tdLast.textContent = fmtCurrency(row.last_agreed);
+        const tdCurr  = document.createElement('td'); tdCurr.className = 'num';
+
+        if (editable) {
+            const input = document.createElement('input');
+            input.type = 'number'; input.step = '0.01';
+            const draftField = draftSection[fieldKey] = draftSection[fieldKey] || {};
+            input.value = (i in draftField) ? draftField[i] : row.current;
+            if (i in draftField && Number(draftField[i]) !== Number(row.current)) input.classList.add('edited');
+            input.addEventListener('input', () => {
+                const v = input.value === '' ? null : Number(input.value);
+                if (v == null || Number(v) === Number(row.current)) {
+                    delete draftField[i]; input.classList.remove('edited');
+                } else {
+                    draftField[i] = v; input.classList.add('edited');
+                }
+                updateDirtyIndicator();
+            });
+            tdCurr.appendChild(input);
+        } else {
+            tdCurr.textContent = fmtCurrency(row.current);
+        }
+        tr.append(tdLabel, tdLast, tdCurr);
+        tbody.appendChild(tr);
+    });
+
+    if (total) {
+        const tr = document.createElement('tr'); tr.className = 'total';
+        const td1 = document.createElement('td'); td1.textContent = 'Total';
+        const td2 = document.createElement('td'); td2.className = 'num'; td2.textContent = fmtCurrency(total.last_agreed);
+        const td3 = document.createElement('td'); td3.className = 'num'; td3.textContent = fmtCurrency(total.current);
+        tr.append(td1, td2, td3);
+        tbody.appendChild(tr);
+    }
+    table.appendChild(tbody);
+    return table;
+}
+
+function renderVariationLockedModel(container, c) {
+    const data = getStructuredResult(c);
+    if (!data || !data.locked_model) {
+        container.innerHTML = '<div class="ss-empty">No locked model data found.</div>'; return;
+    }
+    const m = data.locked_model;
+    const sec = makeSection('Locked Model');
+    const dl = document.createElement('dl'); dl.className = 'kv-list';
+    addKV(dl, 'Total cost cap',               fmtCurrency(m.total_cost_cap));
+    addKV(dl, 'Nominee disbursements subcap', m.nominee_disbursements_subcap == null ? 'None' : fmtCurrency(m.nominee_disbursements_subcap));
+    addKV(dl, 'Supervisor cap',               fmtCurrency(m.supervisor_cap));
+    addKV(dl, 'Specific bond',                fmtCurrency(m.specific_bond));
+    addKV(dl, 'BIS registration',             fmtCurrency(m.bis_registration));
+    addKV(dl, 'Agreed nominee fee',           fmtCurrency(m.agreed_nominee_fee));
+    addKV(dl, 'Agreed disbursements',         fmtCurrency(m.agreed_disbursements));
+    addKV(dl, 'Term (months)',                m.term_months);
+    addKV(dl, 'Additional asset fee %',       m.additional_asset_fee_percent + '%');
+    sec.appendChild(dl);
+    container.appendChild(sec);
+}
+
+function renderVariationCompliance(container, c) {
+    const data = getStructuredResult(c);
+    if (!data || !data.compliance) {
+        container.innerHTML = '<div class="ss-empty">No compliance data found.</div>'; return;
+    }
+    const cm = data.compliance;
+    const sec = makeSection('Cap Compliance');
+    const dl = document.createElement('dl'); dl.className = 'kv-list';
+
+    const statusEl = (s) => {
+        const span = document.createElement('span');
+        const cls = s === 'WITHIN_CAP' ? 'within' : s === 'N/A' ? 'na' : 'breach';
+        span.className = 'compliance-status ' + cls;
+        span.textContent = s || '—';
+        return span;
+    };
+
+    const dt1 = document.createElement('dt'); dt1.textContent = 'Total cost cap';
+    const dd1 = document.createElement('dd'); dd1.appendChild(statusEl(cm.total_cost_cap_status));
+    dd1.appendChild(document.createTextNode(' · headroom ' + fmtCurrency(cm.total_cost_cap_headroom)));
+    dl.append(dt1, dd1);
+
+    const dt2 = document.createElement('dt'); dt2.textContent = 'Nominee disb. subcap';
+    const dd2 = document.createElement('dd'); dd2.appendChild(statusEl(cm.nominee_disb_subcap_status));
+    if (cm.nominee_disb_subcap_headroom != null)
+        dd2.appendChild(document.createTextNode(' · headroom ' + fmtCurrency(cm.nominee_disb_subcap_headroom)));
+    dl.append(dt2, dd2);
+
+    addKV(dl, 'COA disbursements actual',          fmtCurrency(cm.coa_disbursements_actual));
+    addKV(dl, 'COA above original model',          fmtCurrency(cm.coa_disbursements_above_original_model));
+    addKV(dl, 'Nominee fee reduction required',    fmtCurrency(cm.nominee_fee_reduction_required));
+    addKV(dl, 'Supervisor fee reduction required', fmtCurrency(cm.supervisor_fee_reduction_required));
+    sec.appendChild(dl);
+    container.appendChild(sec);
+}
+
+function renderVariationSummary(container, c) {
+    const data = getStructuredResult(c);
+    if (!data || !data.summary) {
+        container.innerHTML = '<div class="ss-empty">No summary data found.</div>'; return;
+    }
+    const s = data.summary;
+
+    const sec1 = makeSection('Outcome Uplift');
+    const dl = document.createElement('dl'); dl.className = 'kv-list';
+    addKV(dl, 'Uplift (p/£)', fmtNumber(s.outcome_uplift_pence_per_pound, 2) + 'p');
+    addKV(dl, 'Uplift (%)',   fmtPct(s.outcome_uplift_percent));
+    sec1.appendChild(dl);
+    container.appendChild(sec1);
+
+    const sec2 = makeSection('Recommendation Basis');
+    const p = document.createElement('p'); p.style.fontSize = '13px';
+    p.textContent = s.recommendation_basis || '—';
+    sec2.appendChild(p);
+    container.appendChild(sec2);
+
+    if (s.review_flags && s.review_flags.length) {
+        const sec3 = makeSection('Review Flags');
+        const wrap = document.createElement('div'); wrap.className = 'review-flags';
+        const ul = document.createElement('ul');
+        for (const flag of s.review_flags) {
+            const li = document.createElement('li'); li.textContent = flag; ul.appendChild(li);
+        }
+        wrap.appendChild(ul);
+        sec3.appendChild(wrap);
+        container.appendChild(sec3);
+    }
+}
+
+function renderVariationReasoning(container, c) {
+    const data = getStructuredResult(c);
+    const draft = getDraft(c.id);
+    const editable = c.review_status === 'pending';
+    const originalNotes = data?.compliance?.notes || '';
+    const originalRec   = data?.summary?.recommendation_basis || '';
+
+    const sec1 = makeSection('Compliance Notes');
+    const lbl1 = document.createElement('label'); lbl1.className = 'edit-label';
+    lbl1.textContent = 'Notes on cap compliance, modifications, anomalies';
+    sec1.appendChild(lbl1);
+    const ta1 = document.createElement('textarea');
+    ta1.className = 'edit-textarea'; ta1.disabled = !editable;
+    ta1.value = (draft.notes != null) ? draft.notes : originalNotes;
+    if (draft.notes != null && draft.notes !== originalNotes) ta1.classList.add('edited');
+    ta1.addEventListener('input', () => {
+        if (ta1.value === originalNotes) delete draft.notes;
+        else draft.notes = ta1.value;
+        ta1.classList.toggle('edited', draft.notes != null);
+        updateDirtyIndicator();
+    });
+    sec1.appendChild(ta1);
+    container.appendChild(sec1);
+
+    const sec2 = makeSection('Recommendation Basis');
+    const lbl2 = document.createElement('label'); lbl2.className = 'edit-label';
+    lbl2.textContent = 'Reasoning for approval / rejection recommendation';
+    sec2.appendChild(lbl2);
+    const ta2 = document.createElement('textarea');
+    ta2.className = 'edit-textarea'; ta2.disabled = !editable;
+    ta2.value = (draft.recommendation_basis != null) ? draft.recommendation_basis : originalRec;
+    if (draft.recommendation_basis != null && draft.recommendation_basis !== originalRec) ta2.classList.add('edited');
+    ta2.addEventListener('input', () => {
+        if (ta2.value === originalRec) delete draft.recommendation_basis;
+        else draft.recommendation_basis = ta2.value;
+        ta2.classList.toggle('edited', draft.recommendation_basis != null);
+        updateDirtyIndicator();
+    });
+    sec2.appendChild(ta2);
+    container.appendChild(sec2);
+}
+
+// ============================================================================
+// REVIEW CONFIGS (declared after renderers they reference)
+// ============================================================================
+const REVIEW_CONFIGS = {
+    completion: {
+        label: 'Completion',
+        cssClass: 'type-completion',
+        tabs: [
+            { id: 'cashier',     label: 'Cashier instruction', render: renderCashier },
+            { id: 'screenshots', label: 'Screenshots',         render: renderScreenshots },
+            { id: 'fulltext',    label: 'Full output',         render: renderFullText }
+        ]
+    },
+    variation: {
+        label: 'Variation',
+        cssClass: 'type-variation',
+        tabs: [
+            { id: 'eos',          label: 'EOS',            render: renderVariationEOS,         editable: true },
+            { id: 'locked_model', label: 'Locked model',   render: renderVariationLockedModel },
+            { id: 'compliance',   label: 'Cap compliance', render: renderVariationCompliance },
+            { id: 'summary',      label: 'Summary',        render: renderVariationSummary },
+            { id: 'screenshots',  label: 'Screenshots',    render: renderScreenshots },
+            { id: 'reasoning',    label: 'Reasoning',      render: renderVariationReasoning,   editable: true }
+        ]
+    },
+    termination: {
+        label: 'Termination',
+        cssClass: 'type-termination',
+        tabs: [
+            { id: 'screenshots', label: 'Screenshots', render: renderScreenshots },
+            { id: 'fulltext',    label: 'Full output', render: renderFullText }
+        ]
+    }
+};
+
+// ============================================================================
+// Sidebar rendering
+// ============================================================================
 function renderSidebar() {
     const list  = document.getElementById('case-list');
     const empty = document.getElementById('case-list-empty');
@@ -427,45 +780,33 @@ function renderSidebar() {
 
     for (const c of cases) {
         const cfg = REVIEW_CONFIGS[c.task_type] || { label: c.task_type, cssClass: '' };
-
         const item = document.createElement('div');
         item.className = 'case-item status-' + (c.review_status || 'pending');
         if (String(c.id) === String(currentCaseId)) item.classList.add('active');
         item.dataset.key = c.id;
 
-        const top = document.createElement('div');
-        top.className = 'ci-top';
-
-        const cn = document.createElement('span');
-        cn.className = 'cn';
-        cn.textContent = c.case_number;
-
-        const badge = document.createElement('span');
-        badge.className = 'type-badge ' + cfg.cssClass;
-        badge.textContent = cfg.label;
-
-        const dt = document.createElement('span');
-        dt.className = 'dt';
-        dt.textContent = fmt(c.created_at);
-
+        const top = document.createElement('div'); top.className = 'ci-top';
+        const cn = document.createElement('span'); cn.className = 'cn'; cn.textContent = c.case_number;
+        const badge = document.createElement('span'); badge.className = 'type-badge ' + cfg.cssClass; badge.textContent = cfg.label;
+        const dt = document.createElement('span'); dt.className = 'dt'; dt.textContent = fmt(c.created_at);
         top.append(cn, badge, dt);
         item.appendChild(top);
 
         if (c.review_status === 'approved' || c.review_status === 'rejected') {
-            const meta = document.createElement('div');
-            meta.className = 'ci-meta';
+            const meta = document.createElement('div'); meta.className = 'ci-meta';
             const verb = c.review_status === 'approved' ? 'Approved' : 'Rejected';
             meta.textContent = verb +
                 (c.reviewer_name ? ' by ' + c.reviewer_name : '') +
                 (c.reviewed_at   ? ' · ' + fmt(c.reviewed_at) : '');
             item.appendChild(meta);
         }
-
         list.appendChild(item);
     }
 }
 
-// === Filter wiring ===
+// ============================================================================
+// Filter & click wiring
+// ============================================================================
 document.querySelectorAll('[data-filter-type]').forEach(btn => {
     btn.addEventListener('click', () => {
         document.querySelectorAll('[data-filter-type]').forEach(b => b.classList.remove('active'));
@@ -474,7 +815,6 @@ document.querySelectorAll('[data-filter-type]').forEach(btn => {
         renderSidebar();
     });
 });
-
 document.querySelectorAll('[data-filter-status]').forEach(btn => {
     btn.addEventListener('click', () => {
         document.querySelectorAll('[data-filter-status]').forEach(b => b.classList.remove('active'));
@@ -483,19 +823,19 @@ document.querySelectorAll('[data-filter-status]').forEach(btn => {
         renderSidebar();
     });
 });
-
 document.getElementById('case-search').addEventListener('input', e => {
     searchTerm = e.target.value;
     renderSidebar();
 });
-
 document.getElementById('case-list').addEventListener('click', e => {
     const item = e.target.closest('.case-item');
     if (!item) return;
     openCase(item.dataset.key);
 });
 
-// === Open a case (lazy-loads full content) ===
+// ============================================================================
+// Open case (lazy-loads full content)
+// ============================================================================
 async function openCase(key) {
     const summary = store[key];
     if (!summary) return;
@@ -507,6 +847,7 @@ async function openCase(key) {
             const full = await r.json();
             Object.assign(summary, full);
             summary._fullLoaded = true;
+            console.log('[review] loaded case', key, 'keys:', Object.keys(summary));
         } catch (err) {
             toast('Could not load case: ' + err.message, 'error');
             return;
@@ -547,78 +888,36 @@ async function openCase(key) {
         btn.className = 'tab-btn' + (i === 0 ? ' active' : '');
         btn.dataset.tab = tab.id;
         btn.textContent = tab.label;
-        btn.addEventListener('click', () => activateTab(tab.id));
+        btn.addEventListener('click', () => activateTab(tab));
         tabsEl.appendChild(btn);
     });
-    activateTab(cfg.tabs[0].id);
+    activateTab(cfg.tabs[0]);
 
     setRejectMode(false);
     const isPending = c.review_status === 'pending';
     document.getElementById('btn-review-approve').disabled = !isPending;
     document.getElementById('btn-review-reject').disabled  = !isPending;
 
+    updateDirtyIndicator();
     renderSidebar();
 }
 
-function activateTab(tabId) {
+function activateTab(tab) {
     document.querySelectorAll('#review-tabs .tab-btn').forEach(b => {
-        b.classList.toggle('active', b.dataset.tab === tabId);
+        b.classList.toggle('active', b.dataset.tab === tab.id);
     });
-
     const content = document.getElementById('review-tab-content');
-    const c = store[currentCaseId];
-    if (!c) return;
     content.innerHTML = '';
-
-    if (tabId === 'cashier') {
-        const div = document.createElement('div');
-        div.innerHTML = renderMarkdown(
-            c.cashier_instruction_override || c.cashier_instruction || '_(no cashier instruction)_'
-        );
-        content.appendChild(div);
-    } else if (tabId === 'screenshots') {
-        renderScreenshots(content, c.images || {});
-    } else if (tabId === 'fulltext') {
-        const div = document.createElement('div');
-        div.innerHTML = renderMarkdown(c.full_text || c.result || '');
-        content.appendChild(div);
+    const c = store[currentCaseId]; if (!c) return;
+    try {
+        tab.render(content, c);
+    } catch (err) {
+        console.error('[review] render error in tab', tab.id, err);
+        content.innerHTML = '<div class="ss-empty">Render error: ' + escHtml(err.message) + '</div>';
     }
+    updateDirtyIndicator();
 }
 
-function renderScreenshots(container, images) {
-    const slots = Object.keys(images);
-    if (slots.length === 0) {
-        const e = document.createElement('div');
-        e.className = 'ss-empty';
-        e.textContent = 'No screenshots attached.';
-        container.appendChild(e);
-        return;
-    }
-    for (const slot of slots) {
-        const section = document.createElement('section');
-        section.className = 'ss-section';
-
-        const h = document.createElement('h4');
-        h.textContent = slot;
-        section.appendChild(h);
-
-        const gallery = document.createElement('div');
-        gallery.className = 'ss-gallery';
-        for (const img of (images[slot] || [])) {
-            const im = document.createElement('img');
-            im.src = (img.data || '').startsWith('data:')
-                ? img.data
-                : 'data:image/png;base64,' + img.data;
-            im.alt = img.name || slot;
-            im.loading = 'lazy';
-            gallery.appendChild(im);
-        }
-        section.appendChild(gallery);
-        container.appendChild(section);
-    }
-}
-
-// === Reject mode toggle ===
 function setRejectMode(on) {
     document.getElementById('review-footer-default').hidden = on;
     document.getElementById('review-footer-reject').hidden  = !on;
@@ -630,8 +929,7 @@ function setRejectMode(on) {
 
 document.getElementById('btn-review-reject').addEventListener('click', () => setRejectMode(true));
 document.getElementById('btn-cancel-reject').addEventListener('click', () => setRejectMode(false));
-document.getElementById('btn-review-approve').addEventListener('click', () => submitReview('approve', {}));
-
+document.getElementById('btn-review-approve').addEventListener('click', () => submitReview('approve'));
 document.getElementById('btn-submit-reject').addEventListener('click', () => {
     const note = document.getElementById('reject-note').value.trim();
     const instruction = document.getElementById('reject-instruction').value.trim();
@@ -639,19 +937,20 @@ document.getElementById('btn-submit-reject').addEventListener('click', () => {
     submitReview('reject', { note, instruction: instruction || undefined });
 });
 
-async function submitReview(action, payload) {
+async function submitReview(action, extra) {
     if (!currentCaseId) return;
-    const buttons = [
-        'btn-review-approve', 'btn-review-reject',
-        'btn-submit-reject',  'btn-cancel-reject'
-    ].map(id => document.getElementById(id));
+    const buttons = ['btn-review-approve','btn-review-reject','btn-submit-reject','btn-cancel-reject']
+        .map(id => document.getElementById(id));
     buttons.forEach(b => b.disabled = true);
+
+    const payload = { action, ...(extra || {}) };
+    if (hasDraftEdits(currentCaseId)) payload.result_override = drafts[currentCaseId];
 
     try {
         const r = await fetch('/api/cases/' + encodeURIComponent(currentCaseId) + '/review', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action, ...payload })
+            body: JSON.stringify(payload)
         });
         if (!r.ok) {
             const body = await r.json().catch(() => ({}));
@@ -659,6 +958,7 @@ async function submitReview(action, payload) {
         }
         const updated = await r.json();
         Object.assign(store[currentCaseId], updated);
+        delete drafts[currentCaseId];
         toast(action === 'approve' ? 'Approved.' : 'Rejected.', 'success');
         setRejectMode(false);
         openCase(currentCaseId);
@@ -669,7 +969,9 @@ async function submitReview(action, payload) {
     }
 }
 
-// === Initial load ===
+// ============================================================================
+// Initial load
+// ============================================================================
 async function loadCases() {
     try {
         const r = await fetch('/api/cases/pending-review?status=all');
@@ -681,22 +983,25 @@ async function loadCases() {
         toast('Could not load cases: ' + err.message, 'error');
     }
 }
-
 loadCases();
 
-// === Auto-open if ?case=<id> in URL ===
 const _params = new URLSearchParams(window.location.search);
 const _preopen = _params.get('case');
-if (_preopen) {
-    setTimeout(() => { if (store[_preopen]) openCase(_preopen); }, 600);
-}
+if (_preopen) setTimeout(() => { if (store[_preopen]) openCase(_preopen); }, 600);
 
-// === Notifications ===
+window.addEventListener('beforeunload', e => {
+    if (currentCaseId && hasDraftEdits(currentCaseId)) {
+        e.preventDefault(); e.returnValue = '';
+    }
+});
+
+// ============================================================================
+// Notifications
+// ============================================================================
 const notifBtn      = document.getElementById('notif-btn');
 const notifBadge    = document.getElementById('notif-badge');
 const notifDropdown = document.getElementById('notif-dropdown');
 const notifList     = document.getElementById('notif-list');
-
 let notifications = [];
 
 async function loadNotifications() {
@@ -741,7 +1046,6 @@ function renderNotifications() {
             if (store[id]) {
                 openCase(id);
             } else {
-                // Case not in current filter — load it then open
                 try {
                     const res = await fetch('/api/cases/' + id);
                     const data = await res.json();
@@ -763,20 +1067,16 @@ notifBtn.addEventListener('click', e => {
     e.stopPropagation();
     notifDropdown.classList.toggle('open');
 });
-
 document.addEventListener('click', e => {
-    if (!notifDropdown.contains(e.target) && e.target !== notifBtn) {
+    if (!notifDropdown.contains(e.target) && e.target !== notifBtn)
         notifDropdown.classList.remove('open');
-    }
 });
-
 document.getElementById('notif-mark-all').addEventListener('click', async e => {
     e.stopPropagation();
     await fetch('/api/notifications/read-all', { method: 'POST' });
     notifications.forEach(n => n.read = true);
     renderNotifications();
 });
-
 loadNotifications();
 setInterval(loadNotifications, 30000);
 </script>

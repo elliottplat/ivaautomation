@@ -475,7 +475,7 @@
   <div class="main-col">
     <div class="content-wrap">
 
-      {% if current_user.role in ['uploader', 'admin'] %}
+      {% if current_user.role in ['uploader', 'admin', 'reviewer'] %}
 
       <div class="case-bar">
         <label for="case-number">Case Number</label>
@@ -884,7 +884,7 @@
   // call at the bottom of this block doesn't hit the temporal dead zone.
   const fileMap = {};
 
-  {% if current_user.role in ['uploader', 'admin'] %}
+  {% if current_user.role in ['uploader', 'admin', 'reviewer'] %}
   function applyVariationType(type) {
     const cfg = VARIATION_TYPE_CONFIG[type] || VARIATION_TYPE_CONFIG['full_and_final'];
 

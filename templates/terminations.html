@@ -325,7 +325,7 @@
   <div class="main-col">
     <div class="content-wrap">
 
-      {% if current_user.role in ['uploader', 'admin'] %}
+      {% if current_user.role in ['uploader', 'admin', 'reviewer'] %}
 
       <div class="case-bar">
         <label for="case-number">Case Number</label>
@@ -829,7 +829,7 @@
   }
 
   // ── File management ───────────────────────────────────────────────────────
-  {% if current_user.role in ['uploader', 'admin'] %}
+  {% if current_user.role in ['uploader', 'admin', 'reviewer'] %}
   const slots = ['rp', 'contribution_schedule', 'modifications', 'eos'];
   const ALL_SLOTS = [...slots, 'vmoc_modifications'];
   const fileMap = {};

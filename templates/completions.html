@@ -765,7 +765,7 @@
   <div class="main-col">
     <div class="content-wrap">
 
-      {% if current_user.role in ['uploader', 'admin'] %}
+      {% if current_user.role in ['uploader', 'admin', 'reviewer'] %}
 
       <div class="case-bar">
         <label for="case-number">Case Number</label>
@@ -894,13 +894,6 @@
 
         </div>
       </form>
-
-      {% else %}
-
-      <div class="reviewer-notice">
-        <strong>Review Mode</strong>
-        Select a case from the sidebar to view the full log or cashier instructions.
-      </div>
 
       {% endif %}
 
@@ -1033,7 +1026,7 @@
   const IS_ADMIN = (USER_ROLE === 'admin');
 
   // ── File management ──────────────────────────────────────────────────────
-  {% if current_user.role in ['uploader', 'admin'] %}
+  {% if current_user.role in ['uploader', 'admin', 'reviewer'] %}
   const slots = ['contribution_schedule', 'eos', 'modifications', 'rp', 'creditor_claims', 'vmoc_modifications'];
   const fileMap = {};
   slots.forEach(s => fileMap[s] = []);
@@ -1641,7 +1634,7 @@
   });
   document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
 
-  {% if current_user.role in ['uploader', 'admin'] %}
+  {% if current_user.role in ['uploader', 'admin', 'reviewer'] %}
   // ── Form submit ───────────────────────────────────────────────────────────
   const form      = document.getElementById('analyze-form');
   const submitBtn = document.getElementById('submit-btn');
