@@ -285,6 +285,16 @@ body {
 }
 .lightbox-image { max-width: 100%; max-height: 100%; object-fit: contain; }
 .lightbox-pdf { width: 90vw; height: calc(100vh - 140px); border: none; background: #fff; border-radius: 4px; }
+.note-tab-help { font-size: 12px; color: #71717a; margin: 0 0 8px; }
+.note-tab-textarea {
+    width: 100%; min-height: 320px; padding: 12px;
+    border: 1px solid #d4d4d8; border-radius: 6px;
+    font-family: inherit; font-size: 13px; line-height: 1.5;
+    resize: vertical; box-sizing: border-box;
+}
+.note-tab-textarea.edited { background: #fef3c7; border-color: #f59e0b; }
+.note-tab-textarea:disabled { background: #f4f4f5; color: #71717a; }
+
 .lightbox-text {
     max-width: 900px; max-height: 80vh; overflow: auto;
     background: #fff; color: #18181b;
@@ -714,8 +724,9 @@ const REVIEW_CONFIGS = {
         noteLabel: 'Cashier instruction',
         getOriginalNote: (c) => c.cashier_instruction_override || c.cashier_instruction || '',
         tabs: [
-            { id: 'fulltext',  label: 'Full output', render: renderFullText },
-            { id: 'evidence',  label: 'Evidence',    render: renderEvidence }
+            { id: 'cashier',   label: 'Cashier instruction', render: renderNoteTab, editable: true },
+            { id: 'fulltext',  label: 'Full output',         render: renderFullText },
+            { id: 'evidence',  label: 'Evidence',            render: renderEvidence }
         ]
     },
     variation: {
@@ -731,7 +742,8 @@ const REVIEW_CONFIGS = {
             { id: 'locked_model', label: 'Locked model',   render: renderVariationLockedModel },
             { id: 'compliance',   label: 'Cap compliance', render: renderVariationCompliance },
             { id: 'summary',      label: 'Summary',        render: renderVariationSummary },
-            { id: 'evidence',     label: 'Evidence',       render: renderEvidence }
+            { id: 'evidence',     label: 'Evidence',       render: renderEvidence },
+            { id: 'reasoning',    label: 'Reasoning',      render: renderNoteTab, editable: true }
         ]
     },
     termination: {
@@ -740,8 +752,9 @@ const REVIEW_CONFIGS = {
         noteLabel: 'Cashier instruction',
         getOriginalNote: (c) => c.cashier_instruction_override || c.cashier_instruction || '',
         tabs: [
-            { id: 'fulltext', label: 'Full output', render: renderFullText },
-            { id: 'evidence', label: 'Evidence',    render: renderEvidence }
+            { id: 'cashier',  label: 'Cashier instruction', render: renderNoteTab, editable: true },
+            { id: 'fulltext', label: 'Full output',         render: renderFullText },
+            { id: 'evidence', label: 'Evidence',            render: renderEvidence }
         ]
     }
 };
@@ -753,6 +766,40 @@ function renderFullText(container, c) {
     const div = document.createElement('div');
     div.innerHTML = renderMarkdown(c.full_text || c.fullText || '');
     container.appendChild(div);
+}
+
+function renderNoteTab(container, c) {
+    const cfg = REVIEW_CONFIGS[c.task_type];
+    if (!cfg) return;
+    const draft = getDraft(c.id);
+    const originalNote = cfg.getOriginalNote(c) || '';
+    const editable = c.review_status === 'pending';
+
+    const help = document.createElement('p');
+    help.className = 'note-tab-help';
+    help.textContent = editable
+        ? 'Edits here sync with the box at the bottom and apply on approve.'
+        : 'Read-only — this case has already been reviewed.';
+    container.appendChild(help);
+
+    const ta = document.createElement('textarea');
+    ta.className = 'note-tab-textarea note-sync-input';
+    ta.disabled = !editable;
+    ta.value = (draft.note_override != null) ? draft.note_override : originalNote;
+    if (draft.note_override != null && draft.note_override !== originalNote) ta.classList.add('edited');
+    ta.addEventListener('input', () => syncNote(ta.value, c, originalNote));
+    container.appendChild(ta);
+}
+
+function syncNote(value, c, originalNote) {
+    const draft = getDraft(c.id);
+    if (value === originalNote) delete draft.note_override;
+    else draft.note_override = value;
+    document.querySelectorAll('.note-sync-input').forEach(ta => {
+        if (ta.value !== value) ta.value = value;
+        ta.classList.toggle('edited', draft.note_override != null);
+    });
+    updateDirtyIndicator();
 }
 
 // ============================================================================
@@ -1059,13 +1106,9 @@ function setupFooterNote(c, cfg) {
     ta.value = (draft.note_override != null) ? draft.note_override : originalNote;
     ta.disabled = c.review_status !== 'pending';
     ta.classList.toggle('edited', draft.note_override != null && draft.note_override !== originalNote);
+    ta.classList.add('note-sync-input');
 
-    ta.oninput = () => {
-        if (ta.value === originalNote) delete draft.note_override;
-        else draft.note_override = ta.value;
-        ta.classList.toggle('edited', draft.note_override != null);
-        updateDirtyIndicator();
-    };
+    ta.oninput = () => syncNote(ta.value, c, originalNote);
 }
 
 function setRejectMode(on) {
