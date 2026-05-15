@@ -1,0 +1,40 @@
+{
+  "name": "EOS state: NON_VMOC — standard termination, no VMOC involvement",
+  "description": "Baseline NON_VMOC case. EOS is a standard agreed EOS with no VMOC. Fees drawn match entitlement, cash in hand is sufficient to cover the creditor shortfall. Expected: eos_state = NON_VMOC, waterfall not triggered, standard cashier instruction, no provisional risk flag.",
+  "inputs": {
+    "source": "synthetic",
+    "eos_state": "NON_VMOC",
+    "rp_summary": {
+      "total_contributions_received": 1237.43,
+      "fees_drawn": {
+        "nominee": 600.00,
+        "supervisor": 150.00
+      },
+      "disbursements_drawn": 280.60,
+      "creditor_payments_made": 5.06,
+      "total_cash_out": 1035.66,
+      "cash_in_hand": 201.77
+    },
+    "locked_model": {
+      "retention_rule": "First 10 contributions retained for Nominee fee",
+      "retention_amount": 848.00,
+      "creditor_percentage": 30,
+      "required_creditor_distribution": 116.83
+    },
+    "fee_entitlements": {
+      "nominee": {"entitlement": 600.00, "drawn": 600.00, "variance": 0.00, "position": "matched"},
+      "supervisor": {"entitlement": 150.00, "drawn": 150.00, "variance": 0.00, "position": "matched"}
+    }
+  },
+  "expected": {
+    "eos_state": "NON_VMOC",
+    "cash_reconciliation.waterfall_triggered": false,
+    "cash_reconciliation.instruction_executable": true,
+    "ready_to_close": true,
+    "risks_must_not_contain": "provisional",
+    "risks_must_not_contain_alt": "VMOC",
+    "final_cashier_instruction_must_not_contain": "VMOC",
+    "locked_model.vmoc_modifications_applied": []
+  },
+  "notes": "Cash in hand £201.77 > shortfall £111.77. No fee movement required. Standard instruction: distribute £111.77 to creditors. No provisional flag because eos_state is NON_VMOC."
+}

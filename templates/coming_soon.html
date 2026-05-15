@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{{ task_type }} – Omni Group</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, -apple-system, sans-serif; background: #f0f2f5; color: #1a1a2e; min-height: 100vh; display: flex; flex-direction: column; }
+    .topbar { background: #fff; border-bottom: 1px solid #e5e7eb; padding: 0.65rem 1.5rem; display: flex; align-items: center; gap: 1rem; }
+    .topbar img { height: 32px; width: auto; }
+    .topbar-title { font-size: 0.95rem; font-weight: 700; }
+    .topbar-spacer { flex: 1; }
+    .topbar a { font-size: 0.82rem; font-weight: 600; color: #6366f1; text-decoration: none; }
+    .topbar a:hover { color: #4f46e5; }
+    .page-body { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 3rem 1rem; text-align: center; }
+    .icon { font-size: 4rem; margin-bottom: 1.5rem; }
+    h1 { font-size: 1.8rem; font-weight: 700; margin-bottom: 0.5rem; }
+    p { color: #777; font-size: 0.95rem; margin-bottom: 2rem; }
+    .badge { display: inline-block; background: #f3f4f6; color: #888; padding: 0.4rem 1.1rem; border-radius: 20px; font-size: 0.82rem; font-weight: 700; letter-spacing: 0.3px; }
+    .footer { text-align: center; padding: 1.5rem; font-size: 0.78rem; color: #bbb; }
+  </style>
+</head>
+<body>
+<div class="topbar">
+  <img src="/static/logo.png" alt="Omni Group" />
+  <span class="topbar-title">OMNI Automation Suite</span>
+  <div class="topbar-spacer"></div>
+  <a href="/">&#8592; Back to Dashboard</a>
+</div>
+<div class="page-body">
+  <div class="icon">🚧</div>
+  <h1>{{ task_type }}</h1>
+  <p>This module is under development and will be available soon.</p>
+  <span class="badge">Coming Soon</span>
+</div>
+<div class="footer">Omni Group &copy; 2026</div>
+</body>
+</html>

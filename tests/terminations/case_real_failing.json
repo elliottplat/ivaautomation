@@ -1,0 +1,37 @@
+{
+  "name": "Real failing case — v15 instructed £696.14 further Nominee draw without checking cash",
+  "description": "This is the case that exposed the v15 bug. Contributions £1,237.43, retained £848.00 (locked model), distributable £389.43, 30% to creditors = £116.83 required, paid £5.06 → shortfall £111.77. The v15 instruction called for: draw further £696.14 to Nominee fee, then pay £111.77 to creditors (total outflow £807.91). The v16 waterfall must prevent the £696.14 draw and instead check whether cash in hand is sufficient to pay the shortfall directly. Full R&P figures to be populated from the actual case documents — placeholder figures used below pending manual supply.",
+  "inputs": {
+    "source": "real_case",
+    "status": "PARTIAL — full R&P figures required from case documents",
+    "known_figures": {
+      "total_contributions_received": 1237.43,
+      "retained_amount": 848.00,
+      "distributable_amount": 389.43,
+      "creditor_percentage": 30,
+      "required_creditor_distribution": 116.83,
+      "paid_to_creditors": 5.06,
+      "creditor_shortfall": 111.77,
+      "further_nominee_draw_v15_instructed": 696.14
+    },
+    "outstanding_data_needed": [
+      "Total fees drawn to Nominee (from R&P)",
+      "Total fees drawn to Supervisor (from R&P)",
+      "Total disbursements drawn (from R&P)",
+      "Nominee fee entitlement under locked model",
+      "Supervisor fee entitlement under locked model",
+      "Computed cash in hand (contributions - all outflows from R&P)"
+    ]
+  },
+  "expected": {
+    "cash_reconciliation.waterfall_triggered": true,
+    "cash_reconciliation.instruction_executable": false,
+    "ready_to_close": true,
+    "final_cashier_instruction_must_not_contain": "draw a further £696.14",
+    "final_cashier_instruction_must_not_contain_alt": "draw a further £696",
+    "risks_must_contain": "INSUFFICIENT FUNDS",
+    "v15_bug_behaviour": "Instructed £696.14 further Nominee draw + £111.77 to creditors (£807.91 total) without verifying cash in hand.",
+    "v16_correct_behaviour": "Apply waterfall: check fee position, recalculate cash, distribute available cash to creditors. Do not instruct any draw that exceeds available cash."
+  },
+  "manual_testing_note": "To run this case: supply the full R&P and remaining documents to the /analyze-termination endpoint. Confirm cash_reconciliation.waterfall_triggered = true, instruction_executable = false, ready_to_close = true, and that the final_cashier_instruction does NOT contain a £696.14 Nominee draw. If cash in hand is sufficient to cover the £111.77 shortfall alone, the instruction should be: 'Distribute all remaining funds to creditors' (or waterfall-equivalent wording per the Nominee fee position)."
+}

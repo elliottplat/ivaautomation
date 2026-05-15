@@ -1,0 +1,1298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PP Arrears – Omni Group</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, -apple-system, sans-serif; background: #f0f2f5; color: #1a1a2e; min-height: 100vh; }
+
+    /* ── Top bar ── */
+    .topbar { background: #fff; border-bottom: 1px solid #e5e7eb; padding: 0.75rem 1.5rem; display: flex; align-items: center; gap: 1rem; position: sticky; top: 0; z-index: 10; }
+    .topbar a.back { text-decoration: none; color: #6366f1; font-size: 0.88rem; font-weight: 600; display: flex; align-items: center; gap: 0.3rem; }
+    .topbar a.back:hover { color: #4f46e5; }
+    .topbar h1 { font-size: 1.05rem; font-weight: 700; }
+    .topbar-spacer { flex: 1; }
+    .topbar-right { display: flex; align-items: center; gap: 0.85rem; }
+    .topbar-user { font-size: 0.82rem; color: #777; }
+    .topbar-user strong { color: #333; }
+    .topbar-link { font-size: 0.82rem; font-weight: 600; color: #6366f1; text-decoration: none; }
+    .topbar-link:hover { color: #4f46e5; }
+    .admin-menu-wrap { position: relative; }
+    .admin-menu-btn { display: flex; align-items: center; gap: 0.3rem; font-size: 0.82rem; font-weight: 600; color: #6366f1; background: none; border: 1.5px solid #e0e7ff; border-radius: 7px; padding: 0.3rem 0.75rem; cursor: pointer; }
+    .admin-menu-btn:hover { background: #f5f5ff; }
+    .admin-menu-btn .chevron { font-size: 0.6rem; transition: transform 0.15s; }
+    .admin-menu-btn.open .chevron { transform: rotate(180deg); }
+    .admin-dropdown { position: absolute; top: calc(100% + 6px); right: 0; background: #fff; border-radius: 10px; box-shadow: 0 8px 28px rgba(0,0,0,0.13); border: 1px solid #e5e7eb; min-width: 180px; padding: 0.35rem 0; display: none; z-index: 300; }
+    .admin-dropdown.open { display: block; }
+    .admin-dropdown a { display: flex; align-items: center; gap: 0.5rem; width: 100%; padding: 0.6rem 1rem; font-size: 0.84rem; font-weight: 500; color: #333; text-decoration: none; }
+    .admin-dropdown a:hover { background: #f5f5ff; color: #4f46e5; }
+    .admin-dropdown .divider { height: 1px; background: #f0f0f0; margin: 0.25rem 0; }
+    .admin-dropdown .danger { color: #ef4444; }
+    .admin-dropdown .danger:hover { background: #fef2f2; color: #dc2626; }
+
+    /* ── Layout ── */
+    .layout { display: flex; height: calc(100vh - 57px); overflow: hidden; }
+    .sidebar { width: 230px; min-width: 230px; background: #fff; border-right: 1px solid #f0f0f0; display: flex; flex-direction: column; overflow-y: auto; }
+    .sidebar-header { padding: 0.85rem 1rem 0.6rem; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #999; border-bottom: 1px solid #f0f0f0; flex-shrink: 0; }
+    .nav-list { flex: 1; padding: 0.4rem 0; }
+    .nav-item { padding: 0.65rem 1rem; cursor: pointer; border-left: 3px solid transparent; font-size: 0.85rem; font-weight: 600; color: #444; transition: background 0.1s, border-color 0.1s; display: flex; align-items: center; justify-content: space-between; }
+    .nav-item:hover { background: #f5f5ff; }
+    .nav-item.active { background: #f0f0ff; border-left-color: #6366f1; color: #4f46e5; }
+    .nav-badge { background: #6366f1; color: #fff; font-size: 0.68rem; font-weight: 700; border-radius: 10px; min-width: 18px; height: 18px; display: inline-flex; align-items: center; justify-content: center; padding: 0 4px; }
+
+    /* ── Main ── */
+    .main { flex: 1; overflow-y: auto; padding: 1.25rem 1.5rem; display: flex; flex-direction: column; gap: 1rem; min-width: 0; }
+
+    /* ── Dashboard strip ── */
+    .dashboard-strip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.85rem; }
+    .stat-card { background: #fff; border-radius: 12px; box-shadow: 0 1px 6px rgba(0,0,0,0.07); padding: 1rem 1.1rem; display: flex; flex-direction: column; gap: 0.25rem; }
+    .stat-label { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #999; }
+    .stat-value { font-size: 1.8rem; font-weight: 800; color: #1a1a2e; line-height: 1; }
+    .stat-value.arrears { color: #ef4444; }
+    .stat-value.pct { color: #6366f1; }
+    .stat-value.warn { color: #f59e0b; }
+    .stat-value.vuln { color: #dc2626; }
+    .stat-sub { font-size: 0.72rem; color: #aaa; }
+
+    /* ── Card ── */
+    .card { background: #fff; border-radius: 12px; box-shadow: 0 1px 6px rgba(0,0,0,0.07); padding: 1.1rem 1.25rem; }
+    .card-title { font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #999; margin-bottom: 0.9rem; }
+
+    /* ── Upload grid ── */
+    .upload-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.75rem; margin-bottom: 0.9rem; }
+    .file-slot { border: 2px dashed #d1d5db; border-radius: 10px; padding: 0.9rem 1rem; display: flex; flex-direction: column; gap: 0.35rem; cursor: pointer; transition: border-color 0.15s, background 0.15s; position: relative; }
+    .file-slot:hover { border-color: #6366f1; background: #fafafe; }
+    .file-slot.loaded { border-color: #22c55e; border-style: solid; background: #f0fdf4; }
+    .file-slot.error { border-color: #ef4444; border-style: solid; background: #fef2f2; }
+    .file-slot-label { font-size: 0.78rem; font-weight: 700; color: #555; }
+    .file-slot-ext { font-size: 0.7rem; color: #aaa; }
+    .file-slot-name { font-size: 0.78rem; color: #15803d; font-weight: 600; }
+    .file-slot-tick { position: absolute; top: 0.65rem; right: 0.75rem; font-size: 1rem; color: #22c55e; }
+    .file-slot input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+    .upload-row { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
+    .btn { padding: 0.5rem 1.2rem; border: none; border-radius: 8px; font-size: 0.85rem; font-weight: 600; cursor: pointer; transition: background 0.15s; }
+    .btn-primary { background: #6366f1; color: #fff; }
+    .btn-primary:hover:not(:disabled) { background: #4f46e5; }
+    .btn-primary:disabled { background: #a5b4fc; cursor: not-allowed; }
+    .btn-sm { padding: 0.35rem 0.85rem; font-size: 0.8rem; }
+    .upload-status { font-size: 0.82rem; }
+    .upload-status.ok { color: #15803d; }
+    .upload-status.err { color: #b91c1c; }
+    .upload-progress { height: 4px; background: #e5e7eb; border-radius: 4px; overflow: hidden; margin-top: 0.5rem; display: none; }
+    .upload-progress-bar { height: 100%; background: #6366f1; width: 0%; transition: width 0.3s; }
+    .result-summary { background: #f8faff; border: 1px solid #e0e7ff; border-radius: 8px; padding: 0.8rem 1rem; font-size: 0.83rem; margin-top: 0.75rem; display: none; }
+    .result-summary table { width: 100%; border-collapse: collapse; }
+    .result-summary td { padding: 0.2rem 0.5rem; }
+    .result-summary td:last-child { text-align: right; font-weight: 700; }
+
+    /* ── Filter bar ── */
+    .filter-bar { background: #fff; border-radius: 10px; box-shadow: 0 1px 6px rgba(0,0,0,0.07); padding: 0.65rem 1rem; display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
+    .filter-label { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; color: #999; white-space: nowrap; }
+    .chip-group { display: flex; gap: 0.3rem; flex-wrap: wrap; }
+    .chip { padding: 0.28rem 0.65rem; border-radius: 20px; font-size: 0.75rem; font-weight: 600; border: 1.5px solid #e5e7eb; color: #555; cursor: pointer; background: #fff; transition: all 0.12s; white-space: nowrap; }
+    .chip:hover { border-color: #6366f1; color: #4f46e5; }
+    .chip.active { background: #6366f1; color: #fff; border-color: #6366f1; }
+    .chip.cycle1.active  { background: #f59e0b; border-color: #f59e0b; }
+    .chip.cycle2.active  { background: #f97316; border-color: #f97316; }
+    .chip.cycle3.active  { background: #ea580c; border-color: #ea580c; }
+    .chip.cycle4.active  { background: #dc2626; border-color: #dc2626; }
+    .chip.cycle5.active  { background: #991b1b; border-color: #991b1b; }
+    .filter-sep { width: 1px; height: 20px; background: #e5e7eb; }
+    .filter-search { border: 1.5px solid #d0d5dd; border-radius: 8px; padding: 0.3rem 0.65rem; font-size: 0.83rem; font-family: inherit; min-width: 180px; }
+    .filter-search:focus { outline: none; border-color: #6366f1; }
+    .filter-select { border: 1.5px solid #d0d5dd; border-radius: 8px; padding: 0.3rem 0.65rem; font-size: 0.82rem; font-family: inherit; background: #fff; }
+    .filter-select:focus { outline: none; border-color: #6366f1; }
+    .filter-spacer { flex: 1; }
+
+    /* ── Cases table ── */
+    .table-wrap { overflow-x: auto; border-radius: 10px; }
+    table.cases-table { width: 100%; border-collapse: collapse; font-size: 0.84rem; }
+    .cases-table thead th { text-align: left; padding: 0.55rem 0.75rem; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; color: #999; border-bottom: 1.5px solid #f0f0f0; white-space: nowrap; position: sticky; top: 0; background: #fff; }
+    .cases-table thead th.sortable { cursor: pointer; user-select: none; }
+    .cases-table thead th.sortable:hover { color: #6366f1; }
+    .cases-table thead th .sort-icon { font-size: 0.65rem; margin-left: 3px; opacity: 0.4; }
+    .cases-table thead th.sort-asc .sort-icon,
+    .cases-table thead th.sort-desc .sort-icon { opacity: 1; color: #6366f1; }
+    .cases-table tbody td { padding: 0.65rem 0.75rem; border-bottom: 1px solid #f7f7f7; vertical-align: middle; }
+    .cases-table tbody tr:last-child td { border-bottom: none; }
+    .cases-table tbody tr { cursor: pointer; transition: background 0.1s; }
+    .cases-table tbody tr:hover td { background: #fafafe; }
+    .cases-table tbody tr.selected td { background: #eff0ff; }
+    .td-ref { font-family: monospace; font-size: 0.82rem; font-weight: 700; color: #4f46e5; white-space: nowrap; }
+    .td-amount { font-family: monospace; font-weight: 700; color: #1a1a2e; white-space: nowrap; text-align: right; }
+    .td-months { font-family: monospace; white-space: nowrap; }
+    .td-phone { font-family: monospace; font-size: 0.81rem; }
+    .table-empty { text-align: center; padding: 2.5rem; color: #bbb; font-size: 0.88rem; }
+
+    /* ── Badges ── */
+    .badge { display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.2rem 0.55rem; border-radius: 12px; font-size: 0.72rem; font-weight: 700; white-space: nowrap; }
+    .badge-iva  { background: #eef2ff; color: #4f46e5; }
+    .badge-cpi  { background: #f0fdfa; color: #0d9488; }
+    .badge-td   { background: #faf5ff; color: #7c3aed; }
+    .badge-c1   { background: #fffbeb; color: #b45309; }
+    .badge-c2   { background: #fff7ed; color: #c2410c; }
+    .badge-c3   { background: #fef3c7; color: #b45309; }
+    .badge-c4   { background: #fee2e2; color: #b91c1c; }
+    .badge-c5   { background: #fecaca; color: #991b1b; }
+    .badge-new  { background: #f1f5f9; color: #64748b; font-size: 0.67rem; padding: 0.15rem 0.4rem; }
+    .badge-hist { background: #fef9c3; color: #854d0e; }
+    .vuln-icon  { color: #dc2626; font-size: 0.85rem; }
+    .review-icon { color: #f59e0b; font-size: 0.85rem; margin-left: 3px; }
+
+    /* ── Side panel ── */
+    .panel-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.25); z-index: 50; display: none; }
+    .panel-overlay.open { display: block; }
+    .side-panel { position: fixed; top: 57px; right: 0; bottom: 0; width: 520px; max-width: 95vw; background: #fff; box-shadow: -4px 0 24px rgba(0,0,0,0.13); z-index: 60; display: flex; flex-direction: column; transform: translateX(100%); transition: transform 0.22s cubic-bezier(0.4,0,0.2,1); }
+    .side-panel.open { transform: translateX(0); }
+    .panel-header { padding: 1rem 1.25rem 0.85rem; border-bottom: 1px solid #f0f0f0; display: flex; flex-direction: column; gap: 0.4rem; flex-shrink: 0; }
+    .panel-header-row { display: flex; align-items: center; gap: 0.5rem; }
+    .panel-close { margin-left: auto; background: none; border: none; font-size: 1.3rem; color: #999; cursor: pointer; line-height: 1; }
+    .panel-close:hover { color: #333; }
+    .panel-ref { font-family: monospace; font-size: 1rem; font-weight: 800; color: #4f46e5; }
+    .panel-name { font-size: 0.9rem; font-weight: 700; color: #1a1a2e; }
+    .panel-body { flex: 1; overflow-y: auto; padding: 1rem 1.25rem; display: flex; flex-direction: column; gap: 1rem; }
+    .panel-section-title { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #999; margin-bottom: 0.5rem; border-bottom: 1px solid #f0f0f0; padding-bottom: 0.35rem; }
+
+    /* Reconciliation table */
+    .recon-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+    .recon-table th { text-align: left; padding: 0.3rem 0.5rem; font-size: 0.7rem; font-weight: 700; color: #999; border-bottom: 1px solid #f0f0f0; }
+    .recon-table td { padding: 0.35rem 0.5rem; border-bottom: 1px solid #f7f7f7; }
+    .recon-agree { color: #15803d; font-weight: 700; }
+    .recon-disagree { color: #dc2626; font-weight: 700; }
+    .recon-missing { color: #d1d5db; }
+
+    /* Payment info grid */
+    .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem 1rem; }
+    .info-item { display: flex; flex-direction: column; gap: 0.15rem; }
+    .info-key { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; color: #aaa; }
+    .info-val { font-size: 0.88rem; font-weight: 600; color: #1a1a2e; }
+    .info-val.mono { font-family: monospace; }
+
+    /* Contact notes */
+    .contact-notes { background: #f8fafc; border: 1px solid #e5e7eb; border-radius: 8px; padding: 0.65rem 0.85rem; font-size: 0.8rem; color: #444; max-height: 300px; overflow-y: auto; white-space: pre-wrap; line-height: 1.5; }
+
+    /* Note history */
+    .note-list { display: flex; flex-direction: column; gap: 0.5rem; }
+    .note-item { background: #f8fafc; border: 1px solid #e5e7eb; border-radius: 8px; padding: 0.6rem 0.85rem; }
+    .note-item.superseded { opacity: 0.55; }
+    .note-item.superseded .note-text { text-decoration: line-through; color: #9ca3af; }
+    .note-meta { display: flex; align-items: center; gap: 0.4rem; font-size: 0.7rem; color: #aaa; margin-bottom: 0.3rem; flex-wrap: wrap; }
+    .note-cat { background: #e0e7ff; color: #4f46e5; font-size: 0.67rem; font-weight: 700; padding: 0.1rem 0.4rem; border-radius: 8px; }
+    .note-removes { color: #15803d; font-size: 0.67rem; font-weight: 700; }
+    .note-text { font-size: 0.82rem; color: #333; line-height: 1.4; white-space: pre-wrap; }
+
+    /* Add note form */
+    .note-form { display: flex; flex-direction: column; gap: 0.6rem; }
+    .note-form textarea { width: 100%; border: 1.5px solid #d0d5dd; border-radius: 8px; padding: 0.55rem 0.75rem; font-size: 0.85rem; font-family: inherit; resize: vertical; min-height: 72px; }
+    .note-form textarea:focus { outline: none; border-color: #6366f1; }
+    .note-form-row { display: flex; align-items: center; gap: 0.65rem; flex-wrap: wrap; }
+    .note-form select { border: 1.5px solid #d0d5dd; border-radius: 8px; padding: 0.35rem 0.65rem; font-size: 0.82rem; font-family: inherit; background: #fff; }
+    .note-form select:focus { outline: none; border-color: #6366f1; }
+    .note-form-check { display: flex; align-items: center; gap: 0.4rem; font-size: 0.82rem; color: #444; }
+    .note-form-check input { accent-color: #6366f1; }
+    .note-status { font-size: 0.8rem; }
+    .note-status.ok { color: #15803d; }
+    .note-status.err { color: #b91c1c; }
+
+    /* Upload history table */
+    .snapshot-table { width: 100%; border-collapse: collapse; font-size: 0.83rem; }
+    .snapshot-table th { text-align: left; padding: 0.45rem 0.65rem; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; color: #999; border-bottom: 1.5px solid #f0f0f0; }
+    .snapshot-table td { padding: 0.6rem 0.65rem; border-bottom: 1px solid #f7f7f7; }
+    .snapshot-superseded { opacity: 0.45; }
+
+    /* Movement view */
+    .movement-section { margin-bottom: 1rem; }
+    .movement-section h3 { font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #999; margin-bottom: 0.5rem; }
+    .movement-list { display: flex; flex-direction: column; gap: 0.4rem; }
+    .movement-item { background: #f8fafc; border-radius: 8px; padding: 0.5rem 0.75rem; font-size: 0.82rem; display: flex; align-items: center; gap: 0.5rem; }
+    .movement-item.new    { border-left: 3px solid #22c55e; }
+    .movement-item.cleared{ border-left: 3px solid #6366f1; }
+    .movement-item.changed{ border-left: 3px solid #f59e0b; }
+    .movement-ref { font-family: monospace; font-weight: 700; color: #4f46e5; }
+    .movement-name { color: #555; }
+    .movement-detail { margin-left: auto; font-size: 0.78rem; color: #888; white-space: nowrap; }
+
+    /* Warnings banner */
+    .warnings-banner { background: #fffbeb; border: 1px solid #fcd34d; border-radius: 8px; padding: 0.65rem 0.9rem; font-size: 0.82rem; color: #78350f; }
+    .warnings-banner ul { margin: 0.3rem 0 0 1rem; }
+    .warnings-banner li { margin-bottom: 0.15rem; }
+
+    /* Misc */
+    .pagination { display: flex; align-items: center; gap: 0.5rem; font-size: 0.82rem; color: #666; }
+    .page-btn { padding: 0.3rem 0.65rem; border: 1.5px solid #d0d5dd; border-radius: 6px; background: #fff; cursor: pointer; font-size: 0.8rem; }
+    .page-btn:hover:not(:disabled) { border-color: #6366f1; color: #4f46e5; }
+    .page-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .loading { text-align: center; padding: 2rem; color: #bbb; font-size: 0.88rem; }
+
+    /* Date input */
+    input[type="date"] { border: 1.5px solid #d0d5dd; border-radius: 8px; padding: 0.35rem 0.65rem; font-size: 0.82rem; font-family: inherit; background: #fff; }
+    input[type="date"]:focus { outline: none; border-color: #6366f1; }
+  </style>
+</head>
+<body>
+
+<!-- Topbar -->
+<div class="topbar">
+  <a href="/" class="back">← Home</a>
+  <h1>Parker Philips — Arrears</h1>
+  <div class="topbar-spacer"></div>
+  <div class="topbar-right">
+    <span class="topbar-user">Signed in as <strong>{{ current_user.username }}</strong></span>
+    {% if current_user.role == 'admin' %}
+    <div class="admin-menu-wrap">
+      <button class="admin-menu-btn" id="admin-menu-btn">⚙ Admin <span class="chevron">▼</span></button>
+      <div class="admin-dropdown" id="admin-dropdown">
+        <a href="/completions">✅ Completions</a>
+        <a href="/admin/corrections">📋 Review Log</a>
+        <a href="/admin/users">👥 Users</a>
+        <a href="/admin/projects">🏢 Projects</a>
+        <div class="divider"></div>
+        <a href="/logout" class="danger">Sign out</a>
+      </div>
+    </div>
+    {% else %}
+    <a href="/logout" class="topbar-link">Sign out</a>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Layout -->
+<div class="layout">
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-header">Views</div>
+    <div class="nav-list">
+      <div class="nav-item active" data-view="active" id="nav-active">
+        Active Queue <span class="nav-badge" id="badge-active">…</span>
+      </div>
+      <div class="nav-item" data-view="worked" id="nav-worked">Worked Cases</div>
+      <div class="nav-item" data-view="all" id="nav-all">All in Arrears</div>
+      <div class="nav-item" data-view="movement" id="nav-movement">Movement</div>
+      {% if current_user.role == 'admin' %}
+      <div class="nav-item" data-view="upload_history" id="nav-history">Upload History</div>
+      {% endif %}
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <main class="main" id="main-area">
+
+    <!-- Dashboard strip -->
+    <div class="dashboard-strip">
+      <div class="stat-card">
+        <div class="stat-label">In Arrears</div>
+        <div class="stat-value arrears" id="stat-in-arrears">--</div>
+        <div class="stat-sub" id="stat-arrears-value">£--</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Arrears Rate</div>
+        <div class="stat-value pct" id="stat-rate">--%</div>
+        <div class="stat-sub" id="stat-snapshot-date">No snapshot loaded</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Manual Review</div>
+        <div class="stat-value warn" id="stat-review">--</div>
+        <div class="stat-sub">Cases flagged for review</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Vulnerable</div>
+        <div class="stat-value vuln" id="stat-vuln">--</div>
+        <div class="stat-sub" id="stat-vuln-value">in arrears</div>
+      </div>
+    </div>
+
+    <!-- Upload card (admin / uploader only) -->
+    {% if current_user.role in ['uploader', 'admin'] %}
+    <div class="card" id="upload-card">
+      <div class="card-title">Upload Snapshot</div>
+      <div class="upload-grid">
+        <div class="file-slot" id="slot-iva_fees" title="IVA Fees — .xlsx, header row 2">
+          <div class="file-slot-label">IVA Fees</div>
+          <div class="file-slot-ext">.xlsx — header row 2</div>
+          <div class="file-slot-name" id="name-iva_fees"></div>
+          <span class="file-slot-tick" id="tick-iva_fees" style="display:none">✓</span>
+          <input type="file" id="file-iva_fees" accept=".xlsx,.xlsm" />
+        </div>
+        <div class="file-slot" id="slot-td_fees" title="Trust Deed Fees — .xlsx, header row 2">
+          <div class="file-slot-label">Trust Deed Fees</div>
+          <div class="file-slot-ext">.xlsx — header row 2</div>
+          <div class="file-slot-name" id="name-td_fees"></div>
+          <span class="file-slot-tick" id="tick-td_fees" style="display:none">✓</span>
+          <input type="file" id="file-td_fees" accept=".xlsx,.xlsm" />
+        </div>
+        <div class="file-slot" id="slot-cases_in_arrears" title="Cases in Arrears — .xlsx, header row 3">
+          <div class="file-slot-label">Cases in Arrears</div>
+          <div class="file-slot-ext">.xlsx — header row 3</div>
+          <div class="file-slot-name" id="name-cases_in_arrears"></div>
+          <span class="file-slot-tick" id="tick-cases_in_arrears" style="display:none">✓</span>
+          <input type="file" id="file-cases_in_arrears" accept=".xlsx,.xlsm" />
+        </div>
+        <div class="file-slot" id="slot-wf_arrears" title="Arrears Workflow — .xls, header row 1">
+          <div class="file-slot-label">Arrears Workflow</div>
+          <div class="file-slot-ext">.xls — header row 1</div>
+          <div class="file-slot-name" id="name-wf_arrears"></div>
+          <span class="file-slot-tick" id="tick-wf_arrears" style="display:none">✓</span>
+          <input type="file" id="file-wf_arrears" accept=".xls,.xlsx" />
+        </div>
+        <div class="file-slot" id="slot-total_live_cases" title="Total Live Cases — .xls, header row 1">
+          <div class="file-slot-label">Total Live Cases</div>
+          <div class="file-slot-ext">.xls — header row 1</div>
+          <div class="file-slot-name" id="name-total_live_cases"></div>
+          <span class="file-slot-tick" id="tick-total_live_cases" style="display:none">✓</span>
+          <input type="file" id="file-total_live_cases" accept=".xls,.xlsx" />
+        </div>
+      </div>
+      <div class="upload-row">
+        <label style="font-size:0.78rem;font-weight:600;color:#555;">Snapshot Date</label>
+        <input type="date" id="upload-date" />
+        <button class="btn btn-primary" id="btn-run" disabled>Run Pipeline</button>
+        <span class="upload-status" id="upload-status"></span>
+      </div>
+      <div class="upload-progress" id="upload-progress">
+        <div class="upload-progress-bar" id="upload-progress-bar"></div>
+      </div>
+      <div class="result-summary" id="result-summary"></div>
+    </div>
+    {% endif %}
+
+    <!-- Warnings banner -->
+    <div class="warnings-banner" id="warnings-banner" style="display:none"></div>
+
+    <!-- Filter bar -->
+    <div class="filter-bar" id="filter-bar">
+      <span class="filter-label">Type</span>
+      <div class="chip-group" id="chips-type">
+        <div class="chip" data-val="IVA">IVA</div>
+        <div class="chip" data-val="CPI">CPI</div>
+        <div class="chip" data-val="TD">TD</div>
+      </div>
+      <div class="filter-sep"></div>
+      <span class="filter-label">Cycle</span>
+      <div class="chip-group" id="chips-cycle">
+        <div class="chip cycle1" data-val="Cycle 1">C1</div>
+        <div class="chip cycle2" data-val="Cycle 2">C2</div>
+        <div class="chip cycle3" data-val="Cycle 3">C3</div>
+        <div class="chip cycle4" data-val="Cycle 4">C4</div>
+        <div class="chip cycle5" data-val="Cycle 5+">C5+</div>
+      </div>
+      <div class="filter-sep"></div>
+      <div class="chip" id="chip-vulnerable" data-val="vulnerable">Vulnerable</div>
+      <div class="chip" id="chip-review" data-val="review">Needs Review</div>
+      <div class="filter-sep"></div>
+      <input class="filter-search" id="search-input" type="text" placeholder="Reference / name / mobile…" />
+      <div class="filter-spacer"></div>
+      <select class="filter-select" id="sort-select">
+        <option value="arrears_amount:desc">Arrears ↓</option>
+        <option value="arrears_amount:asc">Arrears ↑</option>
+        <option value="cycle:asc">Cycle ↑</option>
+        <option value="cycle:desc">Cycle ↓</option>
+        <option value="reference:asc">Reference A-Z</option>
+        <option value="days_since_last_payment_due:desc">Days overdue ↓</option>
+        <option value="months_in_arrears:desc">Months behind ↓</option>
+      </select>
+    </div>
+
+    <!-- Cases table card -->
+    <div class="card" id="cases-card">
+      <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.75rem;">
+        <div class="card-title" style="margin-bottom:0;" id="cases-card-title">Active Queue</div>
+        <span style="font-size:0.78rem;color:#bbb;" id="cases-count-label"></span>
+        <div style="flex:1;"></div>
+        <div class="pagination">
+          <button class="page-btn" id="btn-prev">‹</button>
+          <span id="page-info">1 of 1</span>
+          <button class="page-btn" id="btn-next">›</button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table class="cases-table" id="cases-table">
+          <thead>
+            <tr>
+              <th class="sortable" data-col="reference">Reference <span class="sort-icon">↕</span></th>
+              <th>Name</th>
+              <th>Type</th>
+              <th class="sortable" data-col="cycle">Cycle <span class="sort-icon">↕</span></th>
+              <th class="sortable" data-col="arrears_amount" style="text-align:right;">Arrears <span class="sort-icon">↕</span></th>
+              <th class="sortable" data-col="months_in_arrears">Months Behind <span class="sort-icon">↕</span></th>
+              <th class="sortable" data-col="days_since_last_payment_due">Days Since Due <span class="sort-icon">↕</span></th>
+              <th>Mobile</th>
+              <th>Notes</th>
+            </tr>
+          </thead>
+          <tbody id="cases-tbody">
+            <tr><td colspan="9" class="loading">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Movement view (hidden by default) -->
+    <div class="card" id="movement-card" style="display:none">
+      <div class="card-title">Movement Between Snapshots</div>
+      <div id="movement-content"><div class="loading">Loading…</div></div>
+    </div>
+
+    <!-- Upload History (admin, hidden by default) -->
+    {% if current_user.role == 'admin' %}
+    <div class="card" id="history-card" style="display:none">
+      <div class="card-title">Upload History</div>
+      <div class="table-wrap">
+        <table class="snapshot-table" id="snapshot-table">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Uploaded</th>
+              <th>By</th>
+              <th style="text-align:right;">Cases</th>
+              <th style="text-align:right;">Total Arrears</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="snapshot-tbody">
+            <tr><td colspan="6" class="loading">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% endif %}
+
+  </main>
+</div>
+
+<!-- Side panel overlay -->
+<div class="panel-overlay" id="panel-overlay"></div>
+
+<!-- Case detail side panel -->
+<div class="side-panel" id="side-panel">
+  <div class="panel-header">
+    <div class="panel-header-row">
+      <span class="panel-ref" id="panel-ref"></span>
+      <span id="panel-type-badge"></span>
+      <span id="panel-vuln-icon"></span>
+      <span id="panel-review-icon"></span>
+      <button class="panel-close" id="panel-close">×</button>
+    </div>
+    <div class="panel-name" id="panel-name"></div>
+    <div class="panel-header-row" style="gap:0.35rem;" id="panel-badges-row"></div>
+  </div>
+  <div class="panel-body" id="panel-body">
+    <div class="loading">Loading…</div>
+  </div>
+</div>
+
+<script>
+  const USER_ROLE = "{{ current_user.role }}";
+  const CAN_UPLOAD = (USER_ROLE === 'uploader' || USER_ROLE === 'admin');
+  const IS_ADMIN = USER_ROLE === 'admin';
+
+  // ── State ───────────────────────────────────────────────────────────────
+  let currentView = 'active';
+  let currentSnapshotId = null;
+  let currentPage = 0;
+  const PAGE_SIZE = 75;
+  let totalCases = 0;
+  let sortCol = 'arrears_amount';
+  let sortDir = 'desc';
+  let filterTypes = [];
+  let filterCycles = [];
+  let filterVulnerable = false;
+  let filterReview = false;
+  let searchDebounce = null;
+  let selectedRef = null;
+  let uploadConfirmNeeded = false;
+
+  // ── Formatters ───────────────────────────────────────────────────────────
+  function fmtAmount(n) {
+    if (n == null || n === '') return '—';
+    return '£' + Number(n).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+  function fmtDate(iso) {
+    if (!iso) return '—';
+    const d = new Date(iso.includes('T') ? iso : iso + 'T00:00:00');
+    return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  }
+  function fmtDatetime(iso) {
+    if (!iso) return '—';
+    const d = new Date(iso);
+    return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+      + ' ' + d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+  }
+  function escHtml(s) {
+    return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+  function cycleBadgeClass(c) {
+    if (!c) return '';
+    if (c === 'Cycle 1') return 'badge-c1';
+    if (c === 'Cycle 2') return 'badge-c2';
+    if (c === 'Cycle 3') return 'badge-c3';
+    if (c === 'Cycle 4') return 'badge-c4';
+    return 'badge-c5';
+  }
+  function typeBadgeClass(t) {
+    if (t === 'CPI') return 'badge-cpi';
+    if (t === 'TD')  return 'badge-td';
+    return 'badge-iva';
+  }
+
+  // ── URL params ──────────────────────────────────────────────────────────
+  function pushState() {
+    const params = new URLSearchParams();
+    params.set('view', currentView);
+    if (filterTypes.length)  params.set('type', filterTypes.join(','));
+    if (filterCycles.length) params.set('cycle', filterCycles.join(','));
+    if (filterVulnerable)    params.set('vuln', '1');
+    if (filterReview)        params.set('review', '1');
+    const q = document.getElementById('search-input').value.trim();
+    if (q) params.set('q', q);
+    params.set('sort', `${sortCol}:${sortDir}`);
+    history.pushState(null, '', '?' + params.toString());
+  }
+
+  function readState() {
+    const p = new URLSearchParams(location.search);
+    if (p.get('view')) { currentView = p.get('view'); setActiveNav(currentView); }
+    if (p.get('type'))  filterTypes  = p.get('type').split(',').filter(Boolean);
+    if (p.get('cycle')) filterCycles = p.get('cycle').split(',').filter(Boolean);
+    filterVulnerable = p.get('vuln') === '1';
+    filterReview     = p.get('review') === '1';
+    if (p.get('q')) document.getElementById('search-input').value = p.get('q');
+    if (p.get('sort')) {
+      const [c, d] = p.get('sort').split(':');
+      if (c) sortCol = c;
+      if (d) sortDir = d;
+    }
+    syncChips();
+  }
+
+  function syncChips() {
+    document.querySelectorAll('#chips-type .chip').forEach(ch => {
+      ch.classList.toggle('active', filterTypes.includes(ch.dataset.val));
+    });
+    document.querySelectorAll('#chips-cycle .chip').forEach(ch => {
+      ch.classList.toggle('active', filterCycles.includes(ch.dataset.val));
+    });
+    document.getElementById('chip-vulnerable').classList.toggle('active', filterVulnerable);
+    document.getElementById('chip-review').classList.toggle('active', filterReview);
+    // Sort select
+    document.getElementById('sort-select').value = `${sortCol}:${sortDir}`;
+  }
+
+  // ── Dashboard ────────────────────────────────────────────────────────────
+  async function loadDashboard() {
+    try {
+      const res = await fetch('/api/pp/latest-snapshot');
+      const d = await res.json();
+      if (!d || d.error) {
+        document.getElementById('stat-snapshot-date').textContent = 'No snapshot loaded';
+        return;
+      }
+      currentSnapshotId = d.id;
+      const pr = d.pipeline_result || {};
+      document.getElementById('stat-in-arrears').textContent = pr.total_in_arrears ?? '--';
+      document.getElementById('stat-arrears-value').textContent = fmtAmount(pr.total_arrears_value);
+      const live = (pr.total_live_iva || 0) + (pr.total_live_cpi || 0) + (pr.total_live_td || 0);
+      const pct = live > 0 ? ((pr.total_in_arrears / live) * 100).toFixed(1) : '--';
+      document.getElementById('stat-rate').textContent = pct + '%';
+      document.getElementById('stat-snapshot-date').textContent = 'Snapshot: ' + fmtDate(d.snapshot_date);
+      document.getElementById('stat-review').textContent = pr.manual_review_count ?? '--';
+      document.getElementById('stat-vuln').textContent   = pr.vulnerable_in_arrears ?? '--';
+      document.getElementById('stat-vuln-value').textContent = fmtAmount(pr.vulnerable_arrears_value) + ' in arrears';
+
+      // Active badge
+      loadActiveBadge();
+    } catch(e) {
+      console.error(e);
+    }
+  }
+
+  async function loadActiveBadge() {
+    try {
+      const res = await fetch('/api/pp/cases?show=active&limit=1&offset=0');
+      const d = await res.json();
+      const n = d.total ?? 0;
+      document.getElementById('badge-active').textContent = n > 99 ? '99+' : n;
+    } catch {}
+  }
+
+  // ── Cases list ───────────────────────────────────────────────────────────
+  async function loadCases() {
+    const tbody = document.getElementById('cases-tbody');
+    tbody.innerHTML = '<tr><td colspan="9" class="loading">Loading…</td></tr>';
+
+    const params = new URLSearchParams();
+    if (currentSnapshotId) params.set('snapshot_id', currentSnapshotId);
+    params.set('show', currentView);
+    if (filterTypes.length)  filterTypes.forEach(t => params.append('case_type', t));
+    if (filterCycles.length) filterCycles.forEach(c => params.append('cycle', c));
+    if (filterVulnerable) params.set('vulnerable', '1');
+    if (filterReview)     params.set('needs_manual_review', '1');
+    const q = document.getElementById('search-input').value.trim();
+    if (q) params.set('search', q);
+    params.set('sort', sortCol);
+    params.set('dir', sortDir.toUpperCase());
+    params.set('limit', PAGE_SIZE);
+    params.set('offset', currentPage * PAGE_SIZE);
+
+    // Handle only one case_type when multiple selected
+    if (filterTypes.length === 1) {
+      params.delete('case_type');
+      params.set('case_type', filterTypes[0]);
+    } else if (filterTypes.length > 1) {
+      // backend supports single case_type; send first only as a best effort or show all
+      params.delete('case_type');
+    }
+
+    try {
+      const res = await fetch('/api/pp/cases?' + params.toString());
+      const d = await res.json();
+      if (d.error) { tbody.innerHTML = `<tr><td colspan="9" class="loading" style="color:#ef4444;">Error: ${escHtml(d.error)}</td></tr>`; return; }
+
+      totalCases = d.total || 0;
+      updatePagination();
+      document.getElementById('cases-count-label').textContent = `— ${totalCases} case${totalCases !== 1 ? 's' : ''}`;
+
+      if (!d.cases || !d.cases.length) {
+        tbody.innerHTML = '<tr><td colspan="9" class="table-empty">No cases match current filters.</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = d.cases.map(c => {
+        const ref = escHtml(c.reference || '');
+        const name = escHtml(c.client_name || '—');
+        const typeBadge = `<span class="badge ${typeBadgeClass(c.case_type)}">${escHtml(c.case_type || '')}</span>`;
+        const cycBadge  = `<span class="badge ${cycleBadgeClass(c.cycle)}">${escHtml(c.cycle || '')}</span>`;
+        const cycStatus = c.cycle_status === 'New'
+          ? ` <span class="badge badge-new">New</span>`
+          : c.cycle_status === 'History of arrears'
+            ? ` <span class="badge badge-hist" title="History of arrears">↩</span>`
+            : '';
+        const vulnIcon = c.vulnerable ? `<span class="vuln-icon" title="Vulnerable">⚠</span>` : '';
+        const reviewIcon = c.needs_manual_review ? `<span class="review-icon" title="${escHtml(c.review_reason)}">⚑</span>` : '';
+        const days = c.days_since_last_payment_due;
+        const daysStr = days != null ? days + 'd' : '—';
+        const daysClass = days != null && days >= 30 ? 'style="color:#ef4444;font-weight:700;"' : '';
+        const months = c.months_in_arrears != null ? Number(c.months_in_arrears).toFixed(1) : '—';
+        const mobile = escHtml(c.mobile || '—');
+        // Indicator for worked/noted
+        const workedDot = c.note_created_at ? `<span title="Last noted: ${fmtDatetime(c.note_created_at)}" style="color:#22c55e;font-size:0.9rem;">●</span>` : '';
+
+        return `<tr data-ref="${ref}" class="${selectedRef === c.reference ? 'selected' : ''}">
+          <td class="td-ref">${ref} ${vulnIcon}${reviewIcon}</td>
+          <td>${name}</td>
+          <td>${typeBadge}</td>
+          <td>${cycBadge}${cycStatus}</td>
+          <td class="td-amount">${fmtAmount(c.arrears_amount)}</td>
+          <td class="td-months">${months}</td>
+          <td ${daysClass}>${daysStr}</td>
+          <td class="td-phone">${mobile}</td>
+          <td>${workedDot}</td>
+        </tr>`;
+      }).join('');
+
+      // Row click → open panel
+      document.querySelectorAll('#cases-tbody tr[data-ref]').forEach(tr => {
+        tr.addEventListener('click', () => openPanel(tr.dataset.ref));
+      });
+
+      // Sort headers
+      document.querySelectorAll('.cases-table thead th.sortable').forEach(th => {
+        th.classList.remove('sort-asc', 'sort-desc');
+        if (th.dataset.col === sortCol) {
+          th.classList.add(sortDir === 'asc' ? 'sort-asc' : 'sort-desc');
+          th.querySelector('.sort-icon').textContent = sortDir === 'asc' ? '↑' : '↓';
+        } else {
+          th.querySelector('.sort-icon').textContent = '↕';
+        }
+      });
+    } catch(e) {
+      tbody.innerHTML = `<tr><td colspan="9" class="loading" style="color:#ef4444;">Failed to load cases.</td></tr>`;
+    }
+  }
+
+  function updatePagination() {
+    const totalPages = Math.max(1, Math.ceil(totalCases / PAGE_SIZE));
+    document.getElementById('page-info').textContent = `${currentPage + 1} of ${totalPages}`;
+    document.getElementById('btn-prev').disabled = currentPage === 0;
+    document.getElementById('btn-next').disabled = currentPage >= totalPages - 1;
+  }
+
+  // ── Case detail panel ────────────────────────────────────────────────────
+  async function openPanel(ref) {
+    selectedRef = ref;
+    document.querySelectorAll('#cases-tbody tr').forEach(tr => {
+      tr.classList.toggle('selected', tr.dataset.ref === ref);
+    });
+
+    const panel = document.getElementById('side-panel');
+    const overlay = document.getElementById('panel-overlay');
+    panel.classList.add('open');
+    overlay.classList.add('open');
+    document.getElementById('panel-ref').textContent = ref;
+    document.getElementById('panel-name').textContent = '';
+    document.getElementById('panel-type-badge').innerHTML = '';
+    document.getElementById('panel-vuln-icon').innerHTML = '';
+    document.getElementById('panel-review-icon').innerHTML = '';
+    document.getElementById('panel-badges-row').innerHTML = '';
+    document.getElementById('panel-body').innerHTML = '<div class="loading">Loading…</div>';
+
+    try {
+      const res = await fetch(`/api/pp/cases/${encodeURIComponent(ref)}`);
+      const d = await res.json();
+      if (d.error) {
+        document.getElementById('panel-body').innerHTML = `<div style="color:#ef4444;font-size:0.85rem;">Error: ${escHtml(d.error)}</div>`;
+        return;
+      }
+      renderPanel(d);
+    } catch(e) {
+      document.getElementById('panel-body').innerHTML = `<div style="color:#ef4444;font-size:0.85rem;">Failed to load case.</div>`;
+    }
+  }
+
+  function renderPanel(data) {
+    const c = data.case;
+    const notes = data.notes || [];
+    const trend = data.trend || [];
+
+    document.getElementById('panel-name').textContent = c.client_name || '';
+    document.getElementById('panel-type-badge').innerHTML =
+      `<span class="badge ${typeBadgeClass(c.case_type)}">${escHtml(c.case_type || '')}</span>`;
+    document.getElementById('panel-vuln-icon').innerHTML =
+      c.vulnerable ? '<span class="vuln-icon" title="Vulnerable">⚠</span>' : '';
+    document.getElementById('panel-review-icon').innerHTML =
+      c.needs_manual_review ? `<span class="review-icon" title="${escHtml(c.review_reason)}">⚑ Review</span>` : '';
+
+    const cycBadge = `<span class="badge ${cycleBadgeClass(c.cycle)}">${escHtml(c.cycle || '')}</span>`;
+    const cycStatus = c.cycle_status === 'New'
+      ? `<span class="badge badge-new">New</span>`
+      : c.cycle_status === 'History of arrears'
+        ? `<span class="badge badge-hist">History of arrears</span>`
+        : '';
+    document.getElementById('panel-badges-row').innerHTML = cycBadge + ' ' + cycStatus;
+
+    // Reconciliation table
+    const sources = c.sources_present || [];
+    const refSources = [
+      { key: 'iva_fees', label: 'IVA Fees', val: c.iva_fees_arrears },
+      { key: 'wf_arrears', label: 'WF Arrears', val: c.wf_arrears_amount },
+      { key: 'cases_in_arrears', label: 'Cases in Arrears', val: c.cases_in_arrears_amount },
+      { key: 'td_fees', label: 'TD Fees', val: c.td_arrears_amount },
+    ].filter(s => sources.includes(s.key) || s.val != null);
+
+    const canonicalAvg = c.arrears_amount;
+    let reconRows = '';
+    refSources.forEach(s => {
+      if (s.val == null) {
+        reconRows += `<tr><td>${escHtml(s.label)}</td><td class="recon-missing td-amount">—</td><td></td></tr>`;
+      } else {
+        const diff = Math.abs(s.val - canonicalAvg);
+        const cls = diff <= 1 ? 'recon-agree' : 'recon-disagree';
+        const icon = diff <= 1 ? '✓' : '✗';
+        reconRows += `<tr><td>${escHtml(s.label)}</td><td class="td-amount ${cls}">${fmtAmount(s.val)}</td><td class="${cls}">${icon}</td></tr>`;
+      }
+    });
+
+    const reconHtml = refSources.length > 0 ? `
+      <div>
+        <div class="panel-section-title">Arrears Reconciliation</div>
+        <table class="recon-table">
+          <thead><tr><th>Source</th><th style="text-align:right;">Amount</th><th></th></tr></thead>
+          <tbody>${reconRows}</tbody>
+          <tfoot>
+            <tr style="font-weight:700;border-top:1.5px solid #e5e7eb;">
+              <td>Canonical (avg)</td>
+              <td class="td-amount">${fmtAmount(canonicalAvg)}</td>
+              <td></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>` : '';
+
+    // Payment info
+    const infoHtml = `
+      <div>
+        <div class="panel-section-title">Payment Information</div>
+        <div class="info-grid">
+          <div class="info-item"><div class="info-key">Payment Amount</div><div class="info-val mono">${fmtAmount(c.payment_amount)}</div></div>
+          <div class="info-item"><div class="info-key">Arrears Amount</div><div class="info-val mono" style="color:#ef4444;">${fmtAmount(c.arrears_amount)}</div></div>
+          <div class="info-item"><div class="info-key">Months Behind</div><div class="info-val mono">${c.months_in_arrears != null ? Number(c.months_in_arrears).toFixed(2) : '—'}</div></div>
+          <div class="info-item"><div class="info-key">Last Payment Due</div><div class="info-val">${fmtDate(c.last_payment_due_date)}</div></div>
+          <div class="info-item"><div class="info-key">Days Since Due</div><div class="info-val">${c.days_since_last_payment_due != null ? c.days_since_last_payment_due + ' days' : '—'}</div></div>
+          <div class="info-item"><div class="info-key">Case Status</div><div class="info-val">${escHtml(c.case_status || '—')}</div></div>
+          <div class="info-item"><div class="info-key">Case Senior</div><div class="info-val">${escHtml(c.case_senior || '—')}</div></div>
+          <div class="info-item"><div class="info-key">Mobile</div><div class="info-val mono">${escHtml(c.mobile || '—')}</div></div>
+          ${c.payment_break ? '<div class="info-item" style="grid-column:span 2;"><div class="info-key">Payment Break</div><div class="info-val" style="color:#6366f1;">Yes — payment break in place</div></div>' : ''}
+          ${c.catchup_agreed ? `<div class="info-item" style="grid-column:span 2;"><div class="info-key">Catchup Agreed</div><div class="info-val" style="color:#15803d;">Yes${c.catchup_amount != null ? ' — ' + fmtAmount(c.catchup_amount) : ''}</div></div>` : ''}
+        </div>
+      </div>`;
+
+    // Review reason
+    const reviewHtml = c.needs_manual_review && c.review_reason ? `
+      <div class="warnings-banner">
+        <strong>Manual Review Required</strong><br>${escHtml(c.review_reason)}
+      </div>` : '';
+
+    // Contact notes
+    const contactHtml = c.last_contact_notes ? `
+      <div>
+        <div class="panel-section-title">Last Contact Notes ${c.last_contact_date ? `<span style="font-weight:400;text-transform:none;font-size:0.75rem;color:#aaa;">${fmtDatetime(c.last_contact_date)}</span>` : ''}</div>
+        <div class="contact-notes">${escHtml(c.last_contact_notes)}</div>
+      </div>` : '';
+
+    // Note history
+    const notesHtml = notes.length ? `
+      <div>
+        <div class="panel-section-title">Note History (${notes.length})</div>
+        <div class="note-list">
+          ${notes.map(n => `
+            <div class="note-item ${n.superseded_at ? 'superseded' : ''}">
+              <div class="note-meta">
+                <span>${fmtDatetime(n.created_at)}</span>
+                ${n.note_category ? `<span class="note-cat">${escHtml(n.note_category)}</span>` : ''}
+                ${n.removes_from_queue ? `<span class="note-removes">Removed from queue</span>` : ''}
+                ${n.superseded_at ? `<span style="color:#ef4444;font-size:0.67rem;">Superseded</span>` : ''}
+              </div>
+              <div class="note-text">${escHtml(n.note_text)}</div>
+            </div>
+          `).join('')}
+        </div>
+      </div>` : '';
+
+    // Trend
+    const trendHtml = trend.length > 1 ? `
+      <div>
+        <div class="panel-section-title">Arrears Trend (last ${trend.length} snapshots)</div>
+        <div style="font-size:0.78rem;color:#666;display:flex;flex-direction:column;gap:0.2rem;">
+          ${trend.slice(0,10).map(t => `<div style="display:flex;justify-content:space-between;"><span>${fmtDate(t.snapshot_date)}</span><span class="td-amount" style="font-size:0.78rem;">${fmtAmount(t.arrears_amount)}</span><span>${escHtml(t.cycle || '')}</span></div>`).join('')}
+        </div>
+      </div>` : '';
+
+    // Add note form
+    const noteFormHtml = `
+      <div>
+        <div class="panel-section-title">Add Note</div>
+        <div class="note-form" id="note-form">
+          <textarea id="note-text" placeholder="Note…" rows="3"></textarea>
+          <div class="note-form-row">
+            <select id="note-category">
+              <option value="">No category</option>
+              <option value="payment_arrangement">Payment Arrangement</option>
+              <option value="promise_to_pay">Promise to Pay</option>
+              <option value="payment_break">Payment Break</option>
+              <option value="catchup_agreed">Catchup Agreed</option>
+              <option value="no_contact">No Contact</option>
+              <option value="escalated">Escalated</option>
+              <option value="other">Other</option>
+            </select>
+            <label class="note-form-check">
+              <input type="checkbox" id="note-removes" checked />
+              Remove from queue
+            </label>
+            <button class="btn btn-primary btn-sm" id="btn-submit-note">Add Note</button>
+            <span class="note-status" id="note-status"></span>
+          </div>
+        </div>
+      </div>`;
+
+    document.getElementById('panel-body').innerHTML =
+      reconHtml + infoHtml + reviewHtml + contactHtml + notesHtml + trendHtml + noteFormHtml;
+
+    // Wire up note submit
+    document.getElementById('btn-submit-note').addEventListener('click', () => submitNote(c.reference));
+  }
+
+  async function submitNote(ref) {
+    const text = document.getElementById('note-text').value.trim();
+    const cat  = document.getElementById('note-category').value;
+    const removes = document.getElementById('note-removes').checked;
+    const status  = document.getElementById('note-status');
+    const btn     = document.getElementById('btn-submit-note');
+
+    if (!text) { status.textContent = 'Note text required.'; status.className = 'note-status err'; return; }
+    btn.disabled = true;
+    status.textContent = 'Saving…';
+    status.className = 'note-status';
+
+    try {
+      const res = await fetch(`/api/pp/cases/${encodeURIComponent(ref)}/notes`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ note_text: text, note_category: cat || null, removes_from_queue: removes }),
+      });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error || 'Failed to save');
+      status.textContent = '✓ Note saved';
+      status.className = 'note-status ok';
+      document.getElementById('note-text').value = '';
+
+      // Optimistically remove the row from active queue if removes_from_queue
+      if (removes && currentView === 'active') {
+        const row = document.querySelector(`#cases-tbody tr[data-ref="${CSS.escape(ref)}"]`);
+        if (row) row.style.opacity = '0.3';
+        setTimeout(() => {
+          if (row) row.remove();
+          closePanel();
+          loadCases();
+          loadActiveBadge();
+        }, 600);
+      } else {
+        // Refresh panel notes
+        setTimeout(() => openPanel(ref), 400);
+      }
+    } catch(e) {
+      status.textContent = 'Error: ' + e.message;
+      status.className = 'note-status err';
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  function closePanel() {
+    document.getElementById('side-panel').classList.remove('open');
+    document.getElementById('panel-overlay').classList.remove('open');
+    document.querySelectorAll('#cases-tbody tr').forEach(tr => tr.classList.remove('selected'));
+    selectedRef = null;
+  }
+
+  // ── Movement view ────────────────────────────────────────────────────────
+  async function loadMovement() {
+    const content = document.getElementById('movement-content');
+    content.innerHTML = '<div class="loading">Loading…</div>';
+    try {
+      const res = await fetch('/api/pp/movement');
+      const d = await res.json();
+      if (d.message) { content.innerHTML = `<div style="color:#aaa;font-size:0.88rem;">${escHtml(d.message)}</div>`; return; }
+
+      let html = '';
+      if (d.new && d.new.length) {
+        html += `<div class="movement-section">
+          <h3>New This Snapshot (${d.new.length}) <span style="font-weight:400;color:#aaa;">vs ${fmtDate(d.prev_date)}</span></h3>
+          <div class="movement-list">${d.new.map(c => `
+            <div class="movement-item new">
+              <span class="movement-ref">${escHtml(c.reference)}</span>
+              <span class="movement-name">${escHtml(c.client_name || '')}</span>
+              <span class="badge ${typeBadgeClass(c.case_type)}">${escHtml(c.case_type)}</span>
+              <span class="movement-detail">${fmtAmount(c.arrears_amount)} · ${escHtml(c.cycle)}</span>
+            </div>`).join('')}
+          </div></div>`;
+      }
+      if (d.cleared && d.cleared.length) {
+        html += `<div class="movement-section">
+          <h3>Cleared (${d.cleared.length})</h3>
+          <div class="movement-list">${d.cleared.map(c => `
+            <div class="movement-item cleared">
+              <span class="movement-ref">${escHtml(c.reference)}</span>
+              <span class="movement-name">${escHtml(c.client_name || '')}</span>
+              <span class="badge ${typeBadgeClass(c.case_type)}">${escHtml(c.case_type)}</span>
+              <span class="movement-detail">${fmtAmount(c.arrears_amount)}</span>
+            </div>`).join('')}
+          </div></div>`;
+      }
+      if (d.cycle_changes && d.cycle_changes.length) {
+        html += `<div class="movement-section">
+          <h3>Cycle Changes (${d.cycle_changes.length})</h3>
+          <div class="movement-list">${d.cycle_changes.map(c => `
+            <div class="movement-item changed">
+              <span class="movement-ref">${escHtml(c.reference)}</span>
+              <span class="movement-name">${escHtml(c.client_name || '')}</span>
+              <span class="movement-detail">
+                <span class="badge ${cycleBadgeClass(c.prev_cycle)}">${escHtml(c.prev_cycle)}</span>
+                → <span class="badge ${cycleBadgeClass(c.new_cycle)}">${escHtml(c.new_cycle)}</span>
+              </span>
+            </div>`).join('')}
+          </div></div>`;
+      }
+      if (!html) html = '<div style="color:#aaa;font-size:0.88rem;">No movement detected between the two most recent snapshots.</div>';
+      content.innerHTML = html;
+    } catch(e) {
+      content.innerHTML = `<div style="color:#ef4444;font-size:0.85rem;">Failed to load movement.</div>`;
+    }
+  }
+
+  // ── Snapshot history ─────────────────────────────────────────────────────
+  async function loadSnapshotHistory() {
+    const tbody = document.getElementById('snapshot-tbody');
+    if (!tbody) return;
+    tbody.innerHTML = '<tr><td colspan="6" class="loading">Loading…</td></tr>';
+    try {
+      const res = await fetch('/api/pp/snapshots');
+      const rows = await res.json();
+      if (!rows.length) { tbody.innerHTML = '<tr><td colspan="6" class="table-empty">No snapshots yet.</td></tr>'; return; }
+      tbody.innerHTML = rows.map(r => `
+        <tr class="${r.superseded ? 'snapshot-superseded' : ''}">
+          <td>${fmtDate(r.snapshot_date)}</td>
+          <td style="font-size:0.78rem;">${fmtDatetime(r.uploaded_at)}</td>
+          <td>${escHtml(r.uploaded_by_name || '—')}</td>
+          <td style="text-align:right;">${r.case_count ?? '—'}</td>
+          <td style="text-align:right;font-family:monospace;">${fmtAmount(r.total_arrears_value)}</td>
+          <td>${r.superseded ? '<span style="color:#ef4444;font-size:0.78rem;">Superseded</span>' : '<span style="color:#22c55e;font-size:0.78rem;">Active</span>'}</td>
+        </tr>`).join('');
+    } catch(e) {
+      tbody.innerHTML = `<tr><td colspan="6" class="loading" style="color:#ef4444;">Failed.</td></tr>`;
+    }
+  }
+
+  // ── View switching ───────────────────────────────────────────────────────
+  function setActiveNav(view) {
+    document.querySelectorAll('.nav-item').forEach(el => {
+      el.classList.toggle('active', el.dataset.view === view);
+    });
+    // Update card title
+    const titles = { active: 'Active Queue', worked: 'Worked Cases', all: 'All in Arrears', movement: 'Movement', upload_history: 'Upload History' };
+    document.getElementById('cases-card-title').textContent = titles[view] || '';
+  }
+
+  function showView(view) {
+    currentView = view;
+    currentPage = 0;
+    setActiveNav(view);
+
+    const casesCard = document.getElementById('cases-card');
+    const filterBar = document.getElementById('filter-bar');
+    const movCard   = document.getElementById('movement-card');
+    const histCard  = document.getElementById('history-card');
+
+    casesCard.style.display = '';
+    filterBar.style.display = '';
+    if (movCard)  movCard.style.display  = 'none';
+    if (histCard) histCard.style.display = 'none';
+
+    if (view === 'movement') {
+      casesCard.style.display = 'none';
+      filterBar.style.display = 'none';
+      if (movCard) { movCard.style.display = ''; loadMovement(); }
+    } else if (view === 'upload_history') {
+      casesCard.style.display = 'none';
+      filterBar.style.display = 'none';
+      if (histCard) { histCard.style.display = ''; loadSnapshotHistory(); }
+    } else {
+      loadCases();
+    }
+    pushState();
+  }
+
+  // ── Upload ───────────────────────────────────────────────────────────────
+  {% if current_user.role in ['uploader', 'admin'] %}
+  const FILE_KEYS = ['iva_fees', 'td_fees', 'cases_in_arrears', 'wf_arrears', 'total_live_cases'];
+  const loadedFiles = {};
+
+  FILE_KEYS.forEach(key => {
+    const input = document.getElementById(`file-${key}`);
+    if (!input) return;
+    input.addEventListener('change', () => {
+      const file = input.files[0];
+      if (file) {
+        loadedFiles[key] = file;
+        document.getElementById(`name-${key}`).textContent = file.name;
+        document.getElementById(`tick-${key}`).style.display = '';
+        document.getElementById(`slot-${key}`).classList.add('loaded');
+        document.getElementById(`slot-${key}`).classList.remove('error');
+      }
+      checkAllFilled();
+    });
+  });
+
+  function checkAllFilled() {
+    const allFilled = FILE_KEYS.every(k => loadedFiles[k]);
+    document.getElementById('btn-run').disabled = !allFilled;
+  }
+
+  document.getElementById('upload-date').value = new Date().toISOString().slice(0, 10);
+
+  document.getElementById('btn-run').addEventListener('click', () => doUpload(false));
+
+  async function doUpload(confirm) {
+    const btn = document.getElementById('btn-run');
+    const status = document.getElementById('upload-status');
+    const progress = document.getElementById('upload-progress');
+    const bar = document.getElementById('upload-progress-bar');
+    const summary = document.getElementById('result-summary');
+
+    btn.disabled = true;
+    status.textContent = 'Running pipeline…';
+    status.className = 'upload-status';
+    progress.style.display = '';
+    bar.style.width = '20%';
+    summary.style.display = 'none';
+
+    const fd = new FormData();
+    FILE_KEYS.forEach(k => fd.append(k, loadedFiles[k]));
+    const snapDate = document.getElementById('upload-date').value;
+    if (snapDate) fd.append('snapshot_date', snapDate);
+    if (confirm) fd.append('confirm', 'true');
+
+    try {
+      bar.style.width = '50%';
+      const res = await fetch('/api/pp/upload', { method: 'POST', body: fd });
+      bar.style.width = '90%';
+      const d = await res.json();
+
+      if (d.needs_confirm) {
+        bar.style.width = '0%';
+        progress.style.display = 'none';
+        status.textContent = d.message;
+        status.className = 'upload-status err';
+        uploadConfirmNeeded = true;
+        btn.disabled = false;
+        btn.textContent = 'Confirm Replace';
+        btn.removeEventListener('click', doUploadNormal);
+        btn.addEventListener('click', doUploadConfirm);
+        return;
+      }
+
+      if (!res.ok || d.error) throw new Error(d.error || 'Upload failed');
+
+      bar.style.width = '100%';
+      status.textContent = `✓ Snapshot ${d.snapshot_date} processed — ${d.in_arrears_count} in arrears`;
+      status.className = 'upload-status ok';
+      btn.textContent = 'Run Pipeline';
+
+      // Show result summary
+      let cycleRows = '';
+      if (d.by_cycle) {
+        Object.entries(d.by_cycle).forEach(([c, info]) => {
+          if (info.count > 0) cycleRows += `<tr><td>${escHtml(c)}</td><td>${info.count}</td><td>${fmtAmount(info.value)}</td></tr>`;
+        });
+      }
+      summary.style.display = '';
+      summary.innerHTML = `
+        <strong>Pipeline result for ${escHtml(d.snapshot_date)}</strong>
+        <table style="margin-top:0.5rem;">
+          <tr><td>Total live cases</td><td>${d.total_live || '—'}</td></tr>
+          <tr><td>In arrears</td><td>${d.in_arrears_count}</td></tr>
+          <tr><td>Total arrears value</td><td>${fmtAmount(d.in_arrears_value)}</td></tr>
+          ${cycleRows}
+        </table>
+        ${d.warnings && d.warnings.length ? `<div style="margin-top:0.5rem;color:#78350f;">⚠ ${d.warnings.length} warning(s)</div>` : ''}`;
+
+      if (d.warnings && d.warnings.length) {
+        const wb = document.getElementById('warnings-banner');
+        wb.style.display = '';
+        wb.innerHTML = `<strong>${d.warnings.length} pipeline warning(s):</strong><ul>${d.warnings.map(w => `<li>${escHtml(w)}</li>`).join('')}</ul>`;
+      }
+
+      // Reload dashboard + cases
+      setTimeout(() => {
+        loadDashboard();
+        if (currentView !== 'movement' && currentView !== 'upload_history') loadCases();
+      }, 500);
+
+    } catch(e) {
+      bar.style.width = '0%';
+      progress.style.display = 'none';
+      status.textContent = 'Error: ' + e.message;
+      status.className = 'upload-status err';
+    } finally {
+      if (!uploadConfirmNeeded) btn.disabled = false;
+    }
+  }
+
+  function doUploadNormal() { doUpload(false); }
+  function doUploadConfirm() {
+    uploadConfirmNeeded = false;
+    document.getElementById('btn-run').textContent = 'Run Pipeline';
+    document.getElementById('btn-run').removeEventListener('click', doUploadConfirm);
+    document.getElementById('btn-run').addEventListener('click', doUploadNormal);
+    doUpload(true);
+  }
+  {% endif %}
+
+  // ── Event wiring ─────────────────────────────────────────────────────────
+
+  // Nav
+  document.querySelectorAll('.nav-item').forEach(el => {
+    el.addEventListener('click', () => showView(el.dataset.view));
+  });
+
+  // Panel close
+  document.getElementById('panel-close').addEventListener('click', closePanel);
+  document.getElementById('panel-overlay').addEventListener('click', closePanel);
+
+  // Filter chips — type
+  document.querySelectorAll('#chips-type .chip').forEach(ch => {
+    ch.addEventListener('click', () => {
+      const v = ch.dataset.val;
+      if (filterTypes.includes(v)) filterTypes = filterTypes.filter(x => x !== v);
+      else filterTypes.push(v);
+      ch.classList.toggle('active', filterTypes.includes(v));
+      currentPage = 0; pushState(); loadCases();
+    });
+  });
+
+  // Filter chips — cycle
+  document.querySelectorAll('#chips-cycle .chip').forEach(ch => {
+    ch.addEventListener('click', () => {
+      const v = ch.dataset.val;
+      if (filterCycles.includes(v)) filterCycles = filterCycles.filter(x => x !== v);
+      else filterCycles.push(v);
+      ch.classList.toggle('active', filterCycles.includes(v));
+      currentPage = 0; pushState(); loadCases();
+    });
+  });
+
+  // Vulnerable chip
+  document.getElementById('chip-vulnerable').addEventListener('click', () => {
+    filterVulnerable = !filterVulnerable;
+    document.getElementById('chip-vulnerable').classList.toggle('active', filterVulnerable);
+    currentPage = 0; pushState(); loadCases();
+  });
+
+  // Review chip
+  document.getElementById('chip-review').addEventListener('click', () => {
+    filterReview = !filterReview;
+    document.getElementById('chip-review').classList.toggle('active', filterReview);
+    currentPage = 0; pushState(); loadCases();
+  });
+
+  // Search
+  document.getElementById('search-input').addEventListener('input', () => {
+    clearTimeout(searchDebounce);
+    searchDebounce = setTimeout(() => { currentPage = 0; pushState(); loadCases(); }, 300);
+  });
+
+  // Sort
+  document.getElementById('sort-select').addEventListener('change', e => {
+    const [c, d] = e.target.value.split(':');
+    sortCol = c; sortDir = d;
+    currentPage = 0; pushState(); loadCases();
+  });
+
+  // Sortable headers
+  document.querySelectorAll('.cases-table thead th.sortable').forEach(th => {
+    th.addEventListener('click', () => {
+      const col = th.dataset.col;
+      if (sortCol === col) { sortDir = sortDir === 'asc' ? 'desc' : 'asc'; }
+      else { sortCol = col; sortDir = 'desc'; }
+      document.getElementById('sort-select').value = `${sortCol}:${sortDir}`;
+      currentPage = 0; pushState(); loadCases();
+    });
+  });
+
+  // Pagination
+  document.getElementById('btn-prev').addEventListener('click', () => { if (currentPage > 0) { currentPage--; loadCases(); } });
+  document.getElementById('btn-next').addEventListener('click', () => {
+    if ((currentPage + 1) * PAGE_SIZE < totalCases) { currentPage++; loadCases(); }
+  });
+
+  // Admin dropdown
+  {% if current_user.role == 'admin' %}
+  const adminBtn  = document.getElementById('admin-menu-btn');
+  const adminDrop = document.getElementById('admin-dropdown');
+  adminBtn.addEventListener('click', e => {
+    e.stopPropagation();
+    const o = adminDrop.classList.toggle('open');
+    adminBtn.classList.toggle('open', o);
+  });
+  document.addEventListener('click', () => { adminDrop.classList.remove('open'); adminBtn.classList.remove('open'); });
+  {% endif %}
+
+  // ── Init ─────────────────────────────────────────────────────────────────
+  readState();
+  loadDashboard().then(() => {
+    if (currentView !== 'movement' && currentView !== 'upload_history') loadCases();
+  });
+</script>
+</body>
+</html>

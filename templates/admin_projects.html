@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Projects – Omni Group</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, -apple-system, sans-serif; background: #f0f2f5; color: #1a1a2e; min-height: 100vh; }
+
+    .topbar { background: #fff; border-bottom: 1px solid #e5e7eb; padding: 0.75rem 1.5rem; display: flex; align-items: center; gap: 1rem; position: sticky; top: 0; z-index: 10; }
+    .topbar a.back { text-decoration: none; color: #6366f1; font-size: 0.88rem; font-weight: 600; display: flex; align-items: center; gap: 0.3rem; }
+    .topbar a.back:hover { color: #4f46e5; }
+    .topbar img { height: 36px; width: auto; }
+    .topbar h1 { font-size: 1.05rem; font-weight: 700; }
+    .topbar-spacer { flex: 1; }
+    .topbar-user { font-size: 0.82rem; color: #777; display: flex; align-items: center; gap: 0.75rem; }
+    .topbar-user strong { color: #333; }
+    .topbar-user a { color: #6366f1; text-decoration: none; font-weight: 600; font-size: 0.82rem; }
+    .topbar-user a:hover { color: #4f46e5; }
+
+    .page-content { max-width: 1000px; margin: 0 auto; padding: 2rem 1.25rem; }
+    .page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.75rem; }
+    .page-header h2 { font-size: 1.2rem; font-weight: 700; }
+
+    .btn-primary { background: #6366f1; color: #fff; border: none; border-radius: 8px; padding: 0.6rem 1.25rem; font-size: 0.88rem; font-weight: 600; cursor: pointer; transition: background 0.2s; }
+    .btn-primary:hover { background: #4f46e5; }
+    .btn-sm { padding: 0.3rem 0.7rem; border: 1.5px solid #d0d5dd; border-radius: 6px; background: #fff; font-size: 0.78rem; font-weight: 600; color: #555; cursor: pointer; transition: border-color 0.15s, color 0.15s; }
+    .btn-sm:hover { border-color: #6366f1; color: #6366f1; background: #f5f5ff; }
+
+    .project-card { background: #fff; border-radius: 12px; box-shadow: 0 1px 6px rgba(0,0,0,0.07); margin-bottom: 1.5rem; overflow: hidden; }
+    .project-card-header { padding: 1rem 1.25rem; display: flex; align-items: center; gap: 1rem; border-bottom: 1px solid #f0f0f0; }
+    .project-card-header h3 { font-size: 1rem; font-weight: 700; flex: 1; }
+    .active-badge { font-size: 0.72rem; font-weight: 700; padding: 0.2rem 0.55rem; border-radius: 10px; background: #dcfce7; color: #15803d; }
+    .inactive-badge { font-size: 0.72rem; font-weight: 700; padding: 0.2rem 0.55rem; border-radius: 10px; background: #f3f4f6; color: #888; }
+
+    .project-body { padding: 1.25rem; display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+    @media (max-width: 700px) { .project-body { grid-template-columns: 1fr; } }
+
+    .col-label { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #999; margin-bottom: 0.6rem; }
+
+    .user-chips { display: flex; flex-wrap: wrap; gap: 0.4rem; min-height: 32px; }
+    .user-chip { display: inline-flex; align-items: center; gap: 0.35rem; background: #ede9fe; color: #5b21b6; padding: 0.25rem 0.65rem; border-radius: 12px; font-size: 0.78rem; font-weight: 600; }
+    .chip-remove { background: none; border: none; cursor: pointer; font-size: 0.85rem; color: #7c3aed; padding: 0; line-height: 1; }
+    .chip-remove:hover { color: #dc2626; }
+    .no-users { font-size: 0.82rem; color: #bbb; }
+
+    .assign-row { display: flex; gap: 0.5rem; margin-top: 0.75rem; }
+    .assign-select { flex: 1; border: 1.5px solid #d0d5dd; border-radius: 7px; padding: 0.5rem 0.75rem; font-size: 0.88rem; font-family: inherit; background: #fff; }
+    .assign-select:focus { outline: none; border-color: #6366f1; }
+
+    .upload-section { border-top: 1px solid #f0f0f0; padding: 1rem 1.25rem; display: flex; align-items: flex-end; gap: 1rem; flex-wrap: wrap; }
+    .upload-group { display: flex; flex-direction: column; gap: 0.3rem; }
+    .upload-group label { font-size: 0.78rem; font-weight: 600; color: #555; }
+    .upload-group select, .upload-group input[type="file"] { border: 1.5px solid #d0d5dd; border-radius: 7px; padding: 0.45rem 0.75rem; font-size: 0.85rem; font-family: inherit; background: #fff; }
+    .upload-group select:focus { outline: none; border-color: #6366f1; }
+    .upload-hint { font-size: 0.75rem; color: #aaa; margin-top: 0.2rem; }
+    .upload-result { font-size: 0.8rem; margin-top: 0.5rem; }
+    .upload-result.ok { color: #15803d; }
+    .upload-result.err { color: #b91c1c; }
+
+    .loading { text-align: center; padding: 3rem; color: #bbb; font-size: 0.88rem; }
+
+    /* Modal */
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.45); display: flex; align-items: center; justify-content: center; z-index: 100; padding: 1rem; opacity: 0; pointer-events: none; transition: opacity 0.15s; }
+    .modal-overlay.open { opacity: 1; pointer-events: all; }
+    .modal-panel { background: #fff; border-radius: 14px; width: 100%; max-width: 400px; box-shadow: 0 20px 60px rgba(0,0,0,0.2); transform: translateY(12px); transition: transform 0.15s; }
+    .modal-overlay.open .modal-panel { transform: translateY(0); }
+    .modal-header { padding: 1.1rem 1.25rem; border-bottom: 1px solid #f0f0f0; display: flex; align-items: center; justify-content: space-between; }
+    .modal-header h3 { font-size: 1rem; font-weight: 700; }
+    .modal-close { background: none; border: none; font-size: 1.4rem; color: #999; cursor: pointer; }
+    .modal-close:hover { color: #333; }
+    .modal-body { padding: 1.25rem; }
+    .form-group { margin-bottom: 1rem; }
+    .form-group label { display: block; font-size: 0.85rem; font-weight: 600; color: #333; margin-bottom: 0.35rem; }
+    .form-group input { width: 100%; border: 1.5px solid #d0d5dd; border-radius: 8px; padding: 0.6rem 0.85rem; font-size: 0.9rem; font-family: inherit; transition: border-color 0.2s; }
+    .form-group input:focus { outline: none; border-color: #6366f1; }
+    .modal-footer { padding: 0.85rem 1.25rem; border-top: 1px solid #f0f0f0; display: flex; gap: 0.5rem; justify-content: flex-end; }
+    .btn-cancel { padding: 0.6rem 1.1rem; border: 1.5px solid #d0d5dd; border-radius: 8px; background: #fff; font-size: 0.88rem; font-weight: 600; color: #555; cursor: pointer; }
+    .btn-cancel:hover { border-color: #999; }
+    .error-inline { font-size: 0.82rem; color: #b91c1c; background: #fef2f2; border: 1px solid #fecaca; border-radius: 6px; padding: 0.5rem 0.75rem; margin-bottom: 1rem; display: none; }
+  </style>
+</head>
+<body>
+
+<div class="topbar">
+  <a class="back" href="/">&#8592; Home</a>
+  <img src="/static/logo.png" alt="Omni Group" />
+  <h1>Project Management</h1>
+  <div class="topbar-spacer"></div>
+  <div class="topbar-user">
+    <a href="/admin/users">Users</a>
+    <a href="/admin/corrections">Review Log</a>
+    <span>Signed in as <strong>{{ current_user.username }}</strong></span>
+    <a href="/logout">Sign out</a>
+  </div>
+</div>
+
+<div class="page-content">
+  <div class="page-header">
+    <h2>Projects</h2>
+    <button class="btn-primary" id="add-project-btn">+ New Project</button>
+  </div>
+  <div id="projects-container"><div class="loading">Loading…</div></div>
+</div>
+
+<!-- New Project Modal -->
+<div class="modal-overlay" id="project-modal">
+  <div class="modal-panel">
+    <div class="modal-header">
+      <h3>New Project</h3>
+      <button class="modal-close" id="modal-close">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="error-inline" id="modal-error"></div>
+      <div class="form-group">
+        <label>Project Name</label>
+        <input type="text" id="proj-name" placeholder="e.g. Parker Philips" autocomplete="off" />
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" id="modal-cancel">Cancel</button>
+      <button class="btn-primary" id="modal-save">Create</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  let projects = [];
+  let allUsers = [];
+
+  function escHtml(s) {
+    return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  async function load() {
+    const [pr, ur] = await Promise.all([
+      fetch('/api/projects').then(r => r.json()),
+      fetch('/api/users').then(r => r.json()),
+    ]);
+    projects = pr;
+    allUsers = ur;
+    render();
+  }
+
+  function getUsersForProject(pid) {
+    return allUsers.filter(u => u.project_ids && u.project_ids.includes(pid));
+  }
+
+  function getUnassignedUsers(pid) {
+    return allUsers.filter(u => !u.project_ids || !u.project_ids.includes(pid));
+  }
+
+  function render() {
+    const container = document.getElementById('projects-container');
+    if (!projects.length) {
+      container.innerHTML = '<div class="loading">No projects yet.</div>';
+      return;
+    }
+    container.innerHTML = projects.map(p => {
+      const assigned = getUsersForProject(p.id);
+      const unassigned = getUnassignedUsers(p.id);
+      const chips = assigned.length
+        ? assigned.map(u => `<span class="user-chip">${escHtml(u.username)}<button class="chip-remove" data-pid="${p.id}" data-uid="${u.id}" title="Remove">×</button></span>`).join('')
+        : '<span class="no-users">No users assigned</span>';
+      const opts = unassigned.map(u => `<option value="${u.id}">${escHtml(u.username)}</option>`).join('');
+      return `
+        <div class="project-card">
+          <div class="project-card-header">
+            <h3>${escHtml(p.name)}</h3>
+            <span class="${p.active ? 'active-badge' : 'inactive-badge'}">${p.active ? 'Active' : 'Inactive'}</span>
+            <button class="btn-sm" data-toggle-pid="${p.id}" data-active="${p.active}">${p.active ? 'Deactivate' : 'Activate'}</button>
+          </div>
+          <div class="project-body">
+            <div>
+              <div class="col-label">Assigned Users</div>
+              <div class="user-chips" id="chips-${p.id}">${chips}</div>
+              <div class="assign-row">
+                <select class="assign-select" id="assign-select-${p.id}">
+                  <option value="">-- assign a user --</option>
+                  ${opts}
+                </select>
+                <button class="btn-sm" data-assign-pid="${p.id}">Assign</button>
+              </div>
+            </div>
+            <div>
+              <div class="col-label">Upload Work Items (CSV)</div>
+              <div class="upload-section" style="padding:0;border:none;flex-direction:column;align-items:flex-start;gap:0.6rem;">
+                <div class="upload-group">
+                  <label>Task Type</label>
+                  <select id="upload-type-${p.id}">
+                    <option value="completion">Completion</option>
+                    <option value="arrears">Arrears</option>
+                    <option value="annual">Annual Review</option>
+                    <option value="variation">Variation</option>
+                    <option value="termination">Termination</option>
+                  </select>
+                </div>
+                <div class="upload-group">
+                  <label>CSV File</label>
+                  <input type="file" id="upload-file-${p.id}" accept=".csv,text/csv" />
+                  <div class="upload-hint">Columns: case_number, due_date (YYYY-MM-DD), task_type (optional), notes (optional)</div>
+                </div>
+                <button class="btn-sm" data-upload-pid="${p.id}">Upload</button>
+                <div id="upload-result-${p.id}"></div>
+              </div>
+            </div>
+          </div>
+        </div>`;
+    }).join('');
+  }
+
+  document.getElementById('projects-container').addEventListener('click', async e => {
+    const toggleBtn = e.target.closest('[data-toggle-pid]');
+    if (toggleBtn) {
+      const pid = Number(toggleBtn.dataset.togglePid);
+      const active = toggleBtn.dataset.active === 'true';
+      await fetch(`/api/projects/${pid}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ active: !active }) });
+      load();
+      return;
+    }
+
+    const assignBtn = e.target.closest('[data-assign-pid]');
+    if (assignBtn) {
+      const pid = Number(assignBtn.dataset.assignPid);
+      const sel = document.getElementById(`assign-select-${pid}`);
+      const uid = Number(sel.value);
+      if (!uid) return;
+      const u = allUsers.find(x => x.id === uid);
+      if (!u) return;
+      const newIds = [...(u.project_ids || []), pid];
+      await fetch(`/api/users/${uid}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ project_ids: newIds }) });
+      load();
+      return;
+    }
+
+    const removeBtn = e.target.closest('[data-pid][data-uid]');
+    if (removeBtn && removeBtn.classList.contains('chip-remove')) {
+      const pid = Number(removeBtn.dataset.pid);
+      const uid = Number(removeBtn.dataset.uid);
+      const u = allUsers.find(x => x.id === uid);
+      if (!u) return;
+      const newIds = (u.project_ids || []).filter(id => id !== pid);
+      await fetch(`/api/users/${uid}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ project_ids: newIds }) });
+      load();
+      return;
+    }
+
+    const uploadBtn = e.target.closest('[data-upload-pid]');
+    if (uploadBtn) {
+      const pid = Number(uploadBtn.dataset.uploadPid);
+      const fileInput = document.getElementById(`upload-file-${pid}`);
+      const taskType = document.getElementById(`upload-type-${pid}`).value;
+      const resultEl = document.getElementById(`upload-result-${pid}`);
+      if (!fileInput.files.length) { resultEl.className = 'upload-result err'; resultEl.textContent = 'Please select a CSV file.'; return; }
+      const fd = new FormData();
+      fd.append('file', fileInput.files[0]);
+      fd.append('project_id', pid);
+      fd.append('task_type', taskType);
+      resultEl.className = 'upload-result';
+      resultEl.textContent = 'Uploading…';
+      try {
+        const res = await fetch('/api/work-items/upload', { method: 'POST', body: fd });
+        const data = await res.json();
+        if (data.error) { resultEl.className = 'upload-result err'; resultEl.textContent = data.error; }
+        else {
+          resultEl.className = 'upload-result ok';
+          resultEl.textContent = `Inserted ${data.inserted} item(s).` + (data.errors.length ? ` ${data.errors.length} error(s).` : '');
+          fileInput.value = '';
+        }
+      } catch { resultEl.className = 'upload-result err'; resultEl.textContent = 'Upload failed.'; }
+    }
+  });
+
+  // New project modal
+  document.getElementById('add-project-btn').addEventListener('click', () => {
+    document.getElementById('proj-name').value = '';
+    document.getElementById('modal-error').style.display = 'none';
+    document.getElementById('project-modal').classList.add('open');
+    document.getElementById('proj-name').focus();
+  });
+  const closeModal = () => document.getElementById('project-modal').classList.remove('open');
+  document.getElementById('modal-close').addEventListener('click', closeModal);
+  document.getElementById('modal-cancel').addEventListener('click', closeModal);
+  document.getElementById('project-modal').addEventListener('click', e => { if (e.target === document.getElementById('project-modal')) closeModal(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+  document.getElementById('modal-save').addEventListener('click', async () => {
+    const errEl = document.getElementById('modal-error');
+    errEl.style.display = 'none';
+    const name = document.getElementById('proj-name').value.trim();
+    if (!name) { errEl.textContent = 'Name is required.'; errEl.style.display = ''; return; }
+    const res = await fetch('/api/projects', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }) });
+    const data = await res.json();
+    if (data.error) { errEl.textContent = data.error; errEl.style.display = ''; return; }
+    closeModal();
+    load();
+  });
+
+  load();
+</script>
+</body>
+</html>

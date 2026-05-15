@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Arrears – Omni Group</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, -apple-system, sans-serif; background: #f0f2f5; color: #1a1a2e; min-height: 100vh; }
+
+    /* ── Top bar ── */
+    .topbar { background: #fff; border-bottom: 1px solid #e5e7eb; padding: 0.75rem 1.5rem; display: flex; align-items: center; gap: 1rem; position: sticky; top: 0; z-index: 10; }
+    .topbar a.back { text-decoration: none; color: #6366f1; font-size: 0.88rem; font-weight: 600; display: flex; align-items: center; gap: 0.3rem; }
+    .topbar a.back:hover { color: #4f46e5; }
+    .topbar h1 { font-size: 1.05rem; font-weight: 700; }
+    .topbar-spacer { flex: 1; }
+    .topbar-right { display: flex; align-items: center; gap: 0.85rem; }
+    .topbar-user { font-size: 0.82rem; color: #777; }
+    .topbar-user strong { color: #333; }
+    .topbar-link { font-size: 0.82rem; font-weight: 600; color: #6366f1; text-decoration: none; }
+    .topbar-link:hover { color: #4f46e5; }
+    .admin-menu-wrap { position: relative; }
+    .admin-menu-btn { display: flex; align-items: center; gap: 0.3rem; font-size: 0.82rem; font-weight: 600; color: #6366f1; background: none; border: 1.5px solid #e0e7ff; border-radius: 7px; padding: 0.3rem 0.75rem; cursor: pointer; }
+    .admin-menu-btn:hover { background: #f5f5ff; }
+    .admin-menu-btn .chevron { font-size: 0.6rem; transition: transform 0.15s; }
+    .admin-menu-btn.open .chevron { transform: rotate(180deg); }
+    .admin-dropdown { position: absolute; top: calc(100% + 6px); right: 0; background: #fff; border-radius: 10px; box-shadow: 0 8px 28px rgba(0,0,0,0.13); border: 1px solid #e5e7eb; min-width: 180px; padding: 0.35rem 0; display: none; z-index: 300; }
+    .admin-dropdown.open { display: block; }
+    .admin-dropdown a { display: flex; align-items: center; gap: 0.5rem; width: 100%; padding: 0.6rem 1rem; font-size: 0.84rem; font-weight: 500; color: #333; text-decoration: none; }
+    .admin-dropdown a:hover { background: #f5f5ff; color: #4f46e5; }
+    .admin-dropdown .divider { height: 1px; background: #f0f0f0; margin: 0.25rem 0; }
+    .admin-dropdown .danger { color: #ef4444; }
+    .admin-dropdown .danger:hover { background: #fef2f2; color: #dc2626; }
+
+    /* ── Notification bell ── */
+    .notif-wrap { position: relative; }
+    .notif-btn { background: none; border: none; font-size: 1.2rem; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0.2rem; position: relative; }
+    .notif-badge { position: absolute; top: -3px; right: -5px; background: #ef4444; color: #fff; font-size: 0.65rem; font-weight: 700; border-radius: 10px; min-width: 16px; height: 16px; display: none; align-items: center; justify-content: center; padding: 0 3px; }
+    .notif-dropdown { position: absolute; top: calc(100% + 8px); right: 0; background: #fff; border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.15); border: 1px solid #e5e7eb; width: 300px; max-height: 380px; flex-direction: column; overflow: hidden; display: none; z-index: 200; }
+    .notif-dropdown.open { display: flex; }
+    .notif-dropdown-header { padding: 0.75rem 1rem; border-bottom: 1px solid #f0f0f0; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
+    .notif-dropdown-header span { font-size: 0.85rem; font-weight: 700; color: #333; }
+    .notif-mark-all { font-size: 0.75rem; color: #6366f1; cursor: pointer; background: none; border: none; font-weight: 600; }
+    .notif-mark-all:hover { color: #4f46e5; }
+    .notif-list { flex: 1; overflow-y: auto; }
+    .notif-empty { padding: 1.5rem; text-align: center; color: #bbb; font-size: 0.82rem; }
+    .notif-item { padding: 0.75rem 1rem; border-bottom: 1px solid #f5f5f5; cursor: pointer; transition: background 0.1s; display: flex; align-items: flex-start; gap: 0.5rem; }
+    .notif-item:hover { background: #f5f5ff; }
+    .notif-item.unread { background: #fafafe; }
+    .notif-dot { width: 8px; height: 8px; border-radius: 50%; background: #6366f1; flex-shrink: 0; margin-top: 5px; }
+    .notif-item.read .notif-dot { background: transparent; }
+    .notif-item-text { font-size: 0.82rem; color: #333; line-height: 1.4; }
+    .notif-item-time { font-size: 0.72rem; color: #aaa; margin-top: 0.2rem; }
+
+    /* ── Layout ── */
+    .layout { display: flex; height: calc(100vh - 57px); overflow: hidden; }
+    .sidebar { width: 220px; min-width: 220px; background: #fff; border-right: 1px solid #f0f0f0; display: flex; flex-direction: column; overflow-y: auto; }
+    .sidebar-header { padding: 0.85rem 1rem 0.6rem; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #999; border-bottom: 1px solid #f0f0f0; flex-shrink: 0; }
+    .project-list { flex: 1; padding: 0.4rem 0; overflow-y: auto; }
+    .project-item { padding: 0.65rem 1rem; cursor: pointer; border-left: 3px solid transparent; font-size: 0.85rem; font-weight: 600; color: #444; transition: background 0.1s, border-color 0.1s; }
+    .project-item:hover { background: #f5f5ff; }
+    .project-item.active { background: #f0f0ff; border-left-color: #6366f1; color: #4f46e5; }
+    .sidebar-empty { padding: 1rem; font-size: 0.8rem; color: #ccc; text-align: center; }
+
+    /* ── Main area ── */
+    .main { flex: 1; overflow-y: auto; padding: 1.5rem; display: flex; flex-direction: column; gap: 1.25rem; }
+
+    /* ── Dashboard strip ── */
+    .dashboard-strip { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
+    .stat-card { background: #fff; border-radius: 12px; box-shadow: 0 1px 6px rgba(0,0,0,0.07); padding: 1.1rem 1.25rem; display: flex; flex-direction: column; gap: 0.3rem; }
+    .stat-card .stat-label { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #999; }
+    .stat-card .stat-value { font-size: 2rem; font-weight: 800; color: #1a1a2e; line-height: 1; }
+    .stat-card .stat-value.arrears { color: #ef4444; }
+    .stat-card .stat-value.pct { color: #6366f1; }
+    .stat-card .stat-sub { font-size: 0.75rem; color: #aaa; }
+
+    /* ── Cards ── */
+    .card { background: #fff; border-radius: 12px; box-shadow: 0 1px 6px rgba(0,0,0,0.07); padding: 1.1rem 1.25rem; }
+    .card-title { font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #999; margin-bottom: 0.9rem; }
+
+    /* ── Upload form ── */
+    .upload-form { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: flex-end; }
+    .form-group { display: flex; flex-direction: column; gap: 0.3rem; }
+    .form-group label { font-size: 0.75rem; font-weight: 600; color: #555; }
+    .form-group select, .form-group input[type="date"], .form-group input[type="file"] {
+      border: 1.5px solid #d0d5dd; border-radius: 8px; padding: 0.45rem 0.75rem;
+      font-size: 0.85rem; font-family: inherit; background: #fff; color: #1a1a2e;
+    }
+    .form-group select:focus, .form-group input:focus { outline: none; border-color: #6366f1; }
+    .btn-upload { padding: 0.5rem 1.2rem; background: #6366f1; color: #fff; border: none; border-radius: 8px; font-size: 0.85rem; font-weight: 600; cursor: pointer; transition: background 0.15s; }
+    .btn-upload:hover { background: #4f46e5; }
+    .btn-upload:disabled { background: #a5b4fc; cursor: not-allowed; }
+    .upload-status { font-size: 0.82rem; margin-top: 0.4rem; }
+    .upload-status.ok { color: #15803d; }
+    .upload-status.err { color: #b91c1c; }
+
+    /* ── Cases table ── */
+    .cases-table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+    thead th { text-align: left; padding: 0.55rem 0.75rem; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; color: #999; border-bottom: 1.5px solid #f0f0f0; white-space: nowrap; }
+    tbody td { padding: 0.7rem 0.75rem; border-bottom: 1px solid #f7f7f7; vertical-align: top; }
+    tbody tr:last-child td { border-bottom: none; }
+    tbody tr:hover td { background: #fafafa; }
+    .td-amount { font-weight: 700; color: #1a1a2e; white-space: nowrap; }
+    .td-days { font-weight: 700; white-space: nowrap; }
+    .td-days.overdue { color: #ef4444; }
+    .td-days.mild { color: #f59e0b; }
+    .td-note { font-size: 0.8rem; color: #666; max-width: 260px; }
+    .td-phone { font-family: monospace; font-size: 0.83rem; }
+    .table-empty { text-align: center; padding: 2rem; color: #bbb; font-size: 0.88rem; }
+
+    /* ── Config panel (admin) ── */
+    .config-form { display: flex; flex-direction: column; gap: 0.85rem; }
+    .config-row { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: flex-start; }
+    .config-form input[type="number"] { border: 1.5px solid #d0d5dd; border-radius: 8px; padding: 0.45rem 0.75rem; font-size: 0.85rem; font-family: inherit; width: 120px; }
+    .config-form input[type="number"]:focus { outline: none; border-color: #6366f1; }
+    .config-form textarea { width: 100%; border: 1.5px solid #d0d5dd; border-radius: 8px; padding: 0.55rem 0.75rem; font-size: 0.85rem; font-family: inherit; resize: vertical; min-height: 72px; }
+    .config-form textarea:focus { outline: none; border-color: #6366f1; }
+    .checkbox-row { display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; font-weight: 500; color: #444; }
+    .checkbox-row input[type="checkbox"] { width: 16px; height: 16px; accent-color: #6366f1; }
+    .btn-save-config { padding: 0.5rem 1.2rem; background: #6366f1; color: #fff; border: none; border-radius: 8px; font-size: 0.85rem; font-weight: 600; cursor: pointer; }
+    .btn-save-config:hover { background: #4f46e5; }
+    .config-status { font-size: 0.82rem; margin-top: 0.25rem; }
+    .config-status.ok { color: #15803d; }
+    .config-status.err { color: #b91c1c; }
+    .logic-hint { font-size: 0.78rem; color: #999; line-height: 1.5; background: #f8f9fb; border-radius: 6px; padding: 0.5rem 0.75rem; }
+
+    .placeholder-msg { text-align: center; padding: 3rem 1rem; color: #bbb; font-size: 0.9rem; }
+  </style>
+</head>
+<body>
+
+<div class="topbar">
+  <a href="/" class="back">← Home</a>
+  <h1>Arrears</h1>
+  <div class="topbar-spacer"></div>
+  <div class="topbar-right">
+    {% if current_user.role in ['reviewer', 'admin'] %}
+    <div class="notif-wrap">
+      <button class="notif-btn" id="notif-btn" title="Notifications">🔔
+        <span class="notif-badge" id="notif-badge"></span>
+      </button>
+      <div class="notif-dropdown" id="notif-dropdown">
+        <div class="notif-dropdown-header">
+          <span>Notifications</span>
+          <button class="notif-mark-all" id="notif-mark-all">Mark all read</button>
+        </div>
+        <div class="notif-list" id="notif-list">
+          <div class="notif-empty">No notifications</div>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+    <span class="topbar-user">Signed in as <strong>{{ current_user.username }}</strong></span>
+    {% if current_user.role == 'admin' %}
+    <div class="admin-menu-wrap">
+      <button class="admin-menu-btn" id="admin-menu-btn">⚙ Admin <span class="chevron">▼</span></button>
+      <div class="admin-dropdown" id="admin-dropdown">
+        <a href="/completions">✅ Completions</a>
+        <a href="/admin/corrections">📋 Review Log</a>
+        <a href="/admin/users">👥 Users</a>
+        <a href="/admin/projects">🏢 Projects</a>
+        <div class="divider"></div>
+        <a href="/logout" class="danger">Sign out</a>
+      </div>
+    </div>
+    {% else %}
+    <a href="/logout" class="topbar-link">Sign out</a>
+    {% endif %}
+  </div>
+</div>
+
+<div class="layout">
+  <!-- Sidebar: project list -->
+  <aside class="sidebar">
+    <div class="sidebar-header">Projects</div>
+    <div class="project-list" id="project-list">
+      <div class="sidebar-empty" id="project-empty">Loading…</div>
+    </div>
+  </aside>
+
+  <!-- Main content -->
+  <main class="main" id="main-area">
+
+    <!-- Dashboard strip -->
+    <div class="dashboard-strip">
+      <div class="stat-card">
+        <div class="stat-label">Live Cases</div>
+        <div class="stat-value" id="stat-total">--</div>
+        <div class="stat-sub" id="stat-upload-date">No data uploaded</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">In Arrears</div>
+        <div class="stat-value arrears" id="stat-arrears">--</div>
+        <div class="stat-sub">Cases meeting arrears criteria</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Arrears Rate</div>
+        <div class="stat-value pct" id="stat-pct">--%</div>
+        <div class="stat-sub">Of live cases</div>
+      </div>
+    </div>
+
+    {% if current_user.role in ['uploader', 'admin'] %}
+    <!-- Upload -->
+    <div class="card">
+      <div class="card-title">Upload Daily Data</div>
+      <div class="upload-form">
+        <div class="form-group">
+          <label>Project</label>
+          <select id="upload-project-select">
+            <option value="">Select project…</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Upload Date</label>
+          <input type="date" id="upload-date" />
+        </div>
+        <div class="form-group">
+          <label>CSV File</label>
+          <input type="file" id="upload-file" accept=".csv,text/csv" />
+        </div>
+        <button class="btn-upload" id="btn-upload">Upload</button>
+      </div>
+      <div class="upload-status" id="upload-status"></div>
+      <div class="logic-hint" style="margin-top:0.75rem;">
+        CSV columns (header row required): <strong>client_name, phone_number, arrears_amount, last_payment_date, last_note</strong>
+        — column names are case-insensitive and spaces are accepted.
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Arrears cases table -->
+    <div class="card">
+      <div class="card-title">Arrears Cases <span id="cases-count" style="font-weight:400;color:#bbb;font-size:0.75rem;"></span></div>
+      <div class="cases-table-wrap">
+        <table id="cases-table" style="display:none;">
+          <thead>
+            <tr>
+              <th>Client Name</th>
+              <th>Phone</th>
+              <th>Arrears (£)</th>
+              <th>Last Payment</th>
+              <th>Days Overdue</th>
+              <th>Last Note</th>
+            </tr>
+          </thead>
+          <tbody id="cases-tbody"></tbody>
+        </table>
+        <div class="table-empty" id="cases-empty">Select a project from the sidebar to load cases.</div>
+      </div>
+    </div>
+
+    {% if current_user.role == 'admin' %}
+    <!-- Arrears logic config (admin only) -->
+    <div class="card">
+      <div class="card-title">Arrears Logic — <span id="config-project-name" style="font-weight:400;color:#aaa;">no project selected</span></div>
+      <div id="config-area" style="color:#ccc;font-size:0.85rem;">Select a project to configure its arrears logic.</div>
+    </div>
+    {% endif %}
+
+  </main>
+</div>
+
+<script>
+  const USER_ROLE = "{{ current_user.role }}";
+  const CAN_UPLOAD = (USER_ROLE === 'uploader' || USER_ROLE === 'admin');
+  const IS_ADMIN   = USER_ROLE === 'admin';
+  let activeProjectId = null;
+  let projects = [];
+  let configMinDays = null; // min_days_since_payment from project config, for colour coding
+
+  function fmtAmount(n) {
+    if (n == null) return '—';
+    return '£' + Number(n).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+  function fmtDate(iso) {
+    if (!iso) return '—';
+    const d = new Date(iso + 'T00:00:00');
+    return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  }
+  function escHtml(s) {
+    return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  // ── Load projects ─────────────────────────────────────────────────────────
+  async function loadProjects() {
+    try {
+      const res = await fetch('/api/arrears/projects');
+      projects = await res.json();
+      const list = document.getElementById('project-list');
+      const empty = document.getElementById('project-empty');
+      if (!projects.length) { empty.textContent = 'No projects available.'; return; }
+      empty.style.display = 'none';
+      const uploadSel = document.getElementById('upload-project-select');
+      projects.forEach(p => {
+        const el = document.createElement('div');
+        el.className = 'project-item';
+        el.dataset.id = p.id;
+        el.textContent = p.name;
+        el.addEventListener('click', () => selectProject(p.id, p.name, el));
+        list.appendChild(el);
+        if (CAN_UPLOAD && uploadSel) {
+          const opt = document.createElement('option');
+          opt.value = p.id;
+          opt.textContent = p.name;
+          uploadSel.appendChild(opt);
+        }
+      });
+    } catch(e) {
+      document.getElementById('project-empty').textContent = 'Failed to load projects.';
+    }
+  }
+
+  // ── Select project ────────────────────────────────────────────────────────
+  async function selectProject(id, name, el) {
+    activeProjectId = id;
+    document.querySelectorAll('.project-item').forEach(x => x.classList.remove('active'));
+    el.classList.add('active');
+    if (CAN_UPLOAD) document.getElementById('upload-project-select').value = id;
+    if (IS_ADMIN) await loadConfig(id, name);
+    await Promise.all([loadDashboard(id), loadCases(id)]);
+  }
+
+  // ── Dashboard ─────────────────────────────────────────────────────────────
+  async function loadDashboard(projectId) {
+    document.getElementById('stat-total').textContent = '…';
+    document.getElementById('stat-arrears').textContent = '…';
+    document.getElementById('stat-pct').textContent = '…%';
+    try {
+      const res = await fetch(`/api/arrears/dashboard?project_id=${projectId}`);
+      const d = await res.json();
+      document.getElementById('stat-total').textContent = d.total ?? '--';
+      document.getElementById('stat-arrears').textContent = d.in_arrears ?? '--';
+      document.getElementById('stat-pct').textContent = d.total ? d.percentage + '%' : '--%';
+      document.getElementById('stat-upload-date').textContent = d.upload_id ? 'Latest upload loaded' : 'No data uploaded yet';
+    } catch {
+      document.getElementById('stat-total').textContent = '--';
+      document.getElementById('stat-arrears').textContent = '--';
+      document.getElementById('stat-pct').textContent = '--%';
+    }
+  }
+
+  // ── Cases list ────────────────────────────────────────────────────────────
+  async function loadCases(projectId) {
+    const tbody = document.getElementById('cases-tbody');
+    const table = document.getElementById('cases-table');
+    const empty = document.getElementById('cases-empty');
+    const count = document.getElementById('cases-count');
+    tbody.innerHTML = '<tr><td colspan="6" class="table-empty">Loading…</td></tr>';
+    table.style.display = '';
+    empty.style.display = 'none';
+    try {
+      const res = await fetch(`/api/arrears/cases?project_id=${projectId}`);
+      const cases = await res.json();
+      if (!cases.length) {
+        table.style.display = 'none';
+        empty.style.display = '';
+        empty.textContent = 'No cases currently in arrears for this project.';
+        count.textContent = '';
+        return;
+      }
+      count.textContent = `— ${cases.length} case${cases.length !== 1 ? 's' : ''}`;
+      tbody.innerHTML = cases.map(c => {
+        const days = c.days_overdue;
+        let daysClass = '';
+        if (days != null && configMinDays != null && days >= configMinDays) {
+          daysClass = 'overdue';
+        } else if (days != null && configMinDays == null && days >= 30) {
+          daysClass = 'mild';
+        }
+        const daysStr = days != null ? days + 'd' : '—';
+        return `<tr>
+          <td>${escHtml(c.client_name || '—')}</td>
+          <td class="td-phone">${escHtml(c.phone_number || '—')}</td>
+          <td class="td-amount">${fmtAmount(c.arrears_amount)}</td>
+          <td>${fmtDate(c.last_payment_date)}</td>
+          <td class="td-days ${daysClass}">${daysStr}</td>
+          <td class="td-note">${escHtml(c.last_note || '—')}</td>
+        </tr>`;
+      }).join('');
+    } catch(e) {
+      tbody.innerHTML = `<tr><td colspan="6" class="table-empty" style="color:#ef4444;">Failed to load cases.</td></tr>`;
+    }
+  }
+
+  // ── Config (admin) ────────────────────────────────────────────────────────
+  async function loadConfig(projectId, projectName) {
+    document.getElementById('config-project-name').textContent = projectName;
+    const area = document.getElementById('config-area');
+    area.innerHTML = 'Loading…';
+    try {
+      const res = await fetch(`/api/arrears/config/${projectId}`);
+      const cfg = await res.json();
+      configMinDays = cfg.min_days_since_payment ?? null;
+      area.innerHTML = `
+        <div class="config-form" id="config-form">
+          <div class="config-row">
+            <div class="form-group">
+              <label>Min days since last payment</label>
+              <input type="number" id="cfg-days" min="0" placeholder="e.g. 30"
+                value="${cfg.min_days_since_payment ?? ''}" />
+            </div>
+            <div class="form-group">
+              <label>Min arrears amount (£)</label>
+              <input type="number" id="cfg-amount" min="0" step="0.01" placeholder="e.g. 100"
+                value="${cfg.min_arrears_amount ?? ''}" />
+            </div>
+          </div>
+          <div class="checkbox-row">
+            <input type="checkbox" id="cfg-require-both" ${cfg.require_both ? 'checked' : ''} />
+            <label for="cfg-require-both">Both rules must match (default: either rule triggers arrears)</label>
+          </div>
+          <div class="form-group">
+            <label>Logic description</label>
+            <textarea id="cfg-description" placeholder="Describe the arrears criteria for this project…">${escHtml(cfg.logic_description || '')}</textarea>
+          </div>
+          <div class="logic-hint">
+            If neither rule is set, any case with arrears amount &gt; £0 is counted as in arrears (fallback).
+          </div>
+          <div>
+            <button class="btn-save-config" id="btn-save-config">Save Config</button>
+            <span class="config-status" id="config-status"></span>
+          </div>
+        </div>`;
+      document.getElementById('btn-save-config').addEventListener('click', () => saveConfig(projectId));
+    } catch(e) {
+      area.innerHTML = '<span style="color:#ef4444;font-size:0.85rem;">Failed to load config.</span>';
+    }
+  }
+
+  async function saveConfig(projectId) {
+    const btn = document.getElementById('btn-save-config');
+    const status = document.getElementById('config-status');
+    btn.disabled = true;
+    status.textContent = 'Saving…';
+    status.className = 'config-status';
+    const payload = {
+      min_days_since_payment: document.getElementById('cfg-days').value || null,
+      min_arrears_amount:     document.getElementById('cfg-amount').value || null,
+      require_both:           document.getElementById('cfg-require-both').checked,
+      logic_description:      document.getElementById('cfg-description').value,
+    };
+    try {
+      const res = await fetch(`/api/arrears/config/${projectId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const d = await res.json();
+      if (d.error) throw new Error(d.error);
+      status.textContent = '✓ Saved';
+      status.className = 'config-status ok';
+      // Update configMinDays for colour coding
+      const rawDays = document.getElementById('cfg-days').value;
+      configMinDays = rawDays ? parseInt(rawDays, 10) : null;
+      // Reload dashboard and cases to reflect new logic
+      if (activeProjectId) { loadDashboard(activeProjectId); loadCases(activeProjectId); }
+      setTimeout(() => { status.textContent = ''; }, 3000);
+    } catch(e) {
+      status.textContent = 'Error: ' + e.message;
+      status.className = 'config-status err';
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  // ── Upload ────────────────────────────────────────────────────────────────
+  {% if current_user.role in ['uploader', 'admin'] %}
+  document.getElementById('btn-upload').addEventListener('click', async () => {
+    const projectId = document.getElementById('upload-project-select').value;
+    const uploadDate = document.getElementById('upload-date').value;
+    const file = document.getElementById('upload-file').files[0];
+    const status = document.getElementById('upload-status');
+    const btn = document.getElementById('btn-upload');
+    if (!projectId) { status.textContent = 'Please select a project.'; status.className = 'upload-status err'; return; }
+    if (!file) { status.textContent = 'Please choose a CSV file.'; status.className = 'upload-status err'; return; }
+    btn.disabled = true;
+    status.textContent = 'Uploading…';
+    status.className = 'upload-status';
+    const fd = new FormData();
+    fd.append('project_id', projectId);
+    if (uploadDate) fd.append('upload_date', uploadDate);
+    fd.append('file', file);
+    try {
+      const res = await fetch('/api/arrears/upload', { method: 'POST', body: fd });
+      const d = await res.json();
+      if (d.error) throw new Error(d.error);
+      status.textContent = `✓ Uploaded ${d.record_count} records successfully.`;
+      status.className = 'upload-status ok';
+      document.getElementById('upload-file').value = '';
+      // Reload if this project is currently selected
+      if (activeProjectId && String(activeProjectId) === String(projectId)) {
+        loadDashboard(projectId);
+        loadCases(projectId);
+      }
+      // Auto-select the project in sidebar if not already selected
+      if (!activeProjectId) {
+        const el = document.querySelector(`.project-item[data-id="${projectId}"]`);
+        const p = projects.find(x => String(x.id) === String(projectId));
+        if (el && p) selectProject(p.id, p.name, el);
+      }
+    } catch(e) {
+      status.textContent = 'Error: ' + e.message;
+      status.className = 'upload-status err';
+    } finally {
+      btn.disabled = false;
+    }
+  });
+  // Default date to today
+  document.getElementById('upload-date').value = new Date().toISOString().slice(0, 10);
+  {% endif %}
+
+  // ── Notifications (reviewer / admin) ─────────────────────────────────────
+  {% if current_user.role in ['reviewer', 'admin'] %}
+  const notifBtn      = document.getElementById('notif-btn');
+  const notifBadge    = document.getElementById('notif-badge');
+  const notifDropdown = document.getElementById('notif-dropdown');
+  const notifList     = document.getElementById('notif-list');
+  let notifications   = [];
+
+  async function loadNotifications() {
+    try {
+      const res = await fetch('/api/notifications');
+      notifications = await res.json();
+      renderNotifications();
+    } catch {}
+  }
+
+  function renderNotifications() {
+    const unread = notifications.filter(n => !n.read).length;
+    if (unread > 0) { notifBadge.textContent = unread > 99 ? '99+' : unread; notifBadge.style.display = 'flex'; }
+    else { notifBadge.style.display = 'none'; }
+    notifList.innerHTML = '';
+    if (!notifications.length) { notifList.innerHTML = '<div class="notif-empty">No notifications</div>'; return; }
+    notifications.forEach(n => {
+      const div = document.createElement('div');
+      div.className = 'notif-item ' + (n.read ? 'read' : 'unread');
+      const dt = new Date(n.created_at).toLocaleString('en-GB', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' });
+      div.innerHTML = `<div class="notif-dot"></div><div><div class="notif-item-text">${escHtml(n.message)}</div><div class="notif-item-time">${dt}</div></div>`;
+      div.addEventListener('click', async () => {
+        if (!n.read) { await fetch(`/api/notifications/${n.id}/read`, { method: 'POST' }); n.read = true; renderNotifications(); }
+      });
+      notifList.appendChild(div);
+    });
+  }
+
+  notifBtn.addEventListener('click', e => { e.stopPropagation(); notifDropdown.classList.toggle('open'); });
+  document.addEventListener('click', e => { if (!notifDropdown.contains(e.target) && e.target !== notifBtn) notifDropdown.classList.remove('open'); });
+  document.getElementById('notif-mark-all').addEventListener('click', async e => {
+    e.stopPropagation();
+    await fetch('/api/notifications/read-all', { method: 'POST' });
+    notifications.forEach(n => n.read = true);
+    renderNotifications();
+  });
+  loadNotifications();
+  setInterval(loadNotifications, 30000);
+  {% endif %}
+
+  // ── Admin dropdown ────────────────────────────────────────────────────────
+  {% if current_user.role == 'admin' %}
+  const adminBtn = document.getElementById('admin-menu-btn');
+  const adminDrop = document.getElementById('admin-dropdown');
+  adminBtn.addEventListener('click', e => { e.stopPropagation(); const o = adminDrop.classList.toggle('open'); adminBtn.classList.toggle('open', o); });
+  document.addEventListener('click', () => { adminDrop.classList.remove('open'); adminBtn.classList.remove('open'); });
+  {% endif %}
+
+  loadProjects();
+</script>
+</body>
+</html>

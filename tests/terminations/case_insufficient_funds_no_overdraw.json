@@ -1,0 +1,40 @@
+{
+  "name": "Insufficient funds — fees in line with entitlement, cash cannot cover creditor shortfall",
+  "description": "Both Nominee and Supervisor fees are drawn exactly to entitlement (no overdraw, no underdraw). Cash in hand after all fee draws and disbursements is £30.00. Creditor shortfall under the locked model is £111.77. No fee refund is available to top up the distribution. Expected: waterfall triggered, all £30.00 distributed to creditors, £81.77 flagged as unrecoverable.",
+  "inputs": {
+    "source": "synthetic",
+    "rp_summary": {
+      "total_contributions_received": 1237.43,
+      "fees_drawn": {
+        "nominee": 600.00,
+        "supervisor": 150.00
+      },
+      "disbursements_drawn": 451.43,
+      "creditor_payments_made": 5.06,
+      "total_cash_out": 1206.49,
+      "cash_in_hand": 30.94
+    },
+    "locked_model": {
+      "retention_rule": "First 10 contributions retained for Nominee fee",
+      "retention_amount": 848.00,
+      "creditor_percentage": 30,
+      "required_creditor_distribution": 116.83
+    },
+    "fee_entitlements": {
+      "nominee": {"entitlement": 600.00, "drawn": 600.00, "position": "matched"},
+      "supervisor": {"entitlement": 150.00, "drawn": 150.00, "position": "matched"}
+    }
+  },
+  "expected": {
+    "cash_reconciliation.waterfall_triggered": true,
+    "cash_reconciliation.instruction_executable": false,
+    "cash_reconciliation.fee_refunds_into_case": 0.00,
+    "cash_reconciliation.creditor_shortfall_unrecoverable": 85.83,
+    "ready_to_close": true,
+    "final_cashier_instruction_must_not_contain": "draw a further",
+    "final_cashier_instruction_pattern": "Distribute all remaining funds to creditors",
+    "risks_must_contain": "INSUFFICIENT FUNDS",
+    "omni_fee_notes_pattern": "No fee movement; case closing with creditor shortfall unrecoverable"
+  },
+  "notes": "cash_required_full_entitlement = 0 (no further fee draws) + 111.77 (creditor shortfall) = 111.77. Cash in hand ≈ 30.94. Waterfall: Step A — no overdraw; Step B — cash unchanged; Step C — distribute £30.94, £80.83 unrecoverable. Figures are approximate; test validates direction, not exact pence."
+}

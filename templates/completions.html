@@ -1,0 +1,2171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Completions – Omni Group</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #f0f2f5;
+      color: #1a1a2e;
+      min-height: 100vh;
+    }
+
+    /* ── Top bar ── */
+    .topbar {
+      background: #fff;
+      border-bottom: 1px solid #e5e7eb;
+      padding: 0.75rem 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    .topbar a.back {
+      text-decoration: none; color: #6366f1;
+      font-size: 0.88rem; font-weight: 600;
+      display: flex; align-items: center; gap: 0.3rem;
+    }
+    .topbar a.back:hover { color: #4f46e5; }
+    .topbar img { height: 36px; width: auto; }
+    .topbar h1 { font-size: 1.05rem; font-weight: 700; }
+    .topbar-spacer { flex: 1; }
+    .topbar-right {
+      display: flex; align-items: center; gap: 0.85rem;
+    }
+    .topbar-user { font-size: 0.82rem; color: #777; }
+    .topbar-user strong { color: #333; }
+    .topbar-link {
+      font-size: 0.82rem; font-weight: 600;
+      color: #6366f1; text-decoration: none;
+    }
+    .topbar-link:hover { color: #4f46e5; }
+    .topbar-btn {
+      font-size: 0.82rem; font-weight: 600;
+      color: #6366f1; background: none; border: none;
+      cursor: pointer; padding: 0;
+    }
+    .topbar-btn:hover { color: #4f46e5; }
+
+    /* ── Admin dropdown ── */
+    .admin-menu-wrap { position: relative; }
+    .admin-menu-btn {
+      display: flex; align-items: center; gap: 0.3rem;
+      font-size: 0.82rem; font-weight: 600; color: #6366f1;
+      background: none; border: 1.5px solid #e0e7ff; border-radius: 7px;
+      padding: 0.3rem 0.75rem; cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .admin-menu-btn:hover { background: #f5f5ff; border-color: #6366f1; }
+    .admin-menu-btn .chevron { font-size: 0.6rem; transition: transform 0.15s; }
+    .admin-menu-btn.open .chevron { transform: rotate(180deg); }
+
+    .admin-dropdown {
+      position: absolute; top: calc(100% + 6px); right: 0;
+      background: #fff; border-radius: 10px;
+      box-shadow: 0 8px 28px rgba(0,0,0,0.13);
+      border: 1px solid #e5e7eb;
+      min-width: 170px; padding: 0.35rem 0;
+      display: none; z-index: 300;
+    }
+    .admin-dropdown.open { display: block; }
+    .admin-dropdown a, .admin-dropdown button {
+      display: flex; align-items: center; gap: 0.5rem;
+      width: 100%; padding: 0.6rem 1rem;
+      font-size: 0.84rem; font-weight: 500; color: #333;
+      text-decoration: none; background: none; border: none;
+      cursor: pointer; text-align: left;
+      transition: background 0.1s;
+    }
+    .admin-dropdown a:hover, .admin-dropdown button:hover { background: #f5f5ff; color: #4f46e5; }
+    .admin-dropdown .divider { height: 1px; background: #f0f0f0; margin: 0.25rem 0; }
+    .admin-dropdown .danger { color: #ef4444; }
+    .admin-dropdown .danger:hover { background: #fef2f2; color: #dc2626; }
+
+    /* ── Notification bell ── */
+    .notif-wrap { position: relative; }
+    .notif-btn {
+      background: none; border: none;
+      font-size: 1.2rem; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      padding: 0.2rem; position: relative;
+    }
+    .notif-badge {
+      position: absolute; top: -3px; right: -5px;
+      background: #ef4444; color: #fff;
+      font-size: 0.65rem; font-weight: 700;
+      border-radius: 10px; min-width: 16px; height: 16px;
+      display: none; align-items: center; justify-content: center;
+      padding: 0 3px;
+    }
+    .notif-dropdown {
+      position: absolute; top: calc(100% + 8px); right: 0;
+      background: #fff; border-radius: 12px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+      border: 1px solid #e5e7eb;
+      width: 300px; max-height: 380px;
+      flex-direction: column; overflow: hidden;
+      display: none; z-index: 200;
+    }
+    .notif-dropdown.open { display: flex; }
+    .notif-dropdown-header {
+      padding: 0.75rem 1rem; border-bottom: 1px solid #f0f0f0;
+      display: flex; align-items: center; justify-content: space-between;
+      flex-shrink: 0;
+    }
+    .notif-dropdown-header span { font-size: 0.85rem; font-weight: 700; color: #333; }
+    .notif-mark-all {
+      font-size: 0.75rem; color: #6366f1; cursor: pointer;
+      background: none; border: none; font-weight: 600;
+    }
+    .notif-mark-all:hover { color: #4f46e5; }
+    .notif-list { flex: 1; overflow-y: auto; }
+    .notif-empty { padding: 1.5rem; text-align: center; color: #bbb; font-size: 0.82rem; }
+    .notif-item {
+      padding: 0.75rem 1rem; border-bottom: 1px solid #f5f5f5;
+      cursor: pointer; transition: background 0.1s;
+      display: flex; align-items: flex-start; gap: 0.5rem;
+    }
+    .notif-item:hover { background: #f5f5ff; }
+    .notif-item.unread { background: #fafafe; }
+    .notif-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: #6366f1; flex-shrink: 0; margin-top: 5px;
+    }
+    .notif-item.read .notif-dot { background: transparent; }
+    .notif-item-text { font-size: 0.82rem; color: #333; line-height: 1.4; }
+    .notif-item-time { font-size: 0.72rem; color: #aaa; margin-top: 0.2rem; }
+
+    /* ── Shell ── */
+    .shell {
+      display: grid;
+      grid-template-columns: 280px 1fr;
+      height: calc(100vh - 57px);
+    }
+    @media (max-width: 768px) {
+      .shell { grid-template-columns: 1fr; height: auto; }
+      .sidebar { order: 2; max-height: 280px; border-top: 1px solid #e5e7eb; border-right: none; }
+      .main-col { order: 1; }
+    }
+
+    /* ── Sidebar ── */
+    .sidebar {
+      background: #fff;
+      border-right: 1px solid #e5e7eb;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .sidebar-header {
+      padding: 1rem 1rem 0.5rem;
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      color: #999;
+      flex-shrink: 0;
+    }
+    .case-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 0.25rem 0.5rem 1rem;
+    }
+    .sidebar-empty {
+      font-size: 0.82rem; color: #bbb;
+      text-align: center; padding: 2rem 0.5rem;
+    }
+
+    .case-item {
+      border-radius: 8px;
+      padding: 0.65rem 0.75rem;
+      margin-bottom: 0.35rem;
+      border: 1.5px solid #f0f0f0;
+      background: #fafafa;
+      transition: border-color 0.15s;
+    }
+    .case-item:hover { border-color: #d0d5ff; }
+    .case-item.active { border-color: #6366f1; background: #f5f5ff; }
+
+    .case-item .ci-top {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 0.3rem;
+    }
+    .case-item .cn { font-size: 0.88rem; font-weight: 700; color: #1a1a2e; }
+    .case-item .dt { font-size: 0.72rem; color: #aaa; }
+
+    .case-item .ci-status {
+      font-size: 0.75rem; color: #aaa; display: flex; align-items: center; gap: 0.4rem;
+    }
+
+    .case-item .ci-actions { display: flex; gap: 0.4rem; margin-top: 0.5rem; flex-wrap: wrap; }
+    .ci-btn {
+      flex: 1;
+      padding: 0.35rem 0.4rem;
+      border: 1.5px solid #d0d5dd;
+      border-radius: 6px;
+      background: #fff;
+      font-size: 0.74rem;
+      font-weight: 600;
+      color: #555;
+      cursor: pointer;
+      transition: border-color 0.15s, color 0.15s, background 0.15s;
+      text-align: center;
+    }
+    .ci-btn:hover:not(:disabled) { border-color: #6366f1; color: #6366f1; background: #f5f5ff; }
+    .ci-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .ci-btn.primary { border-color: #6366f1; color: #6366f1; }
+    .ci-btn.danger { border-color: #fca5a5; color: #ef4444; }
+    .ci-btn.danger:hover:not(:disabled) { border-color: #ef4444; background: #fef2f2; }
+    .ci-btn.review { border-color: #fb923c; color: #ea580c; }
+    .ci-btn.review:hover:not(:disabled) { border-color: #ea580c; background: #fff7ed; }
+
+    /* ── Review status colours ── */
+    .case-item.status-pending  { border-color: #fb923c !important; background: #fff7ed; }
+    .case-item.status-approved { border-color: #22c55e !important; background: #f0fdf4; }
+    .case-item.status-rejected { border-color: #ef4444 !important; background: #fef2f2; }
+    .case-item.status-pending .cn  { color: #c2410c; }
+    .case-item.status-approved .cn { color: #15803d; }
+    .case-item.status-rejected .cn { color: #b91c1c; }
+
+    .status-dot {
+      display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+      flex-shrink: 0; margin-right: 0.25rem;
+    }
+    .status-dot.pending  { background: #fb923c; }
+    .status-dot.approved { background: #22c55e; }
+    .status-dot.rejected { background: #ef4444; }
+
+    /* ── Full-screen review modal ── */
+    .review-overlay {
+      position: fixed; inset: 0;
+      background: rgba(15,15,30,0.65);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 200; padding: 1rem;
+      opacity: 0; pointer-events: none;
+      transition: opacity 0.18s;
+    }
+    .review-overlay.open { opacity: 1; pointer-events: all; }
+
+    .review-panel {
+      background: #fff; border-radius: 16px;
+      width: 100%; max-width: 900px;
+      max-height: 92vh;
+      display: flex; flex-direction: column;
+      box-shadow: 0 30px 80px rgba(0,0,0,0.25);
+      transform: translateY(16px);
+      transition: transform 0.18s;
+    }
+    .review-overlay.open .review-panel { transform: translateY(0); }
+
+    /* ── Review modal tabs ── */
+    .review-tabs {
+      display: flex; gap: 0; padding: 0 1.5rem;
+      border-bottom: 1px solid #e5e7eb;
+      flex-shrink: 0; background: #fafafa;
+    }
+    .review-tab {
+      padding: 0.7rem 1.25rem;
+      font-size: 0.88rem; font-weight: 600; color: #888;
+      background: none; border: none; border-bottom: 2px solid transparent;
+      cursor: pointer; transition: color 0.15s, border-color 0.15s;
+      margin-bottom: -1px;
+    }
+    .review-tab:hover { color: #4f46e5; }
+    .review-tab.active { color: #6366f1; border-bottom-color: #6366f1; }
+
+    .review-tab-panel { display: none; }
+    .review-tab-panel.active { display: block; }
+
+    .review-fulllog {
+      font-size: 0.88rem; line-height: 1.7; color: #222;
+    }
+
+    .review-header {
+      padding: 1.25rem 1.5rem;
+      border-bottom: none;
+      display: flex; align-items: flex-start; justify-content: space-between;
+      flex-shrink: 0;
+      gap: 1rem;
+    }
+    .review-header-left h2 { font-size: 1.15rem; font-weight: 700; color: #1a1a2e; }
+    .review-header-left .review-meta { font-size: 0.82rem; color: #888; margin-top: 0.2rem; }
+    .review-close {
+      background: none; border: none; font-size: 1.5rem;
+      color: #999; cursor: pointer; line-height: 1; padding: 0;
+      flex-shrink: 0;
+    }
+    .review-close:hover { color: #333; }
+
+    .review-body { flex: 1; overflow-y: auto; padding: 1.5rem; }
+
+    .review-section-title {
+      font-size: 0.75rem; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.5px; color: #888; margin-bottom: 0.6rem;
+    }
+    .review-instruction-box {
+      background: #f0fdf4; border: 2px solid #86efac;
+      border-radius: 10px; padding: 1.1rem 1.25rem;
+      font-size: 1rem; line-height: 1.75; color: #14532d;
+      font-weight: 500; margin-bottom: 1.5rem;
+    }
+
+    .review-reject-section { display: none; }
+    .review-reject-section.visible { display: block; }
+
+    .review-field { margin-bottom: 1.25rem; }
+    .review-field label {
+      display: block; font-size: 0.85rem; font-weight: 600;
+      color: #333; margin-bottom: 0.4rem;
+    }
+    .review-field label .optional { font-weight: 400; color: #999; }
+    .review-field textarea {
+      width: 100%; border: 1.5px solid #d0d5dd; border-radius: 8px;
+      padding: 0.75rem; font-size: 0.9rem; font-family: inherit;
+      resize: vertical; min-height: 90px; transition: border-color 0.2s;
+    }
+    .review-field textarea:focus { outline: none; border-color: #6366f1; }
+
+    .review-footer {
+      padding: 1rem 1.5rem;
+      border-top: 1px solid #e5e7eb;
+      display: flex; align-items: center; justify-content: space-between;
+      flex-shrink: 0; gap: 1rem;
+    }
+    .review-error {
+      font-size: 0.82rem; color: #b91c1c;
+      background: #fef2f2; border: 1px solid #fecaca;
+      border-radius: 6px; padding: 0.5rem 0.75rem;
+      display: none; flex: 1;
+    }
+    .review-actions { display: flex; gap: 0.75rem; }
+
+    .btn-review-approve {
+      padding: 0.65rem 1.75rem;
+      background: #22c55e; color: #fff; border: none; border-radius: 8px;
+      font-size: 0.95rem; font-weight: 700; cursor: pointer;
+      transition: background 0.2s;
+    }
+    .btn-review-approve:hover { background: #16a34a; }
+
+    .btn-review-reject {
+      padding: 0.65rem 1.75rem;
+      background: #fff; color: #ef4444;
+      border: 2px solid #ef4444; border-radius: 8px;
+      font-size: 0.95rem; font-weight: 700; cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-review-reject:hover { background: #ef4444; color: #fff; }
+
+    .btn-review-cancel {
+      padding: 0.65rem 1.25rem;
+      background: #fff; color: #555;
+      border: 1.5px solid #d0d5dd; border-radius: 8px;
+      font-size: 0.9rem; font-weight: 600; cursor: pointer;
+    }
+    .btn-review-cancel:hover { border-color: #999; }
+
+    .btn-submit-reject {
+      padding: 0.65rem 1.75rem;
+      background: #ef4444; color: #fff; border: none; border-radius: 8px;
+      font-size: 0.95rem; font-weight: 700; cursor: pointer;
+      transition: background 0.2s;
+    }
+    .btn-submit-reject:hover { background: #dc2626; }
+
+    .inline-spinner {
+      width: 11px; height: 11px;
+      border: 2px solid #d0d5dd;
+      border-top-color: #6366f1;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      display: inline-block;
+    }
+
+    /* ── Main column ── */
+    .main-col {
+      overflow-y: auto;
+      padding: 1.5rem 1.25rem 3rem;
+    }
+    .content-wrap { max-width: 820px; margin: 0 auto; }
+
+    /* ── Case number bar ── */
+    .case-bar {
+      background: #fff; border-radius: 10px;
+      box-shadow: 0 1px 6px rgba(0,0,0,0.07);
+      padding: 1rem 1.25rem;
+      display: flex; align-items: center; gap: 1rem;
+      margin-bottom: 1.25rem;
+    }
+    .case-bar label { font-weight: 700; font-size: 0.88rem; white-space: nowrap; color: #333; }
+    .case-bar input {
+      flex: 1; border: 1.5px solid #d0d5dd; border-radius: 8px;
+      padding: 0.55rem 0.75rem; font-size: 0.9rem; font-family: inherit;
+      transition: border-color 0.2s;
+    }
+    .case-bar input:focus { outline: none; border-color: #6366f1; }
+    .case-bar input::placeholder { color: #bbb; }
+
+    /* ── Document grid ── */
+    .layout { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+    @media (max-width: 600px) { .layout { grid-template-columns: 1fr; } }
+
+    .card {
+      background: #fff; border-radius: 10px;
+      box-shadow: 0 1px 6px rgba(0,0,0,0.07); padding: 1.25rem;
+    }
+    .slot-label {
+      display: flex; align-items: center; gap: 0.5rem;
+      font-weight: 600; font-size: 0.88rem; margin-bottom: 0.6rem; color: #333;
+    }
+    .slot-label .dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: #d0d5dd; flex-shrink: 0; transition: background 0.2s;
+    }
+    .slot-label .dot.filled { background: #6366f1; }
+
+    .upload-area {
+      border: 1.5px dashed #d0d5dd; border-radius: 8px; padding: 0.9rem;
+      cursor: pointer; transition: border-color 0.2s, background 0.2s;
+      text-align: center; font-size: 0.82rem; color: #999; position: relative;
+    }
+    .upload-area:hover, .upload-area.drag-over { border-color: #6366f1; background: #f5f5ff; color: #6366f1; }
+    .upload-area.has-files { border-color: #6366f1; border-style: solid; background: #f5f5ff; }
+    .upload-area input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+
+    .file-list { margin-top: 0.5rem; display: flex; flex-direction: column; gap: 0.3rem; }
+    .file-item {
+      display: flex; align-items: center; justify-content: space-between;
+      background: #f3f4f6; border-radius: 5px; padding: 0.3rem 0.5rem;
+      font-size: 0.78rem; color: #444;
+    }
+    .file-item .fname { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 150px; }
+    .file-item button { border: none; background: none; color: #ef4444; cursor: pointer; font-size: 1rem; line-height: 1; padding: 0 0.2rem; flex-shrink: 0; }
+
+    .eos-card { grid-column: 1 / -1; }
+    .eos-inner { display: grid; grid-template-columns: 1fr auto; gap: 1rem; align-items: start; }
+    @media (max-width: 600px) { .eos-inner { grid-template-columns: 1fr; } }
+
+    .vmoc-block { border: 1.5px solid #e5e7eb; border-radius: 8px; padding: 0.9rem 1rem; min-width: 200px; display: flex; flex-direction: column; gap: 0.75rem; }
+    .vmoc-question p { font-size: 0.82rem; font-weight: 600; color: #444; margin-bottom: 0.6rem; }
+    .vmoc-options { display: flex; gap: 0.5rem; }
+    .vmoc-options label {
+      flex: 1; display: flex; align-items: center; justify-content: center;
+      gap: 0.35rem; padding: 0.5rem; border: 1.5px solid #d0d5dd; border-radius: 6px;
+      cursor: pointer; font-size: 0.85rem; font-weight: 600;
+      transition: border-color 0.15s, background 0.15s, color 0.15s;
+    }
+    .vmoc-options input[type="radio"] { display: none; }
+    .vmoc-options label.selected-yes { border-color: #6366f1; background: #6366f1; color: #fff; }
+    .vmoc-options label.selected-no  { border-color: #6366f1; background: #fff; color: #6366f1; }
+    .vmoc-q2 { display: none; }
+    .vmoc-q2.visible { display: block; }
+
+    /* Paste-text mode toggle */
+    .input-mode-toggle { display: flex; gap: 0.4rem; margin-bottom: 0.6rem; }
+    .mode-btn {
+      padding: 0.3rem 0.8rem; border: 1.5px solid #d0d5dd; border-radius: 6px;
+      background: #fff; color: #555; font-size: 0.8rem; font-weight: 600; cursor: pointer;
+      transition: border-color 0.15s, background 0.15s, color 0.15s;
+    }
+    .mode-btn.active { border-color: #6366f1; background: #6366f1; color: #fff; }
+    .paste-area { width: 100%; min-height: 90px; border: 1.5px solid #d0d5dd; border-radius: 8px; padding: 0.65rem; font-size: 0.85rem; font-family: inherit; resize: vertical; display: none; }
+    .paste-area.visible { display: block; }
+    .upload-helper { font-size: 0.72rem; color: #aaa; margin-top: 0.4rem; }
+
+    /* VMOC Modifications card — hidden until VMOC_UNAGREED */
+    .vmoc-mods-card { grid-column: 1 / -1; display: none; }
+    .vmoc-mods-card.visible { display: block; }
+
+    .bottom-section { grid-column: 1 / -1; }
+    .field-label { font-weight: 600; font-size: 0.88rem; margin-bottom: 0.5rem; display: block; color: #333; }
+    textarea {
+      width: 100%; border: 1.5px solid #d0d5dd; border-radius: 8px;
+      padding: 0.75rem; font-size: 0.9rem; font-family: inherit;
+      resize: vertical; min-height: 80px; transition: border-color 0.2s;
+    }
+    textarea:focus { outline: none; border-color: #6366f1; }
+
+    button[type="submit"] {
+      margin-top: 0.9rem; width: 100%; padding: 0.85rem;
+      background: #6366f1; color: #fff; border: none; border-radius: 8px;
+      font-size: 1rem; font-weight: 600; cursor: pointer;
+      transition: background 0.2s;
+      display: flex; align-items: center; justify-content: center; gap: 0.5rem;
+    }
+    button[type="submit"]:hover:not(:disabled) { background: #4f46e5; }
+    button[type="submit"]:disabled { opacity: 0.6; cursor: not-allowed; }
+
+    .btn-spinner {
+      width: 18px; height: 18px;
+      border: 3px solid rgba(255,255,255,0.4);
+      border-top-color: #fff; border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Reviewer-only notice ── */
+    .reviewer-notice {
+      background: #fff; border-radius: 10px;
+      box-shadow: 0 1px 6px rgba(0,0,0,0.07);
+      padding: 2rem 1.5rem; text-align: center;
+      color: #888; font-size: 0.9rem;
+    }
+    .reviewer-notice strong { display: block; font-size: 1.05rem; color: #333; margin-bottom: 0.5rem; }
+
+    /* ── Modal ── */
+    .modal-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.45);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 100; padding: 1rem;
+      opacity: 0; pointer-events: none;
+      transition: opacity 0.15s;
+    }
+    .modal-overlay.open { opacity: 1; pointer-events: all; }
+
+    .modal-panel {
+      background: #fff; border-radius: 14px;
+      width: 100%; max-width: 780px;
+      max-height: 85vh;
+      display: flex; flex-direction: column;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+      transform: translateY(12px);
+      transition: transform 0.15s;
+    }
+    .modal-overlay.open .modal-panel { transform: translateY(0); }
+
+    .modal-header {
+      padding: 1.1rem 1.25rem;
+      border-bottom: 1px solid #f0f0f0;
+      display: flex; align-items: center; justify-content: space-between;
+      flex-shrink: 0;
+    }
+    .modal-header h3 { font-size: 1rem; font-weight: 700; }
+    .modal-header-left { display: flex; align-items: center; gap: 0.6rem; }
+    .modal-header .case-tag {
+      font-size: 0.78rem; font-weight: 600; color: #6366f1;
+      background: #ede9fe; padding: 0.2rem 0.6rem; border-radius: 6px;
+    }
+    .modal-header-right { display: flex; align-items: center; gap: 0.5rem; }
+    .modal-close {
+      background: none; border: none; font-size: 1.4rem;
+      color: #999; cursor: pointer; line-height: 1; padding: 0 0.2rem;
+    }
+    .modal-close:hover { color: #333; }
+
+    .btn-edit-cashier {
+      padding: 0.35rem 0.85rem;
+      border: 1.5px solid #6366f1; border-radius: 6px;
+      background: #fff; color: #6366f1;
+      font-size: 0.78rem; font-weight: 600; cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+      display: none;
+    }
+    .btn-edit-cashier:hover { background: #6366f1; color: #fff; }
+
+    .modal-body {
+      flex: 1; overflow-y: auto; padding: 1.25rem;
+    }
+
+    .modal-loading {
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: center; gap: 1rem; padding: 3rem;
+      color: #999; font-size: 0.88rem;
+    }
+    .modal-loading-spinner {
+      width: 32px; height: 32px;
+      border: 3px solid #e5e7eb;
+      border-top-color: #6366f1;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+
+    #modal-text { font-size: 0.9rem; color: #222; line-height: 1.7; }
+
+    /* Rendered markdown inside modal */
+    #modal-text h2 {
+      font-size: 1rem; font-weight: 700; color: #1a1a2e;
+      margin: 1.4rem 0 0.5rem; padding-bottom: 0.35rem;
+      border-bottom: 2px solid #e0e7ff;
+    }
+    #modal-text h3 {
+      font-size: 0.92rem; font-weight: 700; color: #4338ca;
+      margin: 1.1rem 0 0.4rem;
+    }
+    #modal-text h4 {
+      font-size: 0.88rem; font-weight: 700; color: #555;
+      margin: 0.9rem 0 0.3rem;
+    }
+    #modal-text p { margin: 0.4rem 0; }
+    #modal-text ul, #modal-text ol {
+      margin: 0.4rem 0 0.4rem 1.4rem;
+    }
+    #modal-text li { margin: 0.2rem 0; }
+    #modal-text hr {
+      border: none; border-top: 1px solid #e5e7eb; margin: 1rem 0;
+    }
+    #modal-text strong { font-weight: 700; color: #111; }
+    #modal-text em { font-style: italic; color: #555; }
+    #modal-text .md-table-wrap { overflow-x: auto; margin: 0.75rem 0; }
+    #modal-text table {
+      width: 100%; border-collapse: collapse;
+      font-size: 0.84rem;
+    }
+    #modal-text th {
+      background: #f5f5ff; color: #3730a3;
+      font-weight: 700; text-align: left;
+      padding: 0.5rem 0.75rem;
+      border: 1px solid #e0e7ff;
+    }
+    #modal-text td {
+      padding: 0.45rem 0.75rem;
+      border: 1px solid #f0f0f0;
+      vertical-align: top;
+    }
+    #modal-text tr:nth-child(even) td { background: #fafafa; }
+    #modal-text .section-header {
+      display: flex; align-items: center; gap: 0.5rem;
+      font-size: 1rem; font-weight: 700; color: #1a1a2e;
+      background: #f5f5ff; border-left: 4px solid #6366f1;
+      padding: 0.5rem 0.85rem; border-radius: 0 6px 6px 0;
+      margin: 1.25rem 0 0.6rem;
+    }
+    #modal-text .cashier-box {
+      background: #f0fdf4; border: 2px solid #86efac;
+      border-radius: 10px; padding: 1rem 1.25rem;
+      font-size: 0.95rem; line-height: 1.7; color: #14532d;
+      font-weight: 500; margin: 0.5rem 0;
+    }
+    #modal-text .flag-box {
+      background: #fff7ed; border: 1.5px solid #fed7aa;
+      border-radius: 8px; padding: 0.75rem 1rem;
+      font-size: 0.87rem; color: #7c2d12; margin: 0.4rem 0;
+    }
+
+    #modal-edit-area {
+      width: 100%; min-height: 180px;
+      border: 1.5px solid #6366f1; border-radius: 8px;
+      padding: 0.85rem; font-size: 0.9rem; font-family: inherit;
+      line-height: 1.7; color: #222; resize: vertical;
+      display: none;
+    }
+    #modal-edit-area:focus { outline: none; }
+
+    .edited-tag {
+      display: inline-block;
+      background: #ecfdf5; color: #065f46;
+      font-size: 0.72rem; font-weight: 700;
+      padding: 0.15rem 0.5rem; border-radius: 10px;
+      margin-left: 0.4rem; vertical-align: middle;
+      display: none;
+    }
+
+    .modal-footer {
+      padding: 0.85rem 1.25rem;
+      border-top: 1px solid #f0f0f0;
+      display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center;
+      flex-shrink: 0;
+    }
+    .usage-badge {
+      background: #f3f4f6; border-radius: 6px;
+      padding: 0.3rem 0.6rem; font-size: 0.78rem; color: #555;
+    }
+    .usage-badge strong { color: #333; }
+    .usage-badge.cache-hit { background: #ecfdf5; color: #065f46; }
+
+    .footer-spacer { flex: 1; }
+
+    .btn-save-cashier {
+      padding: 0.4rem 1rem;
+      background: #6366f1; color: #fff;
+      border: none; border-radius: 6px;
+      font-size: 0.82rem; font-weight: 600; cursor: pointer;
+      transition: background 0.2s; display: none;
+    }
+    .btn-save-cashier:hover { background: #4f46e5; }
+    .btn-cancel-edit {
+      padding: 0.4rem 0.85rem;
+      background: #fff; color: #555;
+      border: 1.5px solid #d0d5dd; border-radius: 6px;
+      font-size: 0.82rem; font-weight: 600; cursor: pointer;
+      display: none;
+    }
+    .btn-cancel-edit:hover { border-color: #999; }
+  </style>
+</head>
+<body>
+
+<div class="topbar">
+  <a class="back" href="/">&#8592; Home</a>
+  <img src="/static/logo.png" alt="Omni Group" />
+  <h1>Completions</h1>
+  <div class="topbar-spacer"></div>
+  <div class="topbar-right">
+    {% if current_user.role in ['reviewer', 'admin'] %}
+    <div class="notif-wrap">
+      <button class="notif-btn" id="notif-btn" aria-label="Notifications">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+             style="width:20px;height:20px;display:block;">
+          <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/>
+          <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>
+        </svg>
+        <span class="notif-badge" id="notif-badge"></span>
+      </button>
+      <div class="notif-dropdown" id="notif-dropdown">
+        <div class="notif-dropdown-header">
+          <span>Notifications</span>
+          <button class="notif-mark-all" id="notif-mark-all">Mark all read</button>
+        </div>
+        <div class="notif-list" id="notif-list">
+          <div class="notif-empty">No notifications</div>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    <span class="topbar-user">Signed in as <strong>{{ current_user.username }}</strong></span>
+
+    {% if current_user.role == 'admin' %}
+    <div class="admin-menu-wrap">
+      <button class="admin-menu-btn" id="admin-menu-btn">
+        ⚙ Admin <span class="chevron">▼</span>
+      </button>
+      <div class="admin-dropdown" id="admin-dropdown">
+        <a href="/admin/corrections">📋 Review Log</a>
+        <a href="/admin/users">👥 Users</a>
+        <a href="/admin/projects">🏢 Projects</a>
+        <a href="/api/cases/export">⬇ Export CSV</a>
+        <div class="divider"></div>
+        <a href="/logout" class="danger">Sign out</a>
+      </div>
+    </div>
+    {% else %}
+    <a href="/logout" class="topbar-link">Sign out</a>
+    {% endif %}
+  </div>
+</div>
+
+<div class="shell">
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-header">Worked Cases</div>
+    <div class="case-list" id="case-list">
+      <div class="sidebar-empty" id="sidebar-empty">No cases yet</div>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <div class="main-col">
+    <div class="content-wrap">
+
+      {% if current_user.role in ['uploader', 'admin', 'reviewer'] %}
+
+      <div class="case-bar">
+        <label for="case-number">Case Number</label>
+        <input type="text" id="case-number" placeholder="e.g. IVA-00123" autocomplete="off" />
+      </div>
+
+      <input type="hidden" id="hidden-work-item-id" value="" />
+      <form id="analyze-form" enctype="multipart/form-data">
+        <div class="layout">
+
+          <div class="card">
+            <div class="slot-label"><span class="dot" id="dot-contribution_schedule"></span>Contribution Schedule</div>
+            <div class="upload-area" id="area-contribution_schedule">
+              <span class="area-text">Click or drag images here</span>
+              <input type="file" name="contribution_schedule" id="inp-contribution_schedule" accept="image/*" multiple />
+            </div>
+            <div class="file-list" id="list-contribution_schedule"></div>
+            <p class="upload-helper">Accepted: JPEG, PNG, GIF, WebP screenshots</p>
+          </div>
+
+          <div class="card">
+            <div class="slot-label"><span class="dot" id="dot-modifications"></span>Modifications</div>
+            <div class="input-mode-toggle">
+              <button type="button" class="mode-btn active" id="mods-btn-screenshot" onclick="setModsMode('screenshot')">Screenshot</button>
+              <button type="button" class="mode-btn" id="mods-btn-paste" onclick="setModsMode('paste')">Paste text</button>
+            </div>
+            <div id="mods-screenshot-area">
+              <div class="upload-area" id="area-modifications">
+                <span class="area-text">Click or drag images here</span>
+                <input type="file" name="modifications" id="inp-modifications" accept="image/*" multiple />
+              </div>
+              <div class="file-list" id="list-modifications"></div>
+            </div>
+            <textarea class="paste-area" id="mods-paste-area" placeholder="Paste full modifications text here…"></textarea>
+            <p class="upload-helper">Accepted: JPEG, PNG, GIF, WebP screenshots — or paste the modifications text</p>
+          </div>
+
+          <div class="card">
+            <div class="slot-label"><span class="dot" id="dot-rp"></span>Receipts &amp; Payments (R&amp;P)</div>
+            <div class="input-mode-toggle">
+              <button type="button" class="mode-btn active" id="rp-btn-screenshot" onclick="setRpMode('screenshot')">Screenshot</button>
+              <button type="button" class="mode-btn" id="rp-btn-pdf" onclick="setRpMode('pdf')">PDF</button>
+            </div>
+            <div id="rp-screenshot-area">
+              <div class="upload-area" id="area-rp">
+                <span class="area-text">Click or drag images here</span>
+                <input type="file" name="rp" id="inp-rp" accept="image/*" multiple />
+              </div>
+              <div class="file-list" id="list-rp"></div>
+            </div>
+            <div id="rp-pdf-area" style="display:none;">
+              <div class="upload-area" id="area-rp-pdf">
+                <span class="area-text">Click or drag PDF here</span>
+                <input type="file" name="rp" id="inp-rp-doc" accept=".pdf,application/pdf" />
+              </div>
+              <div class="file-list" id="list-rp-pdf"></div>
+            </div>
+            <p class="upload-helper">Accepted: JPEG, PNG, GIF, WebP (screenshots) or PDF</p>
+          </div>
+
+          <div class="card">
+            <div class="slot-label"><span class="dot" id="dot-creditor_claims"></span>Creditor Claims</div>
+            <div class="upload-area" id="area-creditor_claims">
+              <span class="area-text">Click or drag images here</span>
+              <input type="file" name="creditor_claims" id="inp-creditor_claims" accept="image/*" multiple />
+            </div>
+            <div class="file-list" id="list-creditor_claims"></div>
+            <p class="upload-helper">Accepted: JPEG, PNG, GIF, WebP screenshots</p>
+          </div>
+
+          <div class="card eos-card">
+            <div class="slot-label"><span class="dot" id="dot-eos"></span>Estimated Outcome Statement (EOS)</div>
+            <div class="eos-inner">
+              <div>
+                <div class="upload-area" id="area-eos">
+                  <span class="area-text">Click or drag images here</span>
+                  <input type="file" name="eos" id="inp-eos" accept="image/*" multiple />
+                </div>
+                <div class="file-list" id="list-eos"></div>
+                <p class="upload-helper">Accepted: JPEG, PNG, GIF, WebP screenshots</p>
+              </div>
+              <div class="vmoc-block">
+                <div class="vmoc-question">
+                  <p>Is this EOS from a VMOC?</p>
+                  <div class="vmoc-options">
+                    <label id="q1-lbl-yes"><input type="radio" name="eos_is_vmoc" value="yes" /><span>Yes</span></label>
+                    <label id="q1-lbl-no" class="selected-no"><input type="radio" name="eos_is_vmoc" value="no" checked /><span>No</span></label>
+                  </div>
+                </div>
+                <div class="vmoc-question vmoc-q2" id="vmoc-q2">
+                  <p>Is this a Revised Agreed EOS?</p>
+                  <div class="vmoc-options">
+                    <label id="q2-lbl-yes"><input type="radio" name="eos_vmoc_agreed" value="yes" /><span>Yes</span></label>
+                    <label id="q2-lbl-no" class="selected-no"><input type="radio" name="eos_vmoc_agreed" value="no" checked /><span>No</span></label>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- VMOC Modifications — shown only when VMOC_UNAGREED -->
+          <div class="card vmoc-mods-card" id="vmoc-mods-card">
+            <div class="slot-label"><span class="dot" id="dot-vmoc_modifications"></span>VMOC Modifications</div>
+            <div class="input-mode-toggle">
+              <button type="button" class="mode-btn active" id="vmocmods-btn-screenshot" onclick="setVmocModsMode('screenshot')">Screenshot</button>
+              <button type="button" class="mode-btn" id="vmocmods-btn-paste" onclick="setVmocModsMode('paste')">Paste text</button>
+            </div>
+            <div id="vmocmods-screenshot-area">
+              <div class="upload-area" id="area-vmoc_modifications">
+                <span class="area-text">Click or drag images here</span>
+                <input type="file" name="vmoc_modifications" id="inp-vmoc_modifications" accept="image/*" multiple />
+              </div>
+              <div class="file-list" id="list-vmoc_modifications"></div>
+            </div>
+            <textarea class="paste-area" id="vmocmods-paste-area" placeholder="Paste full VMOC Modifications text here…"></textarea>
+            <p class="upload-helper">Accepted: JPEG, PNG, GIF, WebP screenshots — or paste the VMOC modifications text</p>
+          </div>
+
+          <div class="card bottom-section">
+            <label class="field-label" for="notes">Additional Notes <span style="font-weight:400;color:#888;">(optional)</span></label>
+            <textarea id="notes" name="notes" placeholder="Any supplementary context — CALCULATE fires automatically"></textarea>
+            <button type="submit" id="submit-btn">
+              <span id="btn-label">Calculate</span>
+            </button>
+          </div>
+
+        </div>
+      </form>
+
+      {% endif %}
+
+    </div>
+  </div>
+
+</div><!-- /shell -->
+
+<!-- Review Modal -->
+<div class="review-overlay" id="review-overlay">
+  <div class="review-panel">
+    <div class="review-header">
+      <div class="review-header-left">
+        <h2>Case Review — <span id="review-case-number"></span></h2>
+        <div class="review-meta" id="review-case-meta"></div>
+      </div>
+      <button class="review-close" id="review-close">×</button>
+    </div>
+    <div class="review-tabs">
+      <button class="review-tab active" data-tab="cashier">Cashier Instruction</button>
+      <button class="review-tab" data-tab="screenshots">Screenshots</button>
+      <button class="review-tab" data-tab="fulllog">Full Log</button>
+    </div>
+
+    <div class="review-body">
+      <!-- Cashier tab -->
+      <div class="review-tab-panel active" id="review-tab-cashier">
+        <div class="review-section-title">Cashier Instruction</div>
+        <div class="review-instruction-box" id="review-instruction-display"></div>
+
+        <div class="review-reject-section" id="review-reject-section">
+          <div class="review-field">
+            <label for="review-edited-instruction">Edit Instruction <span class="optional">(optional — only if correction required)</span></label>
+            <textarea id="review-edited-instruction" placeholder="Leave blank to keep original instruction…"></textarea>
+          </div>
+          <div class="review-field">
+            <label for="review-rejection-note">Rejection Note <span style="color:#ef4444;">*</span></label>
+            <textarea id="review-rejection-note" placeholder="Explain why this instruction is being rejected…"></textarea>
+          </div>
+        </div>
+      </div>
+
+      <!-- Screenshots tab -->
+      <div class="review-tab-panel" id="review-tab-screenshots">
+        <div id="review-screenshots-content">
+          <div style="text-align:center;color:#bbb;padding:2rem;">Click tab to load…</div>
+        </div>
+      </div>
+
+      <!-- Full log tab -->
+      <div class="review-tab-panel" id="review-tab-fulllog">
+        <div class="review-fulllog" id="review-fulllog-content">
+          <div style="text-align:center;color:#bbb;padding:2rem;">Loading full log…</div>
+        </div>
+      </div>
+    </div>
+    <div class="review-footer">
+      <div class="review-error" id="review-error"></div>
+      <div class="review-actions" id="review-initial-actions">
+        <button class="btn-review-reject" id="btn-review-reject">✗ Reject</button>
+        <button class="btn-review-approve" id="btn-review-approve">✓ Approve</button>
+      </div>
+      <div class="review-actions" id="review-reject-actions" style="display:none;">
+        <button class="btn-review-cancel" id="btn-cancel-reject">Cancel</button>
+        <button class="btn-submit-reject" id="btn-submit-reject">Submit Rejection</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Reasoning Modal -->
+<div class="modal-overlay" id="reasoning-modal-overlay">
+  <div class="modal-panel" style="max-width:480px;">
+    <div class="modal-header">
+      <div class="modal-header-left">
+        <h3>Reason for Edit</h3>
+      </div>
+      <div class="modal-header-right">
+        <button class="modal-close" id="reasoning-modal-close">×</button>
+      </div>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:0.85rem;color:#555;margin-bottom:0.85rem;line-height:1.5;">
+        Please explain why you are changing the cashier instruction. This reasoning is stored alongside the case and used to improve future calculations.
+      </p>
+      <div id="reasoning-error" style="display:none;font-size:0.82rem;color:#b91c1c;background:#fef2f2;border:1px solid #fecaca;border-radius:6px;padding:0.5rem 0.75rem;margin-bottom:0.75rem;"></div>
+      <textarea id="reasoning-text" placeholder="e.g. The AI incorrectly included a variation fee draw — no meeting was called so this should be omitted." style="min-height:120px;"></textarea>
+    </div>
+    <div class="modal-footer" style="justify-content:flex-end;">
+      <button class="btn-cancel-edit" id="reasoning-cancel" style="display:block;">Cancel</button>
+      <button class="btn-save-cashier" id="reasoning-confirm" style="display:block;">Confirm &amp; Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Main Modal -->
+<div class="modal-overlay" id="modal-overlay">
+  <div class="modal-panel">
+    <div class="modal-header">
+      <div class="modal-header-left">
+        <h3 id="modal-title">Full Log</h3>
+        <span class="case-tag" id="modal-case-tag"></span>
+        <span class="edited-tag" id="edited-tag">Edited</span>
+      </div>
+      <div class="modal-header-right">
+        <button class="btn-edit-cashier" id="btn-edit-cashier">Edit</button>
+        <button class="modal-close" id="modal-close">×</button>
+      </div>
+    </div>
+    <div class="modal-body" id="modal-body">
+      <div class="modal-loading" id="modal-loading">
+        <div class="modal-loading-spinner"></div>
+        <span>Calculating — results will appear here as they stream in…</span>
+      </div>
+      <div id="modal-text" style="display:none;"></div>
+      <textarea id="modal-edit-area" placeholder="Edit cashier instruction…"></textarea>
+    </div>
+    <div class="modal-footer" id="modal-footer">
+      <div id="usage-badges" style="display:flex;gap:0.5rem;flex-wrap:wrap;"></div>
+      <div class="footer-spacer"></div>
+      <button class="btn-cancel-edit" id="btn-cancel-edit">Cancel</button>
+      <button class="btn-save-cashier" id="btn-save-cashier">Save Instruction</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const USER_ROLE = "{{ current_user.role }}";
+  const CAN_EDIT_CASHIER = (USER_ROLE === 'reviewer' || USER_ROLE === 'admin');
+  const IS_ADMIN = (USER_ROLE === 'admin');
+
+  // ── File management ──────────────────────────────────────────────────────
+  {% if current_user.role in ['uploader', 'admin', 'reviewer'] %}
+  const slots = ['contribution_schedule', 'eos', 'modifications', 'rp', 'creditor_claims', 'vmoc_modifications'];
+  const fileMap = {};
+  slots.forEach(s => fileMap[s] = []);
+
+  function refreshSlot(slot) {
+    const files = fileMap[slot];
+    const area  = document.getElementById('area-' + slot);
+    const list  = document.getElementById('list-' + slot);
+    const dot   = document.getElementById('dot-' + slot);
+    const text  = area.querySelector('.area-text');
+    if (files.length) {
+      area.classList.add('has-files'); dot.classList.add('filled');
+      text.textContent = files.length + ' file(s) selected';
+    } else {
+      area.classList.remove('has-files'); dot.classList.remove('filled');
+      text.textContent = 'Click or drag images here';
+    }
+    list.innerHTML = '';
+    files.forEach((f, i) => {
+      const item = document.createElement('div');
+      item.className = 'file-item';
+      item.innerHTML = `<span class="fname" title="${f.name}">${f.name}</span>
+        <button type="button" data-slot="${slot}" data-idx="${i}">×</button>`;
+      list.appendChild(item);
+    });
+  }
+
+  document.addEventListener('click', e => {
+    if (e.target.matches('.file-item button')) {
+      const { slot, idx } = e.target.dataset;
+      fileMap[slot].splice(Number(idx), 1);
+      refreshSlot(slot);
+    }
+  });
+
+  slots.forEach(slot => {
+    const inp  = document.getElementById('inp-' + slot);
+    const area = document.getElementById('area-' + slot);
+    inp.addEventListener('change', () => { fileMap[slot].push(...inp.files); refreshSlot(slot); inp.value = ''; });
+    area.addEventListener('dragover',  e => { e.preventDefault(); area.classList.add('drag-over'); });
+    area.addEventListener('dragleave', ()  => area.classList.remove('drag-over'));
+    area.addEventListener('drop', e => {
+      e.preventDefault(); area.classList.remove('drag-over');
+      fileMap[slot].push(...[...e.dataTransfer.files].filter(f => f.type.startsWith('image/')));
+      refreshSlot(slot);
+    });
+  });
+
+  // ── VMOC two-question flow ────────────────────────────────────────────────
+  function getEosState() {
+    const q1 = document.querySelector('input[name="eos_is_vmoc"]:checked');
+    if (!q1 || q1.value !== 'yes') return 'NON_VMOC';
+    const q2 = document.querySelector('input[name="eos_vmoc_agreed"]:checked');
+    return (q2 && q2.value === 'yes') ? 'VMOC_AGREED' : 'VMOC_UNAGREED';
+  }
+
+  function applyEosState() {
+    const state = getEosState();
+    document.getElementById('vmoc-q2').classList.toggle('visible', state !== 'NON_VMOC');
+    document.getElementById('vmoc-mods-card').classList.toggle('visible', state === 'VMOC_UNAGREED');
+    // Style Q1 buttons
+    document.getElementById('q1-lbl-yes').className = (state !== 'NON_VMOC') ? 'selected-yes' : '';
+    document.getElementById('q1-lbl-no').className  = (state === 'NON_VMOC')  ? 'selected-no'  : '';
+    // Style Q2 buttons
+    const q2agreed = document.querySelector('input[name="eos_vmoc_agreed"]:checked');
+    document.getElementById('q2-lbl-yes').className = (q2agreed && q2agreed.value === 'yes') ? 'selected-yes' : '';
+    document.getElementById('q2-lbl-no').className  = (!q2agreed || q2agreed.value === 'no')  ? 'selected-no'  : '';
+  }
+
+  document.querySelectorAll('input[name="eos_is_vmoc"]').forEach(r => r.addEventListener('change', applyEosState));
+  document.querySelectorAll('input[name="eos_vmoc_agreed"]').forEach(r => r.addEventListener('change', applyEosState));
+  applyEosState();
+
+  // ── Paste-text mode toggles ───────────────────────────────────────────────
+  function setModsMode(mode) {
+    document.getElementById('mods-screenshot-area').style.display = mode === 'screenshot' ? '' : 'none';
+    document.getElementById('mods-paste-area').classList.toggle('visible', mode === 'paste');
+    document.getElementById('mods-btn-screenshot').classList.toggle('active', mode === 'screenshot');
+    document.getElementById('mods-btn-paste').classList.toggle('active', mode === 'paste');
+  }
+
+  function setVmocModsMode(mode) {
+    document.getElementById('vmocmods-screenshot-area').style.display = mode === 'screenshot' ? '' : 'none';
+    document.getElementById('vmocmods-paste-area').classList.toggle('visible', mode === 'paste');
+    document.getElementById('vmocmods-btn-screenshot').classList.toggle('active', mode === 'screenshot');
+    document.getElementById('vmocmods-btn-paste').classList.toggle('active', mode === 'paste');
+  }
+
+  // ── R&P mode toggle (Screenshot / PDF) ───────────────────────────────────
+  function setRpMode(mode) {
+    document.getElementById('rp-screenshot-area').style.display = mode === 'screenshot' ? '' : 'none';
+    document.getElementById('rp-pdf-area').style.display        = mode === 'pdf'        ? '' : 'none';
+    document.getElementById('rp-btn-screenshot').classList.toggle('active', mode === 'screenshot');
+    document.getElementById('rp-btn-pdf').classList.toggle('active', mode === 'pdf');
+    // Clear the other mode's files when switching
+    if (mode === 'screenshot') fileMap['rp'] = fileMap['rp'].filter(f => f.type !== 'application/pdf');
+    else fileMap['rp'] = fileMap['rp'].filter(f => f.type === 'application/pdf');
+    refreshSlot('rp');
+  }
+  const rpPdfInput = document.getElementById('inp-rp-doc');
+  const rpPdfArea  = document.getElementById('area-rp-pdf');
+  rpPdfArea.addEventListener('click', e => { if (e.target !== rpPdfInput) rpPdfInput.click(); });
+  rpPdfInput.addEventListener('change', () => {
+    fileMap['rp'] = [...rpPdfInput.files];
+    rpPdfInput.value = '';
+    refreshSlot('rp');
+  });
+  rpPdfArea.addEventListener('dragover', e => { e.preventDefault(); rpPdfArea.classList.add('drag-over'); });
+  rpPdfArea.addEventListener('dragleave', () => rpPdfArea.classList.remove('drag-over'));
+  rpPdfArea.addEventListener('drop', e => {
+    e.preventDefault(); rpPdfArea.classList.remove('drag-over');
+    fileMap['rp'] = [...e.dataTransfer.files];
+    refreshSlot('rp');
+  });
+  {% endif %}
+
+  // ── Result store ─────────────────────────────────────────────────────────
+  // key -> { caseNumber, fullText, pending, usage, cashierOverride }
+  const store = {};
+
+  function extractCashierSection(text) {
+    const lower = text.toLowerCase();
+    const markers = ['final cashier instruction', '🔒 final cashier'];
+    for (const marker of markers) {
+      const idx = lower.indexOf(marker);
+      if (idx !== -1) {
+        // Skip the heading line — find newline after the marker
+        const afterHeading = text.indexOf('\n', idx);
+        if (afterHeading === -1) return text.slice(idx).trim();
+        // Skip blank lines after heading
+        let contentStart = afterHeading;
+        while (contentStart < text.length &&
+               (text[contentStart] === '\n' || text[contentStart] === '\r' || text[contentStart] === ' ')) {
+          contentStart++;
+        }
+        // Stop at SECTION 4 / RISKS
+        const stopMarkers = ['section 4', 'risks / flags', 'risks/flags'];
+        let end = text.length;
+        for (const stop of stopMarkers) {
+          const si = lower.indexOf(stop, contentStart);
+          if (si !== -1 && si < end) end = si;
+        }
+        return text.slice(contentStart, end).trim();
+      }
+    }
+    return '';
+  }
+
+  function getCashierText(entry) {
+    return entry.cashierOverride != null ? entry.cashierOverride : extractCashierSection(entry.fullText || '');
+  }
+
+  function escHtml(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  // ── Markdown renderer ─────────────────────────────────────────────────────
+  function inlineFmt(raw) {
+    let s = escHtml(raw);
+    s = s.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+    s = s.replace(/(?<!\*)\*([^*]+)\*(?!\*)/g, '<em>$1</em>');
+    return s;
+  }
+
+  function renderMarkdown(text, isCashier) {
+    if (!text) return '';
+    const lines = text.split('\n');
+    let html = '';
+    let tableRows = [];
+    let listItems = [];
+    let listType = '';
+
+    function flushTable() {
+      if (!tableRows.length) return;
+      let headerDone = false;
+      html += '<div class="md-table-wrap"><table>';
+      for (const cells of tableRows) {
+        if (cells.every(c => /^[\s\-:]+$/.test(c))) continue; // separator row
+        if (!headerDone) {
+          html += '<thead><tr>' + cells.map(c => `<th>${inlineFmt(c.trim())}</th>`).join('') + '</tr></thead><tbody>';
+          headerDone = true;
+        } else {
+          html += '<tr>' + cells.map(c => `<td>${inlineFmt(c.trim())}</td>`).join('') + '</tr>';
+        }
+      }
+      if (headerDone) html += '</tbody>';
+      html += '</table></div>';
+      tableRows = [];
+    }
+
+    function flushList() {
+      if (!listItems.length) return;
+      const tag = listType === 'ol' ? 'ol' : 'ul';
+      html += `<${tag}>` + listItems.map(i => `<li>${i}</li>`).join('') + `</${tag}>`;
+      listItems = [];
+      listType = '';
+    }
+
+    // Section header patterns Claude uses
+    const sectionRe = /^(SECTION\s+\d+\s*[–\-—]?\s*.+|#{1,3}\s+.+)/i;
+    const emojiHeaderRe = /^[🔒💰💸📋📌🧮📤🔢🚨⛔✅🎯🔑⚠️]/u;
+
+    if (isCashier) {
+      // Cashier view: single highlighted box
+      return `<div class="cashier-box">${inlineFmt(text)}</div>`;
+    }
+
+    for (const line of lines) {
+      const trimmed = line.trim();
+
+      // Table row
+      if (trimmed.startsWith('|') && trimmed.endsWith('|')) {
+        flushList();
+        tableRows.push(trimmed.slice(1, -1).split('|'));
+        continue;
+      }
+      if (tableRows.length) flushTable();
+
+      // Blank line
+      if (!trimmed) {
+        flushList();
+        html += '<div style="height:0.5rem"></div>';
+        continue;
+      }
+
+      // HR
+      if (/^[-=*]{3,}$/.test(trimmed)) {
+        flushList(); html += '<hr>'; continue;
+      }
+
+      // ## / ### headers
+      const mdH = trimmed.match(/^(#{1,3})\s+(.+)/);
+      if (mdH) {
+        flushList();
+        const lvl = Math.min(mdH[1].length + 1, 4);
+        html += `<h${lvl}>${inlineFmt(mdH[2])}</h${lvl}>`;
+        continue;
+      }
+
+      // SECTION X – ... or emoji-led section headers
+      if ((sectionRe.test(trimmed) || emojiHeaderRe.test(trimmed)) && trimmed.length < 100) {
+        flushList();
+        html += `<div class="section-header">${inlineFmt(trimmed)}</div>`;
+        continue;
+      }
+
+      // Flag / risk lines
+      if (trimmed.startsWith('⚠') || trimmed.startsWith('FLAG') || trimmed.startsWith('🚩')) {
+        flushList();
+        html += `<div class="flag-box">${inlineFmt(trimmed)}</div>`;
+        continue;
+      }
+
+      // Bullet list
+      const bulletM = trimmed.match(/^[•\-\*►▸→]\s+(.+)/);
+      if (bulletM) {
+        if (listType !== 'ul') { flushList(); listType = 'ul'; }
+        listItems.push(inlineFmt(bulletM[1]));
+        continue;
+      }
+
+      // Numbered list
+      const numM = trimmed.match(/^(\d+)[.)]\s+(.+)/);
+      if (numM) {
+        if (listType !== 'ol') { flushList(); listType = 'ol'; }
+        listItems.push(inlineFmt(numM[2]));
+        continue;
+      }
+
+      // Plain paragraph
+      flushList();
+      html += `<p>${inlineFmt(trimmed)}</p>`;
+    }
+
+    flushTable();
+    flushList();
+    return html;
+  }
+
+  // ── Sidebar ───────────────────────────────────────────────────────────────
+  function sidebarAddPending(key, caseNumber, dt) {
+    document.getElementById('sidebar-empty').style.display = 'none';
+    const list = document.getElementById('case-list');
+    const el = document.createElement('div');
+    el.className = 'case-item active';
+    el.id = 'case-item-' + key;
+    const label = caseNumber || 'Untitled';
+    const dateStr = dt.toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' })
+      + ' ' + dt.toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit' });
+    el.innerHTML = `
+      <div class="ci-top">
+        <span class="cn">${label}</span>
+        <span class="dt">${dateStr}</span>
+      </div>
+      <div class="ci-status"><span class="inline-spinner"></span> Calculating…</div>
+      <div class="ci-actions">
+        <button class="ci-btn" disabled data-key="${key}" data-type="full">Full Log</button>
+        <button class="ci-btn primary" disabled data-key="${key}" data-type="cashier">Cashier</button>
+      </div>`;
+    list.insertBefore(el, list.firstChild);
+  }
+
+  function sidebarMarkDone(key, newKey) {
+    const oldEl = document.getElementById('case-item-' + key);
+    if (!oldEl) return;
+    if (newKey && newKey !== key) oldEl.id = 'case-item-' + newKey;
+    const finalKey = newKey || key;
+    const status = oldEl.querySelector('.ci-status');
+    if (status) status.remove();
+    oldEl.querySelectorAll('.ci-btn').forEach(btn => {
+      btn.disabled = false;
+      btn.dataset.key = finalKey;
+    });
+    // New submissions start as pending
+    if (finalKey.indexOf('temp-') === -1) {
+      applyStatusClass(oldEl, 'pending');
+      if (CAN_EDIT_CASHIER) addReviewBtn(oldEl, finalKey);
+    }
+    if (IS_ADMIN) addDeleteBtn(oldEl, finalKey);
+  }
+
+  function applyStatusClass(el, status) {
+    el.classList.remove('status-pending', 'status-approved', 'status-rejected');
+    if (status) el.classList.add('status-' + status);
+  }
+
+  function addDeleteBtn(el, key) {
+    if (el.querySelector('[data-type="delete"]')) return;
+    const actions = el.querySelector('.ci-actions');
+    const btn = document.createElement('button');
+    btn.className = 'ci-btn danger';
+    btn.style.flex = '0 0 auto';
+    btn.dataset.key = key;
+    btn.dataset.type = 'delete';
+    btn.textContent = 'Delete';
+    actions.appendChild(btn);
+  }
+
+  function addReviewBtn(el, key) {
+    if (el.querySelector('[data-type="review"]')) return;
+    const actions = el.querySelector('.ci-actions');
+    const btn = document.createElement('button');
+    btn.className = 'ci-btn review';
+    btn.style.flex = '0 0 auto';
+    btn.dataset.key = key;
+    btn.dataset.type = 'review';
+    btn.textContent = 'Review';
+    actions.appendChild(btn);
+  }
+
+  function sidebarAddStored(id, caseNumber, createdAt, reviewStatus) {
+    document.getElementById('sidebar-empty').style.display = 'none';
+    const list = document.getElementById('case-list');
+    const el = document.createElement('div');
+    const statusClass = reviewStatus ? ' status-' + reviewStatus : '';
+    el.className = 'case-item' + statusClass;
+    el.id = 'case-item-' + id;
+    const dt = new Date(createdAt);
+    const dateStr = dt.toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' })
+      + ' ' + dt.toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit' });
+    el.innerHTML = `
+      <div class="ci-top">
+        <span class="cn">${escHtml(caseNumber)}</span>
+        <span class="dt">${dateStr}</span>
+      </div>
+      <div class="ci-actions">
+        <button class="ci-btn" data-key="${id}" data-type="full">Full Log</button>
+        <button class="ci-btn primary" data-key="${id}" data-type="cashier">Cashier</button>
+        ${CAN_EDIT_CASHIER ? `<button class="ci-btn review" style="flex:0 0 auto" data-key="${id}" data-type="review">Review</button>` : ''}
+        ${IS_ADMIN ? `<button class="ci-btn danger" style="flex:0 0 auto" data-key="${id}" data-type="delete">Delete</button>` : ''}
+      </div>`;
+    list.appendChild(el);
+  }
+
+  document.getElementById('case-list').addEventListener('click', async e => {
+    const btn = e.target.closest('[data-key]');
+    if (!btn) return;
+    const key  = btn.dataset.key;
+    const type = btn.dataset.type;
+
+    if (type === 'delete') {
+      if (!confirm('Delete this case? This cannot be undone.')) return;
+      try {
+        await fetch(`/api/cases/${key}`, { method: 'DELETE' });
+        document.getElementById('case-item-' + key)?.remove();
+        delete store[key];
+        if (document.querySelectorAll('#case-list .case-item').length === 0) {
+          document.getElementById('sidebar-empty').style.display = '';
+        }
+      } catch { alert('Failed to delete case.'); }
+      return;
+    }
+
+    if (type === 'review') {
+      await openReviewModal(key);
+      return;
+    }
+
+    if (btn.disabled) return;
+
+    document.querySelectorAll('.case-item').forEach(el => el.classList.remove('active'));
+    document.getElementById('case-item-' + key)?.classList.add('active');
+
+    if (store[key]) {
+      openModal(key, type, store[key]);
+    } else {
+      openModalLoading('');
+      try {
+        const res  = await fetch(`/api/cases/${key}`);
+        const data = await res.json();
+        let images = null;
+        try {
+          const vd = data.variation_data ? JSON.parse(data.variation_data) : null;
+          if (vd && vd.images) images = vd.images;
+        } catch {}
+        store[key] = {
+          caseNumber: data.case_number,
+          fullText: data.result,
+          pending: false,
+          usage: {
+            input_tokens: data.input_tokens,
+            output_tokens: data.output_tokens,
+            cache_creation_tokens: data.cache_creation_tokens,
+            cache_read_tokens: data.cache_read_tokens,
+          },
+          cashierOverride: data.cashier_instruction_override ?? null,
+          reviewStatus: data.review_status,
+          images: images,
+        };
+        openModal(key, type, store[key]);
+      } catch {
+        setModalText('Failed to load case result.');
+      }
+    }
+  });
+
+  // ── Modal ─────────────────────────────────────────────────────────────────
+  let currentModalKey  = null;
+  let currentModalType = null;
+  let editMode = false;
+
+  function openModalLoading(caseNumber) {
+    document.getElementById('modal-title').textContent = 'Loading…';
+    document.getElementById('modal-case-tag').textContent = caseNumber;
+    document.getElementById('modal-loading').style.display = 'flex';
+    document.getElementById('modal-text').style.display = 'none';
+    document.getElementById('modal-edit-area').style.display = 'none';
+    document.getElementById('edited-tag').style.display = 'none';
+    document.getElementById('btn-edit-cashier').style.display = 'none';
+    document.getElementById('btn-save-cashier').style.display = 'none';
+    document.getElementById('btn-cancel-edit').style.display = 'none';
+    document.getElementById('usage-badges').innerHTML = '';
+    document.getElementById('modal-overlay').classList.add('open');
+    editMode = false;
+  }
+
+  function openModal(key, type, data) {
+    currentModalKey  = key;
+    currentModalType = type;
+    const title = type === 'full' ? 'Full Log' : 'Cashier Instructions';
+    document.getElementById('modal-title').textContent = title;
+    document.getElementById('modal-case-tag').textContent = data.caseNumber || '';
+    document.getElementById('modal-edit-area').style.display = 'none';
+    document.getElementById('btn-save-cashier').style.display = 'none';
+    document.getElementById('btn-cancel-edit').style.display = 'none';
+    editMode = false;
+
+    const showEditBtn = type === 'cashier' && CAN_EDIT_CASHIER && !data.pending && data.caseNumber !== '';
+    document.getElementById('btn-edit-cashier').style.display = showEditBtn ? '' : 'none';
+
+    const isEdited = type === 'cashier' && data.cashierOverride != null;
+    document.getElementById('edited-tag').style.display = isEdited ? '' : 'none';
+
+    if (data.pending) {
+      document.getElementById('modal-loading').style.display = 'flex';
+      document.getElementById('modal-text').style.display = 'none';
+    } else {
+      const text = type === 'full' ? data.fullText : getCashierText(data);
+      setModalText(text, data.usage);
+    }
+    document.getElementById('modal-overlay').classList.add('open');
+  }
+
+  function setModalText(text, usage) {
+    document.getElementById('modal-loading').style.display = 'none';
+    const mt = document.getElementById('modal-text');
+    mt.style.display = '';
+    mt.innerHTML = renderMarkdown(text, currentModalType === 'cashier');
+    const badges = document.getElementById('usage-badges');
+    badges.innerHTML = '';
+    if (usage) {
+      const items = [
+        { label: 'Input', value: usage.input_tokens },
+        { label: 'Output', value: usage.output_tokens },
+      ];
+      if (usage.cache_creation_tokens) items.push({ label: 'Cache write', value: usage.cache_creation_tokens });
+      if (usage.cache_read_tokens)     items.push({ label: 'Cache hit',   value: usage.cache_read_tokens, hit: true });
+      items.forEach(item => {
+        const b = document.createElement('span');
+        b.className = 'usage-badge' + (item.hit ? ' cache-hit' : '');
+        b.innerHTML = `${item.label}: <strong>${(item.value||0).toLocaleString()}</strong>`;
+        badges.appendChild(b);
+      });
+    }
+  }
+
+  function closeModal() {
+    document.getElementById('modal-overlay').classList.remove('open');
+    currentModalKey = currentModalType = null;
+    editMode = false;
+  }
+
+  // ── Edit cashier instruction ──────────────────────────────────────────────
+  document.getElementById('btn-edit-cashier').addEventListener('click', () => {
+    if (!currentModalKey || currentModalType !== 'cashier') return;
+    const entry = store[currentModalKey];
+    if (!entry) return;
+    editMode = true;
+    const current = getCashierText(entry);
+    document.getElementById('modal-text').style.display = 'none';
+    const ta = document.getElementById('modal-edit-area');
+    ta.value = current;
+    ta.style.display = '';
+    ta.focus();
+    document.getElementById('btn-edit-cashier').style.display = 'none';
+    document.getElementById('btn-save-cashier').style.display = '';
+    document.getElementById('btn-cancel-edit').style.display = '';
+  });
+
+  document.getElementById('btn-cancel-edit').addEventListener('click', () => {
+    editMode = false;
+    document.getElementById('modal-edit-area').style.display = 'none';
+    document.getElementById('modal-text').style.display = '';
+    document.getElementById('btn-edit-cashier').style.display = '';
+    document.getElementById('btn-save-cashier').style.display = 'none';
+    document.getElementById('btn-cancel-edit').style.display = 'none';
+  });
+
+  // "Save Instruction" → open reasoning modal
+  document.getElementById('btn-save-cashier').addEventListener('click', () => {
+    if (!currentModalKey) return;
+    document.getElementById('reasoning-text').value = '';
+    document.getElementById('reasoning-error').style.display = 'none';
+    document.getElementById('reasoning-modal-overlay').classList.add('open');
+    document.getElementById('reasoning-text').focus();
+  });
+
+  // Reasoning modal close/cancel
+  function closeReasoningModal() {
+    document.getElementById('reasoning-modal-overlay').classList.remove('open');
+  }
+  document.getElementById('reasoning-modal-close').addEventListener('click', closeReasoningModal);
+  document.getElementById('reasoning-cancel').addEventListener('click', closeReasoningModal);
+  document.getElementById('reasoning-modal-overlay').addEventListener('click', e => {
+    if (e.target === document.getElementById('reasoning-modal-overlay')) closeReasoningModal();
+  });
+
+  // Confirm & Save
+  document.getElementById('reasoning-confirm').addEventListener('click', async () => {
+    const reasoning = document.getElementById('reasoning-text').value.trim();
+    if (!reasoning) {
+      const errEl = document.getElementById('reasoning-error');
+      errEl.textContent = 'Please provide a reason for this edit before saving.';
+      errEl.style.display = '';
+      return;
+    }
+    if (!currentModalKey) return;
+    const instruction = document.getElementById('modal-edit-area').value.trim();
+    try {
+      const res = await fetch(`/api/cases/${currentModalKey}/cashier`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ instruction, reasoning }),
+      });
+      const data = await res.json();
+      if (data.error) {
+        const errEl = document.getElementById('reasoning-error');
+        errEl.textContent = 'Save failed: ' + data.error;
+        errEl.style.display = '';
+        return;
+      }
+      if (store[currentModalKey]) {
+        store[currentModalKey].cashierOverride = instruction;
+      }
+      closeReasoningModal();
+      editMode = false;
+      document.getElementById('modal-edit-area').style.display = 'none';
+      const mt = document.getElementById('modal-text');
+      mt.innerHTML = renderMarkdown(instruction, true);
+      mt.style.display = '';
+      document.getElementById('btn-edit-cashier').style.display = '';
+      document.getElementById('btn-save-cashier').style.display = 'none';
+      document.getElementById('btn-cancel-edit').style.display = 'none';
+      document.getElementById('edited-tag').style.display = '';
+    } catch {
+      const errEl = document.getElementById('reasoning-error');
+      errEl.textContent = 'Save failed. Please try again.';
+      errEl.style.display = '';
+    }
+  });
+
+  document.getElementById('modal-close').addEventListener('click', closeModal);
+  document.getElementById('modal-overlay').addEventListener('click', e => {
+    if (e.target === document.getElementById('modal-overlay')) closeModal();
+  });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+  {% if current_user.role in ['uploader', 'admin', 'reviewer'] %}
+  // ── Form submit ───────────────────────────────────────────────────────────
+  const form      = document.getElementById('analyze-form');
+  const submitBtn = document.getElementById('submit-btn');
+  const btnLabel  = document.getElementById('btn-label');
+
+  form.addEventListener('submit', async e => {
+    e.preventDefault();
+
+    const eosState = getEosState();
+    const modsText  = document.getElementById('mods-paste-area').value.trim();
+    const modsInPasteMode = document.getElementById('mods-btn-paste').classList.contains('active');
+
+    // Mandatory field validation (all 5 fields required)
+    const COMP_LABELS = {
+      contribution_schedule: 'Contribution Schedule',
+      modifications:         'Modifications',
+      rp:                    'Receipts & Payments',
+      creditor_claims:       'Creditor Claims',
+      eos:                   'EOS',
+    };
+    const missing = [];
+    for (const [slot, label] of Object.entries(COMP_LABELS)) {
+      const hasFiles = (fileMap[slot] || []).length > 0;
+      const hasText  = slot === 'modifications' && modsInPasteMode && modsText.length > 0;
+      if (!hasFiles && !hasText) missing.push(label);
+    }
+    if (missing.length) { alert('Missing required document(s): ' + missing.join(', ') + '.'); return; }
+
+    const caseNumber = document.getElementById('case-number').value.trim();
+    const tempKey    = 'temp-' + Date.now();
+
+    store[tempKey] = { caseNumber, fullText: '', pending: true, usage: null, cashierOverride: null };
+    sidebarAddPending(tempKey, caseNumber, new Date());
+
+    // Validate VMOC Mods present when required
+    if (eosState === 'VMOC_UNAGREED') {
+      const vmocModsText = document.getElementById('vmocmods-paste-area').value.trim();
+      const vmocModsFiles = fileMap['vmoc_modifications'] || [];
+      if (!vmocModsText && !vmocModsFiles.length) {
+        alert('Please provide the VMOC Modifications document (screenshot or pasted text).');
+        return;
+      }
+    }
+
+    const fd = new FormData();
+    fd.append('notes',       document.getElementById('notes').value.trim());
+    fd.append('case_number', caseNumber);
+    fd.append('eos_state',   eosState);
+    fd.append('task_type',   'completion');
+    const workItemId = document.getElementById('hidden-work-item-id').value;
+    if (workItemId) fd.append('work_item_id', workItemId);
+
+    // Modifications — pasted text takes priority over screenshots
+    if (modsInPasteMode && modsText) {
+      fd.append('modifications_text', modsText);
+    } else {
+      (fileMap['modifications'] || []).forEach(f => fd.append('modifications', f));
+    }
+
+    // VMOC Modifications (only relevant for VMOC_UNAGREED)
+    if (eosState === 'VMOC_UNAGREED') {
+      const vmocModsText = document.getElementById('vmocmods-paste-area').value.trim();
+      if (vmocModsText) {
+        fd.append('vmoc_modifications_text', vmocModsText);
+      } else {
+        (fileMap['vmoc_modifications'] || []).forEach(f => fd.append('vmoc_modifications', f));
+      }
+    }
+
+    // All other slots
+    slots.filter(s => s !== 'modifications' && s !== 'vmoc_modifications')
+         .forEach(slot => (fileMap[slot] || []).forEach(f => fd.append(slot, f)));
+
+    submitBtn.disabled = true;
+    btnLabel.textContent = 'Calculating…';
+    const spinner = document.createElement('div');
+    spinner.className = 'btn-spinner';
+    submitBtn.appendChild(spinner);
+
+    try {
+      const res = await fetch('/analyze', { method: 'POST', body: fd });
+      if (!res.ok) throw new Error('Server error ' + res.status);
+
+      const reader  = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop();
+
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          const data = JSON.parse(line.slice(6));
+
+          if (data.error) {
+            store[tempKey].fullText = '⚠️ ' + data.error;
+            store[tempKey].pending  = false;
+            sidebarMarkDone(tempKey, null);
+            if (currentModalKey === tempKey) setModalText(store[tempKey].fullText);
+
+          } else if (data.done) {
+            store[tempKey].pending = false;
+            store[tempKey].usage   = data.usage;
+            const finalKey = data.case_id ? String(data.case_id) : tempKey;
+            if (data.case_id) {
+              store[finalKey] = store[tempKey];
+              delete store[tempKey];
+            }
+            sidebarMarkDone(tempKey, finalKey);
+            if (currentModalKey === tempKey || currentModalKey === finalKey) {
+              currentModalKey = finalKey;
+              const entry = store[finalKey];
+              const text  = currentModalType === 'full' ? entry.fullText : getCashierText(entry);
+              setModalText(text, entry.usage);
+              const showEditBtn = currentModalType === 'cashier' && CAN_EDIT_CASHIER && finalKey.indexOf('temp-') === -1;
+              document.getElementById('btn-edit-cashier').style.display = showEditBtn ? '' : 'none';
+            }
+
+          } else if (data.text) {
+            store[tempKey].fullText += data.text;
+            if (currentModalKey === tempKey) {
+              const mt = document.getElementById('modal-text');
+              document.getElementById('modal-loading').style.display = 'none';
+              mt.style.display = '';
+              const isCashier = currentModalType === 'cashier';
+              const raw = isCashier ? getCashierText(store[tempKey]) : store[tempKey].fullText;
+              mt.innerHTML = renderMarkdown(raw, isCashier);
+            }
+          }
+        }
+      }
+    } catch (err) {
+      store[tempKey].fullText = '⚠️ ' + (err.message || 'Network error');
+      store[tempKey].pending  = false;
+      sidebarMarkDone(tempKey, null);
+      if (currentModalKey === tempKey) setModalText(store[tempKey].fullText);
+    } finally {
+      submitBtn.disabled = false;
+      btnLabel.textContent = 'Calculate';
+      submitBtn.removeChild(spinner);
+    }
+  });
+  {% endif %}
+
+  // ── Load past cases from DB ───────────────────────────────────────────────
+  async function loadCaseList() {
+    try {
+      const res   = await fetch('/api/cases');
+      const cases = await res.json();
+      if (Array.isArray(cases) && cases.length) {
+        document.getElementById('sidebar-empty').style.display = 'none';
+        cases.forEach(c => sidebarAddStored(c.id, c.case_number, c.created_at, c.review_status));
+      }
+    } catch {}
+  }
+
+  loadCaseList();
+
+  // ── Pre-fill case number from work queue (?work_item=<id>&case_number=<cn>) ──
+  (function() {
+    const params = new URLSearchParams(window.location.search);
+    const workItemId = params.get('work_item');
+    const preFillCN = params.get('case_number');
+    if (preFillCN) {
+      const inp = document.getElementById('case-number');
+      if (inp) inp.value = preFillCN;
+    }
+    if (workItemId) {
+      const hidden = document.getElementById('hidden-work-item-id');
+      if (hidden) hidden.value = workItemId;
+    }
+  })();
+
+  // ── Auto-open case from URL param (?case=<id>) ────────────────────────────
+  const urlCase = new URLSearchParams(window.location.search).get('case');
+  if (urlCase) {
+    window.addEventListener('load', async () => {
+      await new Promise(r => setTimeout(r, 300));
+      const el = document.getElementById('case-item-' + urlCase);
+      if (el) {
+        el.classList.add('active');
+        const btn = el.querySelector('[data-type="cashier"]');
+        if (btn) btn.click();
+      } else {
+        openModalLoading('');
+        try {
+          const res  = await fetch(`/api/cases/${urlCase}`);
+          const data = await res.json();
+          store[urlCase] = {
+            caseNumber: data.case_number,
+            fullText: data.result,
+            pending: false,
+            usage: { input_tokens: data.input_tokens, output_tokens: data.output_tokens,
+                     cache_creation_tokens: data.cache_creation_tokens, cache_read_tokens: data.cache_read_tokens },
+            cashierOverride: data.cashier_instruction_override ?? null,
+          };
+          openModal(urlCase, 'cashier', store[urlCase]);
+        } catch { closeModal(); }
+      }
+    });
+  }
+
+  // ── Review modal ─────────────────────────────────────────────────────────
+  let reviewCaseId = null;
+  let reviewRejectMode = false;
+
+  async function openReviewModal(key) {
+    reviewCaseId = key;
+    reviewRejectMode = false;
+
+    // Ensure case is loaded (and images are present)
+    if (!store[key] || store[key].images === undefined) {
+      try {
+        const res  = await fetch(`/api/cases/${key}`);
+        const data = await res.json();
+        let images = null;
+        try {
+          const vd = data.variation_data ? JSON.parse(data.variation_data) : null;
+          if (vd && vd.images) images = vd.images;
+        } catch {}
+        if (store[key]) {
+          store[key].images = images;
+        } else {
+          store[key] = {
+            caseNumber: data.case_number,
+            fullText: data.result,
+            pending: false,
+            usage: { input_tokens: data.input_tokens, output_tokens: data.output_tokens,
+                     cache_creation_tokens: data.cache_creation_tokens, cache_read_tokens: data.cache_read_tokens },
+            cashierOverride: data.cashier_instruction_override ?? null,
+            reviewStatus: data.review_status,
+            images: images,
+          };
+        }
+      } catch { alert('Failed to load case.'); return; }
+    }
+
+    const entry = store[key];
+    const cashier = getCashierText(entry);
+
+    document.getElementById('review-case-number').textContent = entry.caseNumber || key;
+    document.getElementById('review-case-meta').textContent = 'Cashier instruction for review';
+    document.getElementById('review-instruction-display').textContent = cashier || '(No cashier instruction found)';
+    document.getElementById('review-edited-instruction').value = cashier;
+    document.getElementById('review-rejection-note').value = '';
+    document.getElementById('review-error').style.display = 'none';
+
+    // Reset tabs to cashier
+    document.querySelectorAll('.review-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.review-tab-panel').forEach(p => p.classList.remove('active'));
+    document.querySelector('.review-tab[data-tab="cashier"]').classList.add('active');
+    document.getElementById('review-tab-cashier').classList.add('active');
+    document.getElementById('review-screenshots-content').innerHTML = '<div style="text-align:center;color:#bbb;padding:2rem;">Click tab to load…</div>';
+    document.getElementById('review-fulllog-content').innerHTML = '<div style="text-align:center;color:#bbb;padding:2rem;">Loading full log…</div>';
+
+    // Reset to initial state
+    setReviewRejectMode(false);
+
+    document.getElementById('review-overlay').classList.add('open');
+  }
+
+  function setReviewRejectMode(on) {
+    reviewRejectMode = on;
+    document.getElementById('review-reject-section').classList.toggle('visible', on);
+    document.getElementById('review-initial-actions').style.display = on ? 'none' : '';
+    document.getElementById('review-reject-actions').style.display = on ? '' : 'none';
+    document.getElementById('review-error').style.display = 'none';
+  }
+
+  const SLOT_LABELS = {
+    contribution_schedule: 'Contribution Schedule',
+    eos: 'Estimated Outcome Statement (EOS)',
+    modifications: 'Modifications',
+    rp: 'Receipts & Payments (R&P)',
+    creditor_claims: 'Creditor Claims Screen',
+  };
+
+  function renderReviewScreenshots(container, images) {
+    container.innerHTML = '';
+    if (!images || !Object.keys(images).length) {
+      container.innerHTML = '<div style="text-align:center;color:#bbb;padding:2rem;">No screenshots were stored for this case.</div>';
+      return;
+    }
+
+    const wrap = document.createElement('div');
+    wrap.style.padding = '0.5rem 0';
+
+    for (const [slot, files] of Object.entries(images)) {
+      if (!files || !files.length) continue;
+
+      const slotDiv = document.createElement('div');
+      slotDiv.style.marginBottom = '1.25rem';
+
+      const lbl = document.createElement('div');
+      lbl.style.cssText = 'font-size:0.8rem;font-weight:700;color:#6366f1;margin-bottom:0.5rem;';
+      lbl.textContent = SLOT_LABELS[slot] || slot;
+      slotDiv.appendChild(lbl);
+
+      const gallery = document.createElement('div');
+      gallery.style.cssText = 'display:flex;flex-wrap:wrap;gap:0.5rem;';
+
+      files.forEach(f => {
+        const img = document.createElement('img');
+        img.src = f.data;
+        img.alt = f.name;
+        img.title = f.name;
+        img.style.cssText = 'max-height:200px;max-width:320px;border:1px solid #e5e7eb;border-radius:6px;cursor:zoom-in;display:block;';
+        img.addEventListener('click', () => {
+          const parts = f.data.split(',');
+          const mimeType = parts[0].split(':')[1].split(';')[0];
+          const byteStr = atob(parts[1]);
+          const arr = new Uint8Array(byteStr.length);
+          for (let i = 0; i < byteStr.length; i++) arr[i] = byteStr.charCodeAt(i);
+          const blobUrl = URL.createObjectURL(new Blob([arr], { type: mimeType }));
+          const win = window.open(blobUrl, '_blank');
+          if (win) setTimeout(() => URL.revokeObjectURL(blobUrl), 30000);
+        });
+        gallery.appendChild(img);
+      });
+
+      slotDiv.appendChild(gallery);
+      wrap.appendChild(slotDiv);
+    }
+
+    container.appendChild(wrap);
+  }
+
+  // Review modal tab switching
+  document.querySelectorAll('.review-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.review-tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.review-tab-panel').forEach(p => p.classList.remove('active'));
+      tab.classList.add('active');
+      document.getElementById('review-tab-' + tab.dataset.tab).classList.add('active');
+      if (tab.dataset.tab === 'fulllog' && reviewCaseId && store[reviewCaseId]) {
+        const el = document.getElementById('review-fulllog-content');
+        el.innerHTML = renderMarkdown(store[reviewCaseId].fullText || '', false);
+      }
+      if (tab.dataset.tab === 'screenshots' && reviewCaseId && store[reviewCaseId]) {
+        const el = document.getElementById('review-screenshots-content');
+        renderReviewScreenshots(el, store[reviewCaseId].images);
+      }
+    });
+  });
+
+  function closeReviewModal() {
+    document.getElementById('review-overlay').classList.remove('open');
+    // Reset to cashier tab
+    document.querySelectorAll('.review-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.review-tab-panel').forEach(p => p.classList.remove('active'));
+    document.querySelector('.review-tab[data-tab="cashier"]').classList.add('active');
+    document.getElementById('review-tab-cashier').classList.add('active');
+    reviewCaseId = null;
+    reviewRejectMode = false;
+  }
+
+  document.getElementById('review-close').addEventListener('click', closeReviewModal);
+  document.getElementById('review-overlay').addEventListener('click', e => {
+    if (e.target === document.getElementById('review-overlay')) closeReviewModal();
+  });
+
+  document.getElementById('btn-review-reject').addEventListener('click', () => setReviewRejectMode(true));
+  document.getElementById('btn-cancel-reject').addEventListener('click', () => setReviewRejectMode(false));
+
+  document.getElementById('btn-review-approve').addEventListener('click', async () => {
+    if (!reviewCaseId) return;
+    try {
+      const res = await fetch(`/api/cases/${reviewCaseId}/review`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'approve' }),
+      });
+      const data = await res.json();
+      if (data.error) { showReviewError(data.error); return; }
+      updateSidebarStatus(reviewCaseId, 'approved');
+      closeReviewModal();
+    } catch { showReviewError('Request failed. Please try again.'); }
+  });
+
+  document.getElementById('btn-submit-reject').addEventListener('click', async () => {
+    if (!reviewCaseId) return;
+    const note = document.getElementById('review-rejection-note').value.trim();
+    if (!note) { showReviewError('Please enter a rejection note.'); return; }
+    const editedRaw = document.getElementById('review-edited-instruction').value.trim();
+    const entry = store[reviewCaseId];
+    const original = getCashierText(entry);
+    const instruction = (editedRaw && editedRaw !== original) ? editedRaw : null;
+    try {
+      const res = await fetch(`/api/cases/${reviewCaseId}/review`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'reject', note, ...(instruction ? { instruction } : {}) }),
+      });
+      const data = await res.json();
+      if (data.error) { showReviewError(data.error); return; }
+      if (instruction && store[reviewCaseId]) {
+        store[reviewCaseId].cashierOverride = instruction;
+      }
+      updateSidebarStatus(reviewCaseId, 'rejected');
+      closeReviewModal();
+    } catch { showReviewError('Request failed. Please try again.'); }
+  });
+
+  function showReviewError(msg) {
+    const el = document.getElementById('review-error');
+    el.textContent = msg;
+    el.style.display = '';
+  }
+
+  function updateSidebarStatus(key, status) {
+    const el = document.getElementById('case-item-' + key);
+    if (el) applyStatusClass(el, status);
+    if (store[key]) store[key].reviewStatus = status;
+  }
+
+  // ── Notification bell ─────────────────────────────────────────────────────
+  {% if current_user.role in ['reviewer', 'admin'] %}
+  const notifBtn      = document.getElementById('notif-btn');
+  const notifBadge    = document.getElementById('notif-badge');
+  const notifDropdown = document.getElementById('notif-dropdown');
+  const notifList     = document.getElementById('notif-list');
+
+  let notifications = [];
+
+  async function loadNotifications() {
+    try {
+      const res = await fetch('/api/notifications');
+      notifications = await res.json();
+      renderNotifications();
+    } catch {}
+  }
+
+  function renderNotifications() {
+    const unread = notifications.filter(n => !n.read).length;
+    if (unread > 0) {
+      notifBadge.textContent = unread > 99 ? '99+' : unread;
+      notifBadge.style.display = 'flex';
+    } else {
+      notifBadge.style.display = 'none';
+    }
+    notifList.innerHTML = '';
+    if (!notifications.length) {
+      notifList.innerHTML = '<div class="notif-empty">No notifications</div>';
+      return;
+    }
+    notifications.forEach(n => {
+      const div = document.createElement('div');
+      div.className = 'notif-item ' + (n.read ? 'read' : 'unread');
+      const dt = new Date(n.created_at).toLocaleString('en-GB', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' });
+      div.innerHTML = `
+        <div class="notif-dot"></div>
+        <div>
+          <div class="notif-item-text">${escHtml(n.message)}</div>
+          <div class="notif-item-time">${dt}</div>
+        </div>`;
+      div.addEventListener('click', async () => {
+        if (!n.read) {
+          await fetch(`/api/notifications/${n.id}/read`, { method: 'POST' });
+          n.read = true;
+          renderNotifications();
+        }
+        notifDropdown.classList.remove('open');
+        // Load and open the case
+        const id = String(n.case_id);
+        const el = document.getElementById('case-item-' + id);
+        document.querySelectorAll('.case-item').forEach(e => e.classList.remove('active'));
+        if (el) {
+          el.classList.add('active');
+          const btn = el.querySelector('[data-type="cashier"]');
+          if (btn && !btn.disabled) btn.click();
+        } else {
+          openModalLoading('');
+          try {
+            const res  = await fetch(`/api/cases/${id}`);
+            const data = await res.json();
+            store[id] = {
+              caseNumber: data.case_number,
+              fullText: data.result,
+              pending: false,
+              usage: { input_tokens: data.input_tokens, output_tokens: data.output_tokens,
+                       cache_creation_tokens: data.cache_creation_tokens, cache_read_tokens: data.cache_read_tokens },
+              cashierOverride: data.cashier_instruction_override ?? null,
+            };
+            openModal(id, 'cashier', store[id]);
+          } catch { closeModal(); }
+        }
+      });
+      notifList.appendChild(div);
+    });
+  }
+
+  notifBtn.addEventListener('click', e => {
+    e.stopPropagation();
+    notifDropdown.classList.toggle('open');
+  });
+
+  document.addEventListener('click', e => {
+    if (!notifDropdown.contains(e.target) && e.target !== notifBtn) {
+      notifDropdown.classList.remove('open');
+    }
+  });
+
+  document.getElementById('notif-mark-all').addEventListener('click', async e => {
+    e.stopPropagation();
+    await fetch('/api/notifications/read-all', { method: 'POST' });
+    notifications.forEach(n => n.read = true);
+    renderNotifications();
+  });
+
+  loadNotifications();
+  setInterval(loadNotifications, 30000);
+  {% endif %}
+
+  {% if current_user.role == 'admin' %}
+  // ── Admin dropdown ────────────────────────────────────────────────────────
+  const adminBtn      = document.getElementById('admin-menu-btn');
+  const adminDropdown = document.getElementById('admin-dropdown');
+  adminBtn.addEventListener('click', e => {
+    e.stopPropagation();
+    const open = adminDropdown.classList.toggle('open');
+    adminBtn.classList.toggle('open', open);
+  });
+  document.addEventListener('click', () => {
+    adminDropdown.classList.remove('open');
+    adminBtn.classList.remove('open');
+  });
+  {% endif %}
+</script>
+</body>
+</html>

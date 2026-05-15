@@ -1,0 +1,1335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Terminations – Omni Group</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body { font-family: system-ui, -apple-system, sans-serif; background: #f0f2f5; color: #1a1a2e; min-height: 100vh; display: flex; flex-direction: column; }
+
+    /* ── Topbar ── */
+    .topbar { background: #fff; border-bottom: 1px solid #e5e7eb; padding: 0.65rem 1.5rem; display: flex; align-items: center; gap: 1rem; position: sticky; top: 0; z-index: 10; flex-shrink: 0; }
+    .topbar a.back { text-decoration: none; color: #6366f1; font-size: 0.88rem; font-weight: 600; display: flex; align-items: center; gap: 0.3rem; }
+    .topbar a.back:hover { color: #4f46e5; }
+    .topbar img { height: 32px; width: auto; }
+    .topbar h1 { font-size: 1.05rem; font-weight: 700; }
+    .topbar-spacer { flex: 1; }
+    .topbar-right { display: flex; align-items: center; gap: 1rem; }
+    .topbar-user { font-size: 0.82rem; color: #777; }
+    .topbar-user strong { color: #333; }
+    .topbar-link { font-size: 0.82rem; font-weight: 600; color: #6366f1; text-decoration: none; }
+    .topbar-link:hover { color: #4f46e5; }
+
+    .admin-menu-wrap { position: relative; }
+    .admin-menu-btn { display: flex; align-items: center; gap: 0.3rem; font-size: 0.82rem; font-weight: 600; color: #6366f1; background: none; border: 1.5px solid #e0e7ff; border-radius: 7px; padding: 0.3rem 0.75rem; cursor: pointer; transition: background 0.15s, border-color 0.15s; }
+    .admin-menu-btn:hover { background: #f5f5ff; border-color: #6366f1; }
+    .admin-menu-btn .chevron { font-size: 0.6rem; transition: transform 0.15s; }
+    .admin-menu-btn.open .chevron { transform: rotate(180deg); }
+    .admin-dropdown { position: absolute; top: calc(100% + 6px); right: 0; background: #fff; border-radius: 10px; box-shadow: 0 8px 28px rgba(0,0,0,0.13); border: 1px solid #e5e7eb; min-width: 180px; padding: 0.35rem 0; display: none; z-index: 300; }
+    .admin-dropdown.open { display: block; }
+    .admin-dropdown a, .admin-dropdown button { display: flex; align-items: center; gap: 0.5rem; width: 100%; padding: 0.6rem 1rem; font-size: 0.84rem; font-weight: 500; color: #333; text-decoration: none; background: none; border: none; cursor: pointer; transition: background 0.1s; }
+    .admin-dropdown a:hover, .admin-dropdown button:hover { background: #f5f5ff; color: #4f46e5; }
+    .admin-dropdown .divider { height: 1px; background: #f0f0f0; margin: 0.25rem 0; }
+    .admin-dropdown .danger { color: #ef4444; }
+    .admin-dropdown .danger:hover { background: #fef2f2; color: #dc2626; }
+
+    /* notifications */
+    .notif-wrap { position: relative; }
+    .notif-btn { background: none; border: none; font-size: 1.25rem; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0.2rem; position: relative; }
+    .notif-badge { position: absolute; top: -3px; right: -5px; background: #ef4444; color: #fff; font-size: 0.65rem; font-weight: 700; border-radius: 10px; min-width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; padding: 0 3px; display: none; }
+    .notif-dropdown { position: absolute; top: calc(100% + 8px); right: 0; background: #fff; border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.15); border: 1px solid #e5e7eb; width: 300px; max-height: 380px; display: flex; flex-direction: column; overflow: hidden; display: none; z-index: 200; }
+    .notif-dropdown.open { display: flex; }
+    .notif-dropdown-header { padding: 0.75rem 1rem; border-bottom: 1px solid #f0f0f0; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
+    .notif-dropdown-header span { font-size: 0.85rem; font-weight: 700; color: #333; }
+    .notif-mark-all { font-size: 0.75rem; color: #6366f1; cursor: pointer; background: none; border: none; font-weight: 600; }
+    .notif-mark-all:hover { color: #4f46e5; }
+    .notif-list { flex: 1; overflow-y: auto; }
+    .notif-empty { padding: 1.5rem; text-align: center; color: #bbb; font-size: 0.82rem; }
+    .notif-item { padding: 0.75rem 1rem; border-bottom: 1px solid #f5f5f5; cursor: pointer; transition: background 0.1s; display: flex; align-items: flex-start; gap: 0.5rem; }
+    .notif-item:hover { background: #f5f5ff; }
+    .notif-item.unread { background: #fafafe; }
+    .notif-dot { width: 8px; height: 8px; border-radius: 50%; background: #6366f1; flex-shrink: 0; margin-top: 5px; }
+    .notif-item.read .notif-dot { background: transparent; }
+    .notif-item-text { font-size: 0.82rem; color: #333; line-height: 1.4; }
+    .notif-item-time { font-size: 0.72rem; color: #aaa; margin-top: 0.2rem; }
+
+    /* ── Shell layout ── */
+    .shell { flex: 1; display: flex; overflow: hidden; }
+
+    /* ── Sidebar ── */
+    .sidebar { width: 230px; flex-shrink: 0; background: #fff; border-right: 1px solid #e5e7eb; display: flex; flex-direction: column; overflow: hidden; }
+    .sidebar-header { padding: 0.85rem 1rem 0.6rem; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #999; border-bottom: 1px solid #f0f0f0; flex-shrink: 0; }
+    .case-list { flex: 1; overflow-y: auto; padding: 0.4rem 0; }
+    .sidebar-empty { padding: 1rem; font-size: 0.8rem; color: #ccc; text-align: center; }
+
+    .case-item { padding: 0.6rem 0.85rem; cursor: pointer; border-left: 3px solid transparent; transition: background 0.1s, border-color 0.1s; }
+    .case-item:hover { background: #f5f5ff; }
+    .case-item.active { background: #f0f0ff; border-left-color: #6366f1; }
+    .case-item .cn { font-size: 0.85rem; font-weight: 600; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .case-item .dt { font-size: 0.72rem; color: #aaa; margin-top: 0.1rem; }
+    .case-item .status-dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; margin-right: 0.35rem; vertical-align: middle; background: #d1d5db; }
+    .case-item .status-dot.pending-dot { background: #fbbf24; animation: pulse 1.5s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1}50%{opacity:.4} }
+
+    .case-item.status-pending  { border-left-color: #f59e0b; }
+    .case-item.status-approved { border-left-color: #22c55e; }
+    .case-item.status-rejected { border-left-color: #ef4444; }
+
+    .case-actions { display: flex; gap: 0.3rem; margin-top: 0.35rem; }
+    .case-action-btn { font-size: 0.7rem; padding: 0.18rem 0.5rem; border: 1px solid #e0e0e0; border-radius: 5px; background: #fff; cursor: pointer; color: #666; transition: all 0.1s; }
+    .case-action-btn:hover { border-color: #6366f1; color: #6366f1; background: #f5f5ff; }
+    .case-action-btn.review { border-color: #c7d2fe; color: #4f46e5; background: #eef2ff; }
+    .case-action-btn.review:hover { background: #e0e7ff; }
+
+    /* ── Main column ── */
+    .main-col { flex: 1; overflow-y: auto; padding: 1.5rem 1.75rem; }
+    .content-wrap { max-width: 820px; }
+
+    /* ── Case bar ── */
+    .case-bar { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.25rem; }
+    .case-bar label { font-size: 0.82rem; font-weight: 700; color: #555; white-space: nowrap; }
+    .case-bar input { flex: 1; max-width: 260px; border: 1.5px solid #d0d5dd; border-radius: 8px; padding: 0.5rem 0.85rem; font-size: 0.9rem; font-family: inherit; transition: border-color 0.2s; }
+    .case-bar input:focus { outline: none; border-color: #6366f1; }
+
+    /* ── Upload cards ── */
+    .doc-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.25rem; }
+    @media (max-width: 700px) { .doc-grid { grid-template-columns: 1fr; } }
+
+    .card { background: #fff; border-radius: 12px; box-shadow: 0 1px 6px rgba(0,0,0,0.07); padding: 1rem 1.1rem; }
+    .slot-label { font-size: 0.78rem; font-weight: 700; color: #555; margin-bottom: 0.6rem; display: flex; align-items: center; gap: 0.4rem; }
+    .dot { width: 7px; height: 7px; border-radius: 50%; background: #d1d5db; flex-shrink: 0; transition: background 0.2s; }
+    .dot.filled { background: #6366f1; }
+    .upload-area { border: 2px dashed #d0d5dd; border-radius: 8px; padding: 1rem; text-align: center; cursor: pointer; transition: border-color 0.2s, background 0.2s; position: relative; }
+    .upload-area:hover, .upload-area.drag { border-color: #6366f1; background: #f5f5ff; }
+    .upload-area.has-files { border-color: #6366f1; background: #f5f5ff; border-style: solid; }
+    .area-text { font-size: 0.78rem; color: #aaa; pointer-events: none; }
+    .upload-area input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+    .file-list { margin-top: 0.5rem; }
+    .file-item { display: flex; align-items: center; justify-content: space-between; font-size: 0.78rem; color: #555; padding: 0.2rem 0; }
+    .file-item .fname { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 150px; }
+    .file-item button { background: none; border: none; color: #bbb; cursor: pointer; font-size: 0.9rem; }
+    .file-item button:hover { color: #ef4444; }
+
+    /* ── Submit row ── */
+    .submit-row { display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem; }
+    .btn-submit { background: #6366f1; color: #fff; border: none; border-radius: 9px; padding: 0.7rem 2rem; font-size: 0.95rem; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 0.5rem; transition: background 0.2s; }
+    .btn-submit:hover:not(:disabled) { background: #4f46e5; }
+    .btn-submit:disabled { opacity: 0.6; cursor: not-allowed; }
+
+    /* ── VMOC questions ── */
+    .vmoc-questions { margin-bottom: 1.25rem; display: flex; flex-direction: column; gap: 0.75rem; }
+    .vmoc-block { border: 1.5px solid #e5e7eb; border-radius: 8px; padding: 0.9rem 1rem; background: #fff; box-shadow: 0 1px 6px rgba(0,0,0,0.07); }
+    .vmoc-block p { font-size: 0.82rem; font-weight: 600; color: #444; margin-bottom: 0.6rem; }
+    .vmoc-options { display: flex; gap: 0.5rem; }
+    .vmoc-options label { flex: 1; display: flex; align-items: center; justify-content: center; gap: 0.35rem; padding: 0.5rem; border: 1.5px solid #d0d5dd; border-radius: 6px; cursor: pointer; font-size: 0.85rem; font-weight: 600; transition: border-color 0.15s, background 0.15s, color 0.15s; }
+    .vmoc-options input[type="radio"] { display: none; }
+    .vmoc-options label.selected-yes { border-color: #6366f1; background: #6366f1; color: #fff; }
+    .vmoc-options label.selected-no  { border-color: #6366f1; background: #fff; color: #6366f1; }
+    .vmoc-hidden { display: none; }
+
+    /* ── Input mode toggle (Screenshot / Paste text) ── */
+    .input-mode-toggle { display: flex; gap: 0.4rem; margin-bottom: 0.6rem; }
+    .mode-btn { flex: 1; padding: 0.35rem 0.6rem; border: 1.5px solid #d0d5dd; border-radius: 6px; background: #fff; font-size: 0.78rem; font-weight: 600; color: #777; cursor: pointer; transition: border-color 0.15s, background 0.15s, color 0.15s; }
+    .mode-btn.active { border-color: #6366f1; background: #6366f1; color: #fff; }
+    .paste-area { display: none; width: 100%; min-height: 120px; border: 1.5px solid #d0d5dd; border-radius: 8px; padding: 0.75rem; font-size: 0.82rem; color: #333; resize: vertical; box-sizing: border-box; margin-top: 0.25rem; }
+    .paste-area.visible { display: block; }
+    .upload-helper { font-size: 0.72rem; color: #aaa; margin-top: 0.4rem; }
+
+    .btn-spinner { width: 16px; height: 16px; border: 2.5px solid rgba(255,255,255,0.4); border-top-color: #fff; border-radius: 50%; animation: spin 0.7s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Output area ── */
+    .output-wrap { display: none; }
+    .output-wrap.visible { display: block; }
+
+    .output-section-title { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #999; margin-bottom: 0.6rem; }
+
+    .calculating-card { background: #fff; border-radius: 12px; box-shadow: 0 1px 6px rgba(0,0,0,0.07); padding: 2rem; text-align: center; }
+    .calculating-spinner { width: 36px; height: 36px; border: 3px solid #e0e7ff; border-top-color: #6366f1; border-radius: 50%; animation: spin 0.7s linear infinite; margin: 0 auto 1rem; }
+    .calculating-card p { font-size: 0.88rem; color: #888; }
+
+    .result-grid { display: flex; flex-direction: column; gap: 1rem; }
+
+    /* stop card */
+    .stop-card { background: #fef2f2; border: 1px solid #fecaca; border-radius: 12px; padding: 1.25rem 1.5rem; display: flex; gap: 0.75rem; align-items: flex-start; }
+    .stop-icon { font-size: 1.4rem; flex-shrink: 0; }
+    .stop-card h3 { font-size: 0.95rem; font-weight: 700; color: #b91c1c; margin-bottom: 0.3rem; }
+    .stop-card p { font-size: 0.88rem; color: #7f1d1d; line-height: 1.5; }
+
+    /* copy line card */
+    .copy-line-card { background: #fff; border-radius: 12px; box-shadow: 0 1px 6px rgba(0,0,0,0.07); padding: 1.25rem 1.5rem; }
+    .copy-line-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem; }
+    .copy-line-header h3 { font-size: 0.95rem; font-weight: 700; }
+    .ready-badge { font-size: 0.72rem; font-weight: 700; padding: 0.22rem 0.65rem; border-radius: 10px; }
+    .ready-badge.ok { background: #dcfce7; color: #15803d; }
+    .ready-badge.not-ready { background: #fff7ed; color: #c2410c; }
+    .copy-line-box { background: #f0fdf4; border: 1px solid #86efac; border-radius: 8px; padding: 1rem 1.25rem; font-size: 0.88rem; line-height: 1.6; color: #14532d; font-family: ui-monospace, monospace; word-break: break-all; }
+    .copy-btn { display: inline-flex; align-items: center; gap: 0.4rem; margin-top: 0.75rem; padding: 0.4rem 1rem; background: #6366f1; color: #fff; border: none; border-radius: 7px; font-size: 0.82rem; font-weight: 600; cursor: pointer; transition: background 0.2s; }
+    .copy-btn:hover { background: #4f46e5; }
+    .copy-btn.copied { background: #22c55e; }
+
+    /* calc summary card */
+    .summary-card { background: #fff; border-radius: 12px; box-shadow: 0 1px 6px rgba(0,0,0,0.07); padding: 1.25rem 1.5rem; }
+    .summary-card h3 { font-size: 0.95rem; font-weight: 700; margin-bottom: 0.85rem; }
+    .summary-table { width: 100%; border-collapse: collapse; }
+    .summary-table tr { border-bottom: 1px solid #f5f5f5; }
+    .summary-table tr:last-child { border-bottom: none; }
+    .summary-table td { padding: 0.5rem 0.25rem; font-size: 0.88rem; }
+    .summary-table td:first-child { color: #666; }
+    .summary-table td:last-child { text-align: right; font-weight: 600; color: #1a1a2e; font-family: ui-monospace, monospace; }
+    .summary-table tr.highlight td { color: #1a1a2e; font-weight: 700; }
+    .summary-table tr.highlight td:last-child { color: #6366f1; font-size: 0.95rem; }
+    .summary-table tr.shortfall td:last-child { color: #dc2626; }
+    .summary-table tr.surplus td:last-child { color: #16a34a; }
+    .divider-row td { padding: 0.25rem 0; border-bottom: 2px solid #e5e7eb !important; }
+
+    /* notes card */
+    .notes-card { background: #fff; border-radius: 12px; box-shadow: 0 1px 6px rgba(0,0,0,0.07); padding: 1.25rem 1.5rem; }
+    .notes-card h3 { font-size: 0.95rem; font-weight: 700; margin-bottom: 0.85rem; }
+    .notes-field { margin-bottom: 0.85rem; }
+    .notes-field:last-child { margin-bottom: 0; }
+    .notes-label { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; color: #999; margin-bottom: 0.35rem; }
+    .notes-value { font-size: 0.88rem; color: #333; line-height: 1.6; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 7px; padding: 0.65rem 0.85rem; }
+
+    /* cashier instruction card */
+    .instruction-card { background: #fff; border-radius: 12px; box-shadow: 0 1px 6px rgba(0,0,0,0.07); padding: 1.25rem 1.5rem; border-left: 4px solid #6366f1; }
+    .instruction-card h3 { font-size: 0.95rem; font-weight: 700; margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.5rem; }
+    .instruction-text { font-size: 0.92rem; line-height: 1.7; color: #1a1a2e; }
+
+    /* locked model card */
+    .model-card { background: #fff; border-radius: 12px; box-shadow: 0 1px 6px rgba(0,0,0,0.07); padding: 1.25rem 1.5rem; }
+    .model-card h3 { font-size: 0.95rem; font-weight: 700; margin-bottom: 0.85rem; }
+    .model-detail { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; margin-bottom: 0.75rem; }
+    @media (max-width: 600px) { .model-detail { grid-template-columns: 1fr; } }
+    .model-field { background: #f9fafb; border-radius: 7px; padding: 0.55rem 0.75rem; }
+    .model-field .mf-label { font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; color: #999; margin-bottom: 0.2rem; }
+    .model-field .mf-value { font-size: 0.88rem; color: #333; }
+    .model-mods { margin-top: 0.5rem; }
+    .model-mod-chip { display: inline-block; background: #ede9fe; color: #5b21b6; font-size: 0.75rem; font-weight: 600; padding: 0.22rem 0.6rem; border-radius: 10px; margin: 0.2rem 0.2rem 0 0; }
+
+    /* fee breakdown */
+    .fee-card { background: #fff; border-radius: 12px; box-shadow: 0 1px 6px rgba(0,0,0,0.07); padding: 1.25rem 1.5rem; }
+    .fee-card h3 { font-size: 0.95rem; font-weight: 700; margin-bottom: 0.85rem; }
+    .position-chip { font-size: 0.72rem; font-weight: 700; padding: 0.15rem 0.5rem; border-radius: 8px; display: inline-block; }
+    .position-chip.underdrawn { background: #dcfce7; color: #15803d; }
+    .position-chip.overdrawn  { background: #fee2e2; color: #b91c1c; }
+    .position-chip.matched    { background: #f3f4f6; color: #555; }
+
+    /* disbursement breakdown */
+    .disb-card { background: #fff; border-radius: 12px; box-shadow: 0 1px 6px rgba(0,0,0,0.07); padding: 1.25rem 1.5rem; }
+    .disb-card h3 { font-size: 0.95rem; font-weight: 700; margin-bottom: 0.85rem; }
+
+    /* risks card */
+    .risks-card { background: #fff7ed; border: 1px solid #fed7aa; border-radius: 12px; padding: 1.25rem 1.5rem; }
+    .risks-card h3 { font-size: 0.95rem; font-weight: 700; color: #92400e; margin-bottom: 0.75rem; }
+    .risks-list { list-style: none; }
+    .risks-list li { font-size: 0.85rem; color: #7c2d12; padding: 0.3rem 0; padding-left: 1.25rem; position: relative; line-height: 1.5; }
+    .risks-list li::before { content: '⚠'; position: absolute; left: 0; }
+
+    /* ── Review Modal (full-screen) ── */
+    .review-overlay { position: fixed; inset: 0; background: rgba(15,15,30,0.7); z-index: 500; display: none; }
+    .review-overlay.open { display: flex; }
+    .review-panel { background: #fff; width: 100%; max-width: 860px; margin: auto; border-radius: 16px; display: flex; flex-direction: column; max-height: 92vh; box-shadow: 0 24px 80px rgba(0,0,0,0.3); }
+    .review-header { padding: 1.1rem 1.5rem; border-bottom: 1px solid #f0f0f0; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
+    .review-header-left h2 { font-size: 1.05rem; font-weight: 700; }
+    .review-meta { font-size: 0.78rem; color: #888; margin-top: 0.15rem; }
+    .review-close { background: none; border: none; font-size: 1.6rem; color: #999; cursor: pointer; line-height: 1; }
+    .review-close:hover { color: #333; }
+    .review-tabs { display: flex; border-bottom: 1px solid #f0f0f0; flex-shrink: 0; }
+    .review-tab { padding: 0.7rem 1.25rem; font-size: 0.85rem; font-weight: 600; color: #888; background: none; border: none; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+    .review-tab.active { color: #6366f1; border-bottom-color: #6366f1; }
+    .review-body { flex: 1; overflow-y: auto; padding: 1.5rem; }
+    .review-tab-panel { display: none; }
+    .review-tab-panel.active { display: block; }
+    .review-section-title { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #999; margin-bottom: 0.6rem; }
+    .review-copyline-box { background: #f0fdf4; border: 1px solid #86efac; border-radius: 8px; padding: 1rem 1.25rem; font-size: 0.9rem; line-height: 1.7; color: #14532d; min-height: 60px; margin-bottom: 1rem; }
+    .review-instruction-box { background: #f0f4ff; border: 1px solid #c7d2fe; border-radius: 8px; padding: 1rem 1.25rem; font-size: 0.9rem; line-height: 1.7; color: #1e1b4b; min-height: 60px; margin-bottom: 1rem; }
+    .review-reject-section { display: none; }
+    .review-reject-section.visible { display: block; }
+    .review-field { margin-bottom: 1rem; }
+    .review-field label { display: block; font-size: 0.85rem; font-weight: 600; color: #333; margin-bottom: 0.35rem; }
+    .review-field .optional { font-weight: 400; color: #aaa; }
+    .review-field textarea { width: 100%; border: 1.5px solid #d0d5dd; border-radius: 8px; padding: 0.7rem 0.9rem; font-size: 0.88rem; font-family: inherit; resize: vertical; min-height: 90px; line-height: 1.5; transition: border-color 0.2s; }
+    .review-field textarea:focus { outline: none; border-color: #6366f1; }
+    .review-fulllog { font-size: 0.85rem; line-height: 1.6; color: #333; }
+    .review-json-section { margin-bottom: 1.25rem; }
+    .review-json-section h4 { font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; color: #999; margin-bottom: 0.5rem; }
+    .review-json-pre { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 0.85rem 1rem; font-family: ui-monospace, monospace; font-size: 0.82rem; color: #333; white-space: pre-wrap; word-break: break-word; }
+    .review-footer { padding: 0.85rem 1.5rem; border-top: 1px solid #f0f0f0; display: flex; align-items: center; gap: 0.75rem; flex-shrink: 0; }
+    .review-error { color: #b91c1c; font-size: 0.82rem; flex: 1; }
+    .review-actions { display: flex; gap: 0.6rem; margin-left: auto; }
+    .btn-review-approve { background: #22c55e; color: #fff; border: none; border-radius: 8px; padding: 0.6rem 1.4rem; font-size: 0.9rem; font-weight: 700; cursor: pointer; transition: background 0.2s; }
+    .btn-review-approve:hover { background: #16a34a; }
+    .btn-review-reject { background: #fff; color: #ef4444; border: 1.5px solid #fca5a5; border-radius: 8px; padding: 0.6rem 1.25rem; font-size: 0.9rem; font-weight: 700; cursor: pointer; transition: all 0.2s; }
+    .btn-review-reject:hover { background: #fef2f2; }
+    .btn-review-cancel { background: #fff; color: #555; border: 1.5px solid #d0d5dd; border-radius: 8px; padding: 0.6rem 1.1rem; font-size: 0.88rem; font-weight: 600; cursor: pointer; }
+    .btn-submit-reject { background: #ef4444; color: #fff; border: none; border-radius: 8px; padding: 0.6rem 1.25rem; font-size: 0.88rem; font-weight: 700; cursor: pointer; }
+    .btn-submit-reject:hover { background: #dc2626; }
+    .status-badge-inline { font-size: 0.7rem; font-weight: 700; padding: 0.2rem 0.5rem; border-radius: 8px; display: inline-block; margin-left: 0.5rem; }
+    .status-badge-inline.approved { background: #dcfce7; color: #15803d; }
+    .status-badge-inline.rejected { background: #fee2e2; color: #b91c1c; }
+    .status-badge-inline.pending  { background: #fff7ed; color: #c2410c; }
+  </style>
+</head>
+<body>
+
+<div class="topbar">
+  <a class="back" href="/">&#8592; Home</a>
+  <img src="/static/logo.png" alt="Omni Group" />
+  <h1>Terminations</h1>
+  <div class="topbar-spacer"></div>
+  <div class="topbar-right">
+    {% if current_user.role in ['reviewer', 'admin'] %}
+    <div class="notif-wrap">
+      <button class="notif-btn" id="notif-btn" aria-label="Notifications"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:20px;height:20px;display:block;"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg><span class="notif-badge" id="notif-badge"></span></button>
+      <div class="notif-dropdown" id="notif-dropdown">
+        <div class="notif-dropdown-header"><span>Notifications</span><button class="notif-mark-all" id="notif-mark-all">Mark all read</button></div>
+        <div class="notif-list" id="notif-list"><div class="notif-empty">No notifications</div></div>
+      </div>
+    </div>
+    {% endif %}
+
+    <span class="topbar-user">Signed in as <strong>{{ current_user.username }}</strong></span>
+
+    {% if current_user.role == 'admin' %}
+    <div class="admin-menu-wrap">
+      <button class="admin-menu-btn" id="admin-menu-btn">⚙ Admin <span class="chevron">▼</span></button>
+      <div class="admin-dropdown" id="admin-dropdown">
+        <a href="/completions">✅ Completions</a>
+        <a href="/admin/corrections">📋 Review Log</a>
+        <a href="/admin/users">👥 Users</a>
+        <a href="/admin/projects">🏢 Projects</a>
+        <div class="divider"></div>
+        <a href="/logout" class="danger">Sign out</a>
+      </div>
+    </div>
+    {% else %}
+    <a href="/logout" class="topbar-link">Sign out</a>
+    {% endif %}
+  </div>
+</div>
+
+<div class="shell">
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-header">Worked Cases</div>
+    <div class="case-list" id="case-list">
+      <div class="sidebar-empty" id="sidebar-empty">No cases yet</div>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <div class="main-col">
+    <div class="content-wrap">
+
+      {% if current_user.role in ['uploader', 'admin', 'reviewer'] %}
+
+      <div class="case-bar">
+        <label for="case-number">Case Number</label>
+        <input type="text" id="case-number" placeholder="e.g. IVA-00123" autocomplete="off" />
+      </div>
+
+      <input type="hidden" id="hidden-work-item-id" value="" />
+
+      <form id="analyze-form" enctype="multipart/form-data">
+        <div class="doc-grid">
+
+          <div class="card">
+            <div class="slot-label"><span class="dot" id="dot-rp"></span>Receipts &amp; Payments (R&amp;P)</div>
+            <div class="input-mode-toggle">
+              <button type="button" class="mode-btn active" id="rp-btn-screenshot" onclick="setRpMode('screenshot')">Screenshot</button>
+              <button type="button" class="mode-btn" id="rp-btn-pdf" onclick="setRpMode('pdf')">PDF</button>
+            </div>
+            <div id="rp-screenshot-area">
+              <div class="upload-area" id="area-rp">
+                <span class="area-text">Click or drag images here</span>
+                <input type="file" name="rp" id="inp-rp" accept="image/*" multiple />
+              </div>
+              <div class="file-list" id="list-rp"></div>
+            </div>
+            <div id="rp-pdf-area" style="display:none;">
+              <div class="upload-area" id="area-rp-pdf">
+                <span class="area-text">Click or drag PDF here</span>
+                <input type="file" name="rp" id="inp-rp-doc" accept=".pdf,application/pdf" />
+              </div>
+              <div class="file-list" id="list-rp-pdf"></div>
+            </div>
+            <p class="upload-helper">Accepted: JPEG, PNG, GIF, WebP (screenshots) or PDF</p>
+          </div>
+
+          <div class="card">
+            <div class="slot-label"><span class="dot" id="dot-contribution_schedule"></span>Contribution Schedule</div>
+            <div class="upload-area" id="area-contribution_schedule">
+              <span class="area-text">Click or drag images here</span>
+              <input type="file" name="contribution_schedule" id="inp-contribution_schedule" accept="image/*" multiple />
+            </div>
+            <div class="file-list" id="list-contribution_schedule"></div>
+            <p class="upload-helper">Accepted: JPEG, PNG, GIF, WebP screenshots</p>
+          </div>
+
+          <div class="card">
+            <div class="slot-label"><span class="dot" id="dot-modifications"></span>Modifications</div>
+            <div class="input-mode-toggle">
+              <button type="button" class="mode-btn active" id="term-mods-btn-screenshot" onclick="setTermModsMode('screenshot')">Screenshot</button>
+              <button type="button" class="mode-btn" id="term-mods-btn-paste" onclick="setTermModsMode('paste')">Paste text</button>
+            </div>
+            <div id="term-mods-screenshot-area">
+              <div class="upload-area" id="area-modifications">
+                <span class="area-text">Click or drag images here</span>
+                <input type="file" name="modifications" id="inp-modifications" accept="image/*" multiple />
+              </div>
+              <div class="file-list" id="list-modifications"></div>
+            </div>
+            <textarea class="paste-area" id="term-mods-paste-area" placeholder="Paste full modifications text here…"></textarea>
+            <p class="upload-helper">Accepted: JPEG, PNG, GIF, WebP screenshots — or paste the modifications text</p>
+          </div>
+
+          <div class="card">
+            <div class="slot-label"><span class="dot" id="dot-eos"></span>EOS (Estimated Outcome Statement)</div>
+            <div class="upload-area" id="area-eos">
+              <span class="area-text">Click or drag images here</span>
+              <input type="file" name="eos" id="inp-eos" accept="image/*" multiple />
+            </div>
+            <div class="file-list" id="list-eos"></div>
+            <p class="upload-helper">Accepted: JPEG, PNG, GIF, WebP screenshots</p>
+          </div>
+
+        </div>
+
+        <!-- VMOC questions — shown after EOS upload -->
+        <div class="vmoc-questions">
+
+          <!-- Q1: Is this EOS from a VMOC? -->
+          <div class="vmoc-block">
+            <p>Is the EOS from a VMOC?</p>
+            <div class="vmoc-options">
+              <label id="vmoc-lbl-yes">
+                <input type="radio" name="eos_is_vmoc" value="yes" />
+                <span>Yes</span>
+              </label>
+              <label id="vmoc-lbl-no" class="selected-no">
+                <input type="radio" name="eos_is_vmoc" value="no" checked />
+                <span>No</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Q2: Is this a Revised Agreed EOS? — only shown when Q1 = Yes -->
+          <div class="vmoc-block vmoc-hidden" id="vmoc-q2-block">
+            <p>Is this a Revised Agreed EOS?</p>
+            <div class="vmoc-options">
+              <label id="agreed-lbl-yes">
+                <input type="radio" name="eos_vmoc_agreed" value="yes" checked />
+                <span>Yes</span>
+              </label>
+              <label id="agreed-lbl-no">
+                <input type="radio" name="eos_vmoc_agreed" value="no" />
+                <span>No</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- VMOC Modifications upload — only shown when Q1 = Yes AND Q2 = No -->
+          <div class="card vmoc-hidden" id="vmoc-mods-card">
+            <div class="slot-label"><span class="dot" id="dot-vmoc_modifications"></span>VMOC Modifications</div>
+            <div class="upload-area" id="area-vmoc_modifications">
+              <span class="area-text">Click or drag images here</span>
+              <input type="file" name="vmoc_modifications" id="inp-vmoc_modifications" accept="image/*" multiple />
+            </div>
+            <div class="file-list" id="list-vmoc_modifications"></div>
+            <p class="upload-helper">Accepted: JPEG, PNG, GIF, WebP screenshots</p>
+          </div>
+
+        </div><!-- /vmoc-questions -->
+
+        <div class="submit-row">
+          <button type="submit" class="btn-submit" id="submit-btn">
+            <span id="btn-label">Calculate</span>
+          </button>
+        </div>
+      </form>
+
+      {% endif %}
+
+      <!-- Output area -->
+      <div class="output-wrap" id="output-wrap">
+        <!-- filled by JS -->
+      </div>
+
+    </div>
+  </div>
+
+</div><!-- /shell -->
+
+<!-- Review Modal -->
+<div class="review-overlay" id="review-overlay">
+  <div class="review-panel">
+    <div class="review-header">
+      <div class="review-header-left">
+        <h2>Case Review — <span id="review-case-number"></span></h2>
+        <div class="review-meta" id="review-case-meta"></div>
+      </div>
+      <button class="review-close" id="review-close">×</button>
+    </div>
+    <div class="review-tabs">
+      <button class="review-tab active" data-tab="instruction">Cashier Instruction</button>
+      <button class="review-tab" data-tab="copyline">Copy Line</button>
+      <button class="review-tab" data-tab="fulllog">Full Calculation</button>
+    </div>
+    <div class="review-body">
+      <div class="review-tab-panel active" id="review-tab-instruction">
+        <div class="review-section-title">Final Cashier Instruction</div>
+        <div class="review-instruction-box" id="review-instruction-display"></div>
+        <div class="review-reject-section" id="review-reject-section">
+          <div class="review-field">
+            <label>Edit Instruction <span class="optional">(optional — only if correction required)</span></label>
+            <textarea id="review-edited-instruction" placeholder="Leave blank to keep original…"></textarea>
+          </div>
+          <div class="review-field">
+            <label for="review-rejection-note">Rejection Note <span style="color:#ef4444;">*</span></label>
+            <textarea id="review-rejection-note" placeholder="Explain why this calculation is being rejected…"></textarea>
+          </div>
+        </div>
+      </div>
+      <div class="review-tab-panel" id="review-tab-copyline">
+        <div class="review-section-title">Copy Line</div>
+        <div class="review-copyline-box" id="review-copyline-display"></div>
+      </div>
+      <div class="review-tab-panel" id="review-tab-fulllog">
+        <div id="review-fulllog-content">
+          <div style="text-align:center;color:#bbb;padding:2rem;">Loading…</div>
+        </div>
+      </div>
+    </div>
+    <div class="review-footer">
+      <div class="review-error" id="review-error"></div>
+      <div class="review-actions" id="review-initial-actions">
+        <button class="btn-review-reject" id="btn-review-reject">✗ Reject</button>
+        <button class="btn-review-approve" id="btn-review-approve">✓ Approve</button>
+      </div>
+      <div class="review-actions" id="review-reject-actions" style="display:none;">
+        <button class="btn-review-cancel" id="btn-cancel-reject">Cancel</button>
+        <button class="btn-submit-reject" id="btn-submit-reject">Submit Rejection</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const USER_ROLE = "{{ current_user.role }}";
+  const CAN_REVIEW = (USER_ROLE === 'reviewer' || USER_ROLE === 'admin');
+
+  // store: key → { caseNumber, rawJson, parsedResult, pending, usage, copyLineOverride, reviewStatus }
+  const store = {};
+  let reviewCaseId = null;
+  let reviewRejectMode = false;
+
+  function escHtml(s) {
+    return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  function fmt(n) {
+    if (n === undefined || n === null) return '—';
+    return '£' + Number(n).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  // ── Sidebar ───────────────────────────────────────────────────────────────
+  function sidebarSetEmpty() {
+    const el = document.getElementById('sidebar-empty');
+    if (el) el.style.display = Object.keys(store).length ? 'none' : '';
+  }
+
+  function applyStatusClass(el, status) {
+    el.classList.remove('status-pending','status-approved','status-rejected');
+    if (status) el.classList.add('status-' + status);
+  }
+
+  function sidebarAddPending(key, caseNumber, dt) {
+    const el = document.createElement('div');
+    el.className = 'case-item';
+    el.id = 'case-item-' + key;
+    const label = caseNumber || 'Untitled';
+    const dtStr = dt.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+    el.innerHTML = `<span class="cn"><span class="status-dot pending-dot"></span>${escHtml(label)}</span><span class="dt">${dtStr} · calculating…</span>`;
+    el.addEventListener('click', () => showOutputForKey(key));
+    document.getElementById('case-list').prepend(el);
+    document.getElementById('sidebar-empty').style.display = 'none';
+  }
+
+  function sidebarMarkDone(oldKey, newKey) {
+    const el = document.getElementById('case-item-' + oldKey);
+    if (!el) return;
+    const finalKey = newKey || oldKey;
+    el.id = 'case-item-' + finalKey;
+    const entry = store[finalKey];
+    if (!entry) return;
+    const label = entry.caseNumber || finalKey;
+    const dt = new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+    const statusDot = '<span class="status-dot"></span>';
+    el.querySelector('.cn').innerHTML = statusDot + escHtml(label);
+    el.querySelector('.dt').textContent = dt + ' · done';
+    el.onclick = () => showOutputForKey(finalKey);
+    applyStatusClass(el, entry.reviewStatus || 'pending');
+    addReviewBtn(el, finalKey);
+  }
+
+  function addReviewBtn(el, key) {
+    if (!CAN_REVIEW) return;
+    let actions = el.querySelector('.case-actions');
+    if (!actions) { actions = document.createElement('div'); actions.className = 'case-actions'; el.appendChild(actions); }
+    if (!actions.querySelector('.review')) {
+      const btn = document.createElement('button');
+      btn.className = 'case-action-btn review';
+      btn.textContent = 'Review';
+      btn.addEventListener('click', e => { e.stopPropagation(); openReviewModal(key); });
+      actions.appendChild(btn);
+    }
+  }
+
+  function sidebarAddStored(id, caseNumber, createdAt, reviewStatus) {
+    store[String(id)] = { caseNumber, rawJson: null, parsedResult: null, pending: false, usage: null, copyLineOverride: null, reviewStatus };
+    const el = document.createElement('div');
+    el.className = 'case-item';
+    el.id = 'case-item-' + id;
+    const dt = new Date(createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
+    el.innerHTML = `<span class="cn"><span class="status-dot"></span>${escHtml(caseNumber)}</span><span class="dt">${dt}</span>`;
+    applyStatusClass(el, reviewStatus || 'pending');
+    el.addEventListener('click', () => showOutputForKey(String(id)));
+    document.getElementById('case-list').appendChild(el);
+    addReviewBtn(el, String(id));
+    document.getElementById('sidebar-empty').style.display = 'none';
+  }
+
+  function updateSidebarStatus(key, status) {
+    const el = document.getElementById('case-item-' + key);
+    if (el) applyStatusClass(el, status);
+    if (store[key]) store[key].reviewStatus = status;
+  }
+
+  // ── Output rendering ──────────────────────────────────────────────────────
+  function showCalculating() {
+    const wrap = document.getElementById('output-wrap');
+    wrap.className = 'output-wrap visible';
+    wrap.innerHTML = `
+      <div class="calculating-card">
+        <div class="calculating-spinner"></div>
+        <p>Analysing documents — this may take a moment…</p>
+      </div>`;
+  }
+
+  function positionChip(pos) {
+    if (!pos) return '';
+    const cls = pos.toLowerCase().includes('under') ? 'underdrawn' : pos.toLowerCase().includes('over') ? 'overdrawn' : 'matched';
+    return `<span class="position-chip ${cls}">${escHtml(pos)}</span>`;
+  }
+
+  function renderResult(result, overrides) {
+    const wrap = document.getElementById('output-wrap');
+    wrap.className = 'output-wrap visible';
+
+    if (!result) { wrap.innerHTML = '<div class="calculating-card"><p style="color:#888;">No result available.</p></div>'; return; }
+
+    if (result.status === 'STOP') {
+      wrap.innerHTML = `
+        <div class="result-grid">
+          <div class="stop-card">
+            <div class="stop-icon">🛑</div>
+            <div>
+              <h3>Calculation Stopped</h3>
+              <p>${escHtml(result.reason || 'Missing required document or data.')}</p>
+            </div>
+          </div>
+        </div>`;
+      return;
+    }
+
+    const finalInstruction = (overrides && overrides.instruction) || result.final_cashier_instruction || '';
+    const copyLine = result.copy_line || '';
+    const lm = result.locked_model || {};
+    const cs = result.calculation_summary || {};
+    const cr = result.case_record || {};
+    const feeBreakdown = result.fee_breakdown || [];
+    const disbBreakdown = result.disbursement_breakdown || [];
+    const risks = result.risks || [];
+    const readyToClose = result.ready_to_close;
+
+    const shortfall = cs.shortfall_or_surplus || 0;
+    const shortfallClass = shortfall < 0 ? 'shortfall' : shortfall > 0 ? 'surplus' : '';
+    const shortfallLabel = shortfall < 0 ? 'Shortfall (pay creditors)' : shortfall > 0 ? 'Surplus (refund from fees)' : 'No further action';
+
+    // Locked model card
+    const modsHtml = (lm.fee_modifications_applied || []).length
+      ? `<div class="model-mods">${lm.fee_modifications_applied.map(m => `<span class="model-mod-chip">${escHtml(m)}</span>`).join('')}</div>` : '';
+    const modelCard = `
+      <div class="model-card">
+        <h3>🔐 Locked Model</h3>
+        <div class="model-detail">
+          <div class="model-field"><div class="mf-label">Description</div><div class="mf-value">${escHtml(lm.description || '—')}</div></div>
+          <div class="model-field"><div class="mf-label">Creditor %</div><div class="mf-value">${lm.creditor_percentage != null ? lm.creditor_percentage + '%' : '—'}</div></div>
+          <div class="model-field" style="grid-column:1/-1;"><div class="mf-label">Retention Rule</div><div class="mf-value">${escHtml(lm.retention_rule || '—')}</div></div>
+        </div>
+        ${modsHtml}
+      </div>`;
+
+    // Calculation summary
+    const summaryCard = `
+      <div class="summary-card">
+        <h3>Calculation Summary</h3>
+        <table class="summary-table">
+          <tr><td>Total Contributions Received</td><td>${fmt(cs.total_contributions)}</td></tr>
+          <tr><td>Retained Amount</td><td>${fmt(cs.retained_amount)}</td></tr>
+          <tr class="divider-row"><td colspan="2"></td></tr>
+          <tr class="highlight"><td>Distributable Amount</td><td>${fmt(cs.distributable_amount)}</td></tr>
+          <tr><td>Required Creditor Distribution</td><td>${fmt(cs.required_creditor_distribution)}</td></tr>
+          <tr><td>Paid to Creditors</td><td>${fmt(cs.paid_to_creditors)}</td></tr>
+          <tr class="divider-row"><td colspan="2"></td></tr>
+          <tr class="highlight ${shortfallClass}"><td>${escHtml(shortfallLabel)}</td><td>${fmt(Math.abs(shortfall))}</td></tr>
+          ${cs.refund_required ? `<tr><td>Refund Required</td><td>${fmt(cs.refund_required)}</td></tr>` : ''}
+          ${cs.refund_source ? `<tr><td>Refund Source</td><td style="font-size:0.82rem;">${escHtml(cs.refund_source)}</td></tr>` : ''}
+        </table>
+      </div>`;
+
+    // Fee breakdown
+    const feeCard = feeBreakdown.length ? `
+      <div class="fee-card">
+        <h3>Fee Breakdown</h3>
+        <table class="summary-table">
+          <thead><tr style="font-size:0.72rem;color:#999;text-transform:uppercase;letter-spacing:0.4px;">
+            <th style="text-align:left;padding:0.4rem 0.25rem;font-weight:700;">Type</th>
+            <th style="text-align:right;padding:0.4rem 0.25rem;font-weight:700;">Entitlement</th>
+            <th style="text-align:right;padding:0.4rem 0.25rem;font-weight:700;">Drawn</th>
+            <th style="text-align:right;padding:0.4rem 0.25rem;font-weight:700;">Variance</th>
+            <th style="text-align:right;padding:0.4rem 0.25rem;font-weight:700;">Position</th>
+          </tr></thead>
+          <tbody>${feeBreakdown.map(f => `
+            <tr>
+              <td>${escHtml(f.type)}</td>
+              <td style="text-align:right;font-family:monospace;">${fmt(f.entitlement)}</td>
+              <td style="text-align:right;font-family:monospace;">${fmt(f.drawn)}</td>
+              <td style="text-align:right;font-family:monospace;">${fmt(f.variance)}</td>
+              <td style="text-align:right;">${positionChip(f.position)}</td>
+            </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>` : '';
+
+    // Disbursement breakdown
+    const disbTotal = disbBreakdown.reduce((s, d) => s + (d.drawn || 0), 0);
+    const disbCard = disbBreakdown.length ? `
+      <div class="disb-card">
+        <h3>Disbursement Breakdown (Cat 1)</h3>
+        <table class="summary-table">
+          <thead><tr style="font-size:0.72rem;color:#999;text-transform:uppercase;letter-spacing:0.4px;">
+            <th style="text-align:left;padding:0.4rem 0.25rem;font-weight:700;">Line</th>
+            <th style="text-align:right;padding:0.4rem 0.25rem;font-weight:700;">Drawn</th>
+          </tr></thead>
+          <tbody>${disbBreakdown.map(d => `
+            <tr>
+              <td>${escHtml(d.line)}</td>
+              <td style="text-align:right;font-family:monospace;">${fmt(d.drawn)}</td>
+            </tr>`).join('')}
+            <tr class="divider-row"><td colspan="2"></td></tr>
+            <tr class="highlight"><td>Total Cat 1 Disbursements</td><td style="text-align:right;font-family:monospace;">${fmt(disbTotal)}</td></tr>
+          </tbody>
+        </table>
+      </div>` : '';
+
+    // Case record / notes
+    const notesCard = (cr.omni_notes || cr.omni_fee_notes) ? `
+      <div class="notes-card">
+        <h3>Case Record</h3>
+        ${cr.client_name ? `<div class="notes-field"><div class="notes-label">Client</div><div class="notes-value">${escHtml(cr.client_name)}</div></div>` : ''}
+        ${cr.omni_notes ? `<div class="notes-field"><div class="notes-label">Omni Notes</div><div class="notes-value">${escHtml(cr.omni_notes)}</div></div>` : ''}
+        ${cr.omni_fee_notes ? `<div class="notes-field"><div class="notes-label">Fee Notes</div><div class="notes-value">${escHtml(cr.omni_fee_notes)}</div></div>` : ''}
+        ${cr.creditors ? `<div class="notes-field"><div class="notes-label">Creditors</div><div class="notes-value">${escHtml(cr.creditors)}</div></div>` : ''}
+      </div>` : '';
+
+    const risksHtml = risks.length ? `
+      <div class="risks-card">
+        <h3>⚠ Risks &amp; Flags</h3>
+        <ul class="risks-list">${risks.map(r => `<li>${escHtml(r)}</li>`).join('')}</ul>
+      </div>` : '';
+
+    wrap.innerHTML = `
+      <div class="result-grid">
+        ${finalInstruction ? `
+        <div class="instruction-card">
+          <h3>🔒 Final Cashier Instruction <span class="ready-badge ${readyToClose ? 'ok' : 'not-ready'}" style="font-size:0.7rem;margin-left:0.5rem;">${readyToClose ? '✓ Ready to Close' : '⚠ Not Ready'}</span></h3>
+          <div class="instruction-text">${escHtml(finalInstruction)}</div>
+        </div>` : ''}
+
+        ${copyLine ? `
+        <div class="copy-line-card">
+          <div class="copy-line-header">
+            <h3>📋 Copy Line</h3>
+          </div>
+          <div class="copy-line-box" id="result-copy-line">${escHtml(copyLine)}</div>
+          <button class="copy-btn" id="copy-btn">📋 Copy</button>
+        </div>` : ''}
+
+        ${modelCard}
+        ${summaryCard}
+        ${feeCard}
+        ${disbCard}
+        ${notesCard}
+        ${risksHtml}
+      </div>`;
+
+    const copyBtn = document.getElementById('copy-btn');
+    if (copyBtn) {
+      copyBtn.addEventListener('click', function() {
+        navigator.clipboard.writeText(copyLine).then(() => {
+          this.textContent = '✓ Copied!';
+          this.classList.add('copied');
+          setTimeout(() => { this.textContent = '📋 Copy'; this.classList.remove('copied'); }, 2000);
+        });
+      });
+    }
+  }
+
+  async function showOutputForKey(key) {
+    const entry = store[key];
+    if (!entry) return;
+
+    // Mark active in sidebar
+    document.querySelectorAll('.case-item').forEach(el => el.classList.remove('active'));
+    const sidebarEl = document.getElementById('case-item-' + key);
+    if (sidebarEl) sidebarEl.classList.add('active');
+
+    if (entry.pending) { showCalculating(); return; }
+
+    if (entry.parsedResult) {
+      renderResult(entry.parsedResult, entry.copyLineOverride);
+      return;
+    }
+
+    // Load from DB if rawJson not yet fetched
+    if (!entry.rawJson) {
+      const wrap = document.getElementById('output-wrap');
+      wrap.className = 'output-wrap visible';
+      wrap.innerHTML = '<div class="calculating-card"><div class="calculating-spinner"></div><p>Loading…</p></div>';
+      try {
+        const res = await fetch('/api/cases/' + key);
+        const data = await res.json();
+        entry.rawJson = data.result || '';
+        entry.copyLineOverride = data.cashier_instruction_override || null;
+        entry.reviewStatus = data.review_status;
+        try { entry.parsedResult = JSON.parse(entry.rawJson); } catch { entry.parsedResult = null; }
+      } catch {
+        const wrap = document.getElementById('output-wrap');
+        wrap.innerHTML = '<div class="calculating-card"><p style="color:#ef4444;">Failed to load case.</p></div>';
+        return;
+      }
+    }
+
+    renderResult(entry.parsedResult, entry.copyLineOverride);
+  }
+
+  // ── File management ───────────────────────────────────────────────────────
+  {% if current_user.role in ['uploader', 'admin', 'reviewer'] %}
+  const slots = ['rp', 'contribution_schedule', 'modifications', 'eos'];
+  const ALL_SLOTS = [...slots, 'vmoc_modifications'];
+  const fileMap = {};
+  ALL_SLOTS.forEach(s => fileMap[s] = []);
+
+  function refreshSlot(slot) {
+    const files = fileMap[slot];
+    const area  = document.getElementById('area-' + slot);
+    const list  = document.getElementById('list-' + slot);
+    const dot   = document.getElementById('dot-' + slot);
+    const text  = area.querySelector('.area-text');
+    if (files.length) {
+      area.classList.add('has-files'); dot.classList.add('filled');
+      text.textContent = files.length + ' file(s) selected';
+    } else {
+      area.classList.remove('has-files'); dot.classList.remove('filled');
+      text.textContent = 'Click or drag images here';
+    }
+    list.innerHTML = '';
+    files.forEach((f, i) => {
+      const item = document.createElement('div');
+      item.className = 'file-item';
+      item.innerHTML = `<span class="fname" title="${f.name}">${f.name}</span><button type="button" data-slot="${slot}" data-idx="${i}">×</button>`;
+      list.appendChild(item);
+    });
+  }
+
+  ALL_SLOTS.forEach(slot => {
+    const area  = document.getElementById('area-' + slot);
+    const input = document.getElementById('inp-' + slot);
+    area.addEventListener('click', e => { if (e.target !== input) input.click(); });
+    input.addEventListener('change', () => {
+      fileMap[slot] = [...fileMap[slot], ...input.files];
+      input.value = '';
+      refreshSlot(slot);
+    });
+    area.addEventListener('dragover', e => { e.preventDefault(); area.classList.add('drag'); });
+    area.addEventListener('dragleave', () => area.classList.remove('drag'));
+    area.addEventListener('drop', e => {
+      e.preventDefault(); area.classList.remove('drag');
+      fileMap[slot] = [...fileMap[slot], ...e.dataTransfer.files];
+      refreshSlot(slot);
+    });
+  });
+
+  document.addEventListener('click', e => {
+    const btn = e.target.closest('[data-slot][data-idx]');
+    if (!btn) return;
+    const slot = btn.dataset.slot;
+    const idx  = Number(btn.dataset.idx);
+    fileMap[slot].splice(idx, 1);
+    refreshSlot(slot);
+  });
+
+  // ── R&P mode toggle (Screenshot / PDF) ───────────────────────────────────
+  function setRpMode(mode) {
+    document.getElementById('rp-screenshot-area').style.display = mode === 'screenshot' ? '' : 'none';
+    document.getElementById('rp-pdf-area').style.display        = mode === 'pdf'        ? '' : 'none';
+    document.getElementById('rp-btn-screenshot').classList.toggle('active', mode === 'screenshot');
+    document.getElementById('rp-btn-pdf').classList.toggle('active', mode === 'pdf');
+    // Clear the other mode's files when switching
+    if (mode === 'screenshot') fileMap['rp-pdf'] = [];
+    else fileMap['rp'] = [];
+    refreshSlot('rp');
+  }
+  // Wire PDF input into fileMap so dot fills and validation works
+  const rpPdfInput = document.getElementById('inp-rp-doc');
+  const rpPdfArea  = document.getElementById('area-rp-pdf');
+  rpPdfArea.addEventListener('click', e => { if (e.target !== rpPdfInput) rpPdfInput.click(); });
+  rpPdfInput.addEventListener('change', () => {
+    fileMap['rp'] = [...rpPdfInput.files];
+    rpPdfInput.value = '';
+    refreshSlot('rp');
+  });
+  rpPdfArea.addEventListener('dragover', e => { e.preventDefault(); rpPdfArea.classList.add('drag'); });
+  rpPdfArea.addEventListener('dragleave', () => rpPdfArea.classList.remove('drag'));
+  rpPdfArea.addEventListener('drop', e => {
+    e.preventDefault(); rpPdfArea.classList.remove('drag');
+    fileMap['rp'] = [...e.dataTransfer.files];
+    refreshSlot('rp');
+  });
+
+  // ── Paste-text mode toggle for Modifications ─────────────────────────────
+  function setTermModsMode(mode) {
+    document.getElementById('term-mods-screenshot-area').style.display = mode === 'screenshot' ? '' : 'none';
+    document.getElementById('term-mods-paste-area').classList.toggle('visible', mode === 'paste');
+    document.getElementById('term-mods-btn-screenshot').classList.toggle('active', mode === 'screenshot');
+    document.getElementById('term-mods-btn-paste').classList.toggle('active', mode === 'paste');
+  }
+
+  // ── VMOC question logic ───────────────────────────────────────────────────
+  function getEosState() {
+    const isVmoc   = document.querySelector('input[name="eos_is_vmoc"]:checked').value === 'yes';
+    if (!isVmoc) return 'NON_VMOC';
+    const isAgreed = document.querySelector('input[name="eos_vmoc_agreed"]:checked').value === 'yes';
+    return isAgreed ? 'VMOC_AGREED' : 'VMOC_UNAGREED';
+  }
+
+  function applyVmocState() {
+    const state      = getEosState();
+    const q2Block    = document.getElementById('vmoc-q2-block');
+    const vmocCard   = document.getElementById('vmoc-mods-card');
+    q2Block.classList.toggle('vmoc-hidden', state === 'NON_VMOC');
+    vmocCard.classList.toggle('vmoc-hidden', state !== 'VMOC_UNAGREED');
+  }
+
+  // Q1 radio styling + state update
+  document.querySelectorAll('input[name="eos_is_vmoc"]').forEach(radio => {
+    radio.addEventListener('change', () => {
+      const yes = radio.value === 'yes';
+      document.getElementById('vmoc-lbl-yes').className = yes ? 'selected-yes' : '';
+      document.getElementById('vmoc-lbl-no').className  = yes ? '' : 'selected-no';
+      applyVmocState();
+    });
+  });
+
+  // Q2 radio styling + state update
+  document.querySelectorAll('input[name="eos_vmoc_agreed"]').forEach(radio => {
+    radio.addEventListener('change', () => {
+      const yes = radio.value === 'yes';
+      document.getElementById('agreed-lbl-yes').className = yes ? 'selected-yes' : '';
+      document.getElementById('agreed-lbl-no').className  = yes ? '' : 'selected-no';
+      applyVmocState();
+    });
+  });
+
+  // Set initial label states to match default checked values
+  document.getElementById('vmoc-lbl-no').classList.add('selected-no');
+  document.getElementById('agreed-lbl-yes').classList.add('selected-yes');
+
+  // ── Form submit ───────────────────────────────────────────────────────────
+  const form      = document.getElementById('analyze-form');
+  const submitBtn = document.getElementById('submit-btn');
+  const btnLabel  = document.getElementById('btn-label');
+
+  form.addEventListener('submit', async e => {
+    e.preventDefault();
+
+    const eosState = getEosState();
+    const modsInPasteMode = document.getElementById('term-mods-btn-paste').classList.contains('active');
+    const modsPasteText   = document.getElementById('term-mods-paste-area').value.trim();
+
+    // Validate VMOC_UNAGREED requires VMOC Modifications document
+    if (eosState === 'VMOC_UNAGREED' && fileMap['vmoc_modifications'].length === 0) {
+      alert('VMOC Modifications document required when EOS is from an unagreed VMOC.');
+      return;
+    }
+
+    // Mandatory field validation
+    const TERM_LABELS = { rp: 'Receipts & Payments', contribution_schedule: 'Contribution Schedule', modifications: 'Modifications', eos: 'EOS' };
+    const missing = [];
+    for (const [slot, label] of Object.entries(TERM_LABELS)) {
+      const hasFiles = fileMap[slot] && fileMap[slot].length > 0;
+      const hasText  = slot === 'modifications' && modsInPasteMode && modsPasteText.length > 0;
+      if (!hasFiles && !hasText) missing.push(label);
+    }
+    if (missing.length) { alert('Missing required document(s): ' + missing.join(', ') + '.'); return; }
+
+    const caseNumber = document.getElementById('case-number').value.trim();
+    const tempKey    = 'temp-' + Date.now();
+
+    store[tempKey] = { caseNumber, rawJson: '', parsedResult: null, pending: true, usage: null, copyLineOverride: null, reviewStatus: null };
+    sidebarAddPending(tempKey, caseNumber, new Date());
+    showCalculating();
+
+    const fd = new FormData();
+    fd.append('case_number', caseNumber);
+    fd.append('task_type',   'termination');
+    fd.append('eos_state',   eosState);
+    const workItemId = document.getElementById('hidden-work-item-id').value;
+    if (workItemId) fd.append('work_item_id', workItemId);
+    // Append files for all slots except modifications when paste mode is active
+    slots.forEach(slot => {
+      if (slot === 'modifications' && modsInPasteMode) return;
+      fileMap[slot].forEach(f => fd.append(slot, f));
+    });
+    if (modsInPasteMode && modsPasteText) fd.append('modifications_text', modsPasteText);
+    // VMOC Modifications only sent when state requires it
+    if (eosState === 'VMOC_UNAGREED') {
+      fileMap['vmoc_modifications'].forEach(f => fd.append('vmoc_modifications', f));
+    }
+
+    submitBtn.disabled = true;
+    btnLabel.textContent = 'Calculating…';
+    const spinner = document.createElement('div');
+    spinner.className = 'btn-spinner';
+    submitBtn.appendChild(spinner);
+
+    try {
+      const res = await fetch('/analyze-termination', { method: 'POST', body: fd });
+      if (!res.ok) throw new Error('Server error ' + res.status);
+
+      const reader  = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop();
+
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          const data = JSON.parse(line.slice(6));
+
+          if (data.error) {
+            store[tempKey].rawJson = '';
+            store[tempKey].parsedResult = { status: 'STOP', reason: data.error };
+            store[tempKey].pending = false;
+            sidebarMarkDone(tempKey, null);
+            renderResult(store[tempKey].parsedResult, null);
+
+          } else if (data.text) {
+            store[tempKey].rawJson = (store[tempKey].rawJson || '') + data.text;
+
+          } else if (data.done) {
+            store[tempKey].pending = false;
+            store[tempKey].usage   = data.usage;
+            const finalKey = data.case_id ? String(data.case_id) : tempKey;
+            if (data.case_id) {
+              store[finalKey] = store[tempKey];
+              delete store[tempKey];
+            }
+            // parse JSON
+            try {
+              store[finalKey].parsedResult = JSON.parse(store[finalKey].rawJson.trim());
+            } catch {
+              store[finalKey].parsedResult = { status: 'STOP', reason: 'Could not parse calculation result.' };
+            }
+            store[finalKey].reviewStatus = 'pending';
+            sidebarMarkDone(tempKey, finalKey);
+            renderResult(store[finalKey].parsedResult, null);
+          }
+        }
+      }
+    } catch (err) {
+      store[tempKey].parsedResult = { status: 'STOP', reason: err.message };
+      store[tempKey].pending = false;
+      sidebarMarkDone(tempKey, null);
+      renderResult(store[tempKey].parsedResult, null);
+    } finally {
+      submitBtn.disabled = false;
+      btnLabel.textContent = 'Calculate';
+      const sp = submitBtn.querySelector('.btn-spinner');
+      if (sp) sp.remove();
+    }
+  });
+
+  // pre-fill from URL params
+  (function() {
+    const params = new URLSearchParams(window.location.search);
+    const workItemId = params.get('work_item');
+    const preFillCN = params.get('case_number');
+    if (preFillCN) document.getElementById('case-number').value = preFillCN;
+    if (workItemId) document.getElementById('hidden-work-item-id').value = workItemId;
+  })();
+  {% endif %}
+
+  // ── Review Modal ──────────────────────────────────────────────────────────
+  {% if current_user.role in ['reviewer', 'admin'] %}
+  function openReviewModal(key) {
+    reviewCaseId = key;
+    reviewRejectMode = false;
+    const entry = store[key] || {};
+
+    document.getElementById('review-case-number').textContent = entry.caseNumber || key;
+    document.getElementById('review-case-meta').textContent = 'Termination calculation';
+
+    const instruction = (entry.copyLineOverride)
+      || (entry.parsedResult && entry.parsedResult.final_cashier_instruction)
+      || '(not available)';
+    const copyLine = (entry.parsedResult && entry.parsedResult.copy_line) || '';
+
+    document.getElementById('review-instruction-display').textContent = instruction;
+    document.getElementById('review-edited-instruction').value = instruction;
+    document.getElementById('review-copyline-display').textContent = copyLine;
+    document.getElementById('review-rejection-note').value = '';
+    document.getElementById('review-error').textContent = '';
+
+    setReviewRejectMode(false);
+
+    // reset tabs
+    document.querySelectorAll('.review-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.review-tab-panel').forEach(p => p.classList.remove('active'));
+    document.querySelector('.review-tab[data-tab="instruction"]').classList.add('active');
+    document.getElementById('review-tab-instruction').classList.add('active');
+    document.getElementById('review-fulllog-content').innerHTML = '<div style="text-align:center;color:#bbb;padding:2rem;">Click tab to load…</div>';
+
+    document.getElementById('review-overlay').classList.add('open');
+  }
+
+  function setReviewRejectMode(on) {
+    reviewRejectMode = on;
+    document.getElementById('review-reject-section').classList.toggle('visible', on);
+    document.getElementById('review-initial-actions').style.display = on ? 'none' : '';
+    document.getElementById('review-reject-actions').style.display  = on ? '' : 'none';
+    document.getElementById('review-error').textContent = '';
+  }
+
+  function closeReviewModal() {
+    document.getElementById('review-overlay').classList.remove('open');
+    reviewCaseId = null;
+    reviewRejectMode = false;
+  }
+
+  document.getElementById('review-close').addEventListener('click', closeReviewModal);
+  document.getElementById('review-overlay').addEventListener('click', e => {
+    if (e.target === document.getElementById('review-overlay')) closeReviewModal();
+  });
+
+  document.querySelectorAll('.review-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.review-tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.review-tab-panel').forEach(p => p.classList.remove('active'));
+      tab.classList.add('active');
+      document.getElementById('review-tab-' + tab.dataset.tab).classList.add('active');
+
+      if (tab.dataset.tab === 'fulllog' && reviewCaseId) {
+        const entry = store[reviewCaseId];
+        const el = document.getElementById('review-fulllog-content');
+        if (!entry) { el.innerHTML = '<p style="color:#bbb;padding:1rem;">No data.</p>'; return; }
+
+        // If not yet loaded, fetch from DB
+        const render = () => {
+          const result = entry.parsedResult;
+          if (!result) { el.innerHTML = '<p style="color:#bbb;padding:1rem;">Not available.</p>'; return; }
+          el.innerHTML = '';
+
+          if (result.calculation_summary) {
+            const cs = result.calculation_summary;
+            const sec = document.createElement('div'); sec.className = 'review-json-section';
+            sec.innerHTML = `<h4>Calculation Summary</h4><pre class="review-json-pre">${escHtml(JSON.stringify(cs, null, 2))}</pre>`;
+            el.appendChild(sec);
+          }
+          if (result.case_record) {
+            const sec = document.createElement('div'); sec.className = 'review-json-section';
+            sec.innerHTML = `<h4>Case Record</h4><pre class="review-json-pre">${escHtml(JSON.stringify(result.case_record, null, 2))}</pre>`;
+            el.appendChild(sec);
+          }
+          if (result.risks && result.risks.length) {
+            const sec = document.createElement('div'); sec.className = 'review-json-section';
+            sec.innerHTML = `<h4>Risks &amp; Flags</h4><pre class="review-json-pre">${escHtml(result.risks.join('\n'))}</pre>`;
+            el.appendChild(sec);
+          }
+          if (!el.children.length) {
+            el.innerHTML = `<pre class="review-json-pre">${escHtml(JSON.stringify(result, null, 2))}</pre>`;
+          }
+        };
+
+        if (!entry.rawJson) {
+          el.innerHTML = '<div style="text-align:center;color:#bbb;padding:2rem;">Loading…</div>';
+          fetch('/api/cases/' + reviewCaseId).then(r => r.json()).then(data => {
+            entry.rawJson = data.result || '';
+            entry.copyLineOverride = data.cashier_instruction_override || null;
+            try { entry.parsedResult = JSON.parse(entry.rawJson.trim()); } catch {}
+            render();
+          }).catch(() => { el.innerHTML = '<p style="color:#ef4444;padding:1rem;">Failed to load.</p>'; });
+        } else {
+          render();
+        }
+      }
+    });
+  });
+
+  document.getElementById('btn-review-reject').addEventListener('click', () => setReviewRejectMode(true));
+  document.getElementById('btn-cancel-reject').addEventListener('click', () => setReviewRejectMode(false));
+
+  document.getElementById('btn-review-approve').addEventListener('click', async () => {
+    if (!reviewCaseId) return;
+    const errEl = document.getElementById('review-error');
+    errEl.textContent = '';
+    const entry = store[reviewCaseId];
+    const editedVal = (document.getElementById('review-edited-instruction').value || '').trim();
+    const original = (entry && entry.parsedResult && entry.parsedResult.final_cashier_instruction) || '';
+    const instruction = (editedVal && editedVal !== original) ? editedVal : null;
+    try {
+      const res = await fetch(`/api/cases/${reviewCaseId}/review`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'approve', instruction }),
+      });
+      const data = await res.json();
+      if (data.error) { errEl.textContent = data.error; return; }
+      if (instruction && entry) entry.copyLineOverride = instruction;
+      updateSidebarStatus(reviewCaseId, 'approved');
+      closeReviewModal();
+      if (entry && entry.parsedResult) renderResult(entry.parsedResult, instruction ? { instruction } : null);
+    } catch { errEl.textContent = 'Request failed.'; }
+  });
+
+  document.getElementById('btn-submit-reject').addEventListener('click', async () => {
+    if (!reviewCaseId) return;
+    const errEl = document.getElementById('review-error');
+    errEl.textContent = '';
+    const note = document.getElementById('review-rejection-note').value.trim();
+    if (!note) { errEl.textContent = 'Rejection note is required.'; return; }
+    const editedVal = (document.getElementById('review-edited-instruction').value || '').trim();
+    const entry = store[reviewCaseId];
+    const original = (entry && entry.parsedResult && entry.parsedResult.final_cashier_instruction) || '';
+    const instruction = (editedVal && editedVal !== original) ? editedVal : null;
+    try {
+      const res = await fetch(`/api/cases/${reviewCaseId}/review`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'reject', note, instruction }),
+      });
+      const data = await res.json();
+      if (data.error) { errEl.textContent = data.error; return; }
+      if (instruction && entry) entry.copyLineOverride = instruction;
+      updateSidebarStatus(reviewCaseId, 'rejected');
+      closeReviewModal();
+    } catch { errEl.textContent = 'Request failed.'; }
+  });
+  {% endif %}
+
+  // ── Load existing cases ───────────────────────────────────────────────────
+  async function loadCaseList() {
+    if (!("{{ current_user.role }}" === 'uploader' || "{{ current_user.role }}" === 'reviewer' || "{{ current_user.role }}" === 'admin')) return;
+    try {
+      const res = await fetch('/api/cases?task_type=termination');
+      const cases = await res.json();
+      if (Array.isArray(cases)) {
+        cases.reverse().forEach(c => sidebarAddStored(c.id, c.case_number, c.created_at, c.review_status));
+      }
+    } catch {}
+  }
+
+  loadCaseList();
+
+  // URL params
+  (function() {
+    const urlCase = new URLSearchParams(window.location.search).get('case');
+    if (urlCase) {
+      window.addEventListener('load', async () => {
+        await new Promise(r => setTimeout(r, 300));
+        const el = document.getElementById('case-item-' + urlCase);
+        if (el) { el.classList.add('active'); showOutputForKey(urlCase); }
+      });
+    }
+  })();
+
+  {% if current_user.role in ['reviewer', 'admin'] %}
+  // Notifications
+  const notifBtn = document.getElementById('notif-btn');
+  const notifBadge = document.getElementById('notif-badge');
+  const notifDropdown = document.getElementById('notif-dropdown');
+  const notifList = document.getElementById('notif-list');
+  let notifications = [];
+
+  async function loadNotifications() {
+    try {
+      const res = await fetch('/api/notifications');
+      notifications = await res.json();
+      renderNotifications();
+    } catch {}
+  }
+
+  function renderNotifications() {
+    const unread = notifications.filter(n => !n.read).length;
+    if (unread > 0) { notifBadge.textContent = unread > 99 ? '99+' : unread; notifBadge.style.display = 'flex'; }
+    else { notifBadge.style.display = 'none'; }
+    notifList.innerHTML = '';
+    if (!notifications.length) { notifList.innerHTML = '<div class="notif-empty">No notifications</div>'; return; }
+    notifications.forEach(n => {
+      const div = document.createElement('div');
+      div.className = 'notif-item ' + (n.read ? 'read' : 'unread');
+      const dt = new Date(n.created_at).toLocaleString('en-GB', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' });
+      div.innerHTML = `<div class="notif-dot"></div><div><div class="notif-item-text">${escHtml(n.message)}</div><div class="notif-item-time">${dt}</div></div>`;
+      div.addEventListener('click', async () => {
+        if (!n.read) { await fetch(`/api/notifications/${n.id}/read`, { method: 'POST' }); n.read = true; renderNotifications(); }
+        window.location.href = '/terminations?case=' + n.case_id;
+      });
+      notifList.appendChild(div);
+    });
+  }
+
+  notifBtn.addEventListener('click', e => { e.stopPropagation(); notifDropdown.classList.toggle('open'); });
+  document.addEventListener('click', e => { if (!notifDropdown.contains(e.target) && e.target !== notifBtn) notifDropdown.classList.remove('open'); });
+  document.getElementById('notif-mark-all').addEventListener('click', async e => {
+    e.stopPropagation();
+    await fetch('/api/notifications/read-all', { method: 'POST' });
+    notifications.forEach(n => n.read = true);
+    renderNotifications();
+  });
+  loadNotifications();
+  setInterval(loadNotifications, 30000);
+  {% endif %}
+
+  {% if current_user.role == 'admin' %}
+  const adminBtn = document.getElementById('admin-menu-btn');
+  const adminDropdown = document.getElementById('admin-dropdown');
+  adminBtn.addEventListener('click', e => {
+    e.stopPropagation();
+    const open = adminDropdown.classList.toggle('open');
+    adminBtn.classList.toggle('open', open);
+  });
+  document.addEventListener('click', () => { adminDropdown.classList.remove('open'); adminBtn.classList.remove('open'); });
+  {% endif %}
+</script>
+</body>
+</html>
