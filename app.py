@@ -144,6 +144,19 @@ def roles_required(*roles):
 
 
 REVIEWER_ROLES = ('reviewer', 'admin', 'owner')
+UPLOADER_ROLES = ('uploader',)
+REVIEW_PAGE_ROLES = REVIEWER_ROLES + UPLOADER_ROLES
+
+
+def review_page_access_required(fn):
+    """Page-level: reviewers see everything; uploaders see only their own approved cases."""
+    @wraps(fn)
+    @login_required
+    def wrapped(*args, **kwargs):
+        if current_user.role not in REVIEW_PAGE_ROLES:
+            abort(403)
+        return fn(*args, **kwargs)
+    return wrapped
 
 
 def review_required(fn):
@@ -2717,7 +2730,7 @@ def home():
 
 
 @app.route("/review")
-@review_required
+@review_page_access_required
 def review_page():
     return render_template("review.html")
 
@@ -4140,23 +4153,29 @@ def dashboard_stats():
 # Cases API
 # ---------------------------------------------------------------------------
 @app.route("/api/cases/pending-review")
-@review_required
+@review_page_access_required
 def api_cases_pending_review():
     """Return lightweight case summaries for the review sidebar.
+    Uploaders see only their own approved cases; reviewers/admin/owner see all.
     Query params: type (completion|variation|termination|all), status (pending|approved|rejected|all), limit (int).
     """
     task_type = request.args.get('type', 'all')
     status    = request.args.get('status', 'pending')
     limit     = min(int(request.args.get('limit', 200)), 1000)
 
-    where = []
-    params = []
+    where, params = [], []
+
+    if current_user.role in UPLOADER_ROLES:
+        where.append('c.submitted_by = %s')
+        params.append(int(current_user.id))
+        where.append("c.review_status = 'approved'")
+    elif status != 'all':
+        where.append('c.review_status = %s')
+        params.append(status)
+
     if task_type != 'all':
         where.append('c.task_type = %s')
         params.append(task_type)
-    if status != 'all':
-        where.append('c.review_status = %s')
-        params.append(status)
 
     where_sql = ('WHERE ' + ' AND '.join(where)) if where else ''
 
@@ -4277,6 +4296,15 @@ def get_case(case_id):
         conn.close()
         if not row:
             return jsonify({"error": "Not found"}), 404
+
+        # Uploaders may only fetch cases they submitted, and only once approved.
+        if current_user.role in UPLOADER_ROLES:
+            if row.get("submitted_by") != int(current_user.id):
+                return jsonify({"error": "Forbidden"}), 403
+            if row.get("review_status") != "approved":
+                return jsonify({"error": "Forbidden"}), 403
+        elif current_user.role not in REVIEWER_ROLES:
+            return jsonify({"error": "Forbidden"}), 403
 
         raw_result = row["result"] or ""
 
@@ -4511,18 +4539,48 @@ def review_case(case_id):
                         res = json.loads(raw) if isinstance(raw, str) else (raw or {})
                     except (ValueError, TypeError):
                         res = {}
+
+                    # EOS edits (current values on flat row arrays)
                     eos_edits = result_override.get("eos") or {}
-                    eos = res.setdefault("eos", {})
-                    for field_key in ("assets_available", "costs_and_disbursements"):
-                        edits = eos_edits.get(field_key) or {}
-                        rows_list = eos.get(field_key) or []
-                        for idx_str, new_val in edits.items():
-                            try:
-                                idx = int(idx_str)
-                            except (TypeError, ValueError):
+                    if eos_edits:
+                        eos = res.setdefault("eos", {})
+                        for field_key in ("assets_available", "costs_and_disbursements"):
+                            edits = eos_edits.get(field_key) or {}
+                            rows_list = eos.get(field_key) or []
+                            for idx_str, new_val in edits.items():
+                                try:
+                                    idx = int(idx_str)
+                                except (TypeError, ValueError):
+                                    continue
+                                if 0 <= idx < len(rows_list):
+                                    rows_list[idx]["current"] = new_val
+
+                    # Income edits (flat keys on result.income.*)
+                    income_edits = result_override.get("income") or {}
+                    if income_edits:
+                        income = res.setdefault("income", {})
+                        for key, value in income_edits.items():
+                            if key == "total_income":
                                 continue
-                            if 0 <= idx < len(rows_list):
-                                rows_list[idx]["current"] = new_val
+                            income[key] = value
+
+                    # Expenditure edits (result.expenditure.category.subcategory)
+                    exp_edits = result_override.get("expenditure") or {}
+                    if exp_edits:
+                        NONEDITABLE = {
+                            "subtotal", "trigger_figure", "trigger_calculation",
+                            "over_trigger", "variance_from_trigger",
+                            "sfs_flag", "sfs_trigger", "sfs_note",
+                        }
+                        expenditure = res.setdefault("expenditure", {})
+                        for cat_key, cat_edits in exp_edits.items():
+                            if cat_key == "total_expenditure" or not isinstance(cat_edits, dict):
+                                continue
+                            cat = expenditure.setdefault(cat_key, {})
+                            for sub_key, value in cat_edits.items():
+                                if sub_key not in NONEDITABLE:
+                                    cat[sub_key] = value
+
                     cur.execute("UPDATE cases SET result=%s WHERE id=%s", (json.dumps(res), case_id))
 
             if action == "approve" and existing["submitted_by"]:
