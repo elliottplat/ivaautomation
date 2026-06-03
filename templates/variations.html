@@ -2172,7 +2172,7 @@
     const adultsDisplay = c.household_size_adults != null
       ? c.household_size_adults + (c.household_assumed ? ' (assumed)' : '')
       : (c.assumed_single_adult ? '1 (assumed)' : '—');
-    const childrenU16 = c.household_size_children_under_16 != null ? c.household_size_children_under_16 : '—';
+    const childrenU16 = c.household_size_children_0_to_16 != null ? c.household_size_children_0_to_16 : '—';
     const children1618 = c.household_size_children_16_to_18 != null ? c.household_size_children_16_to_18 : '—';
     const taHousehold = (state.trigger_analysis && state.trigger_analysis.household_used_for_calculation) ? state.trigger_analysis.household_used_for_calculation : '';
     const surplusClass = state.summary.surplus_or_deficit >= 0 ? 'surplus' : 'deficit';
@@ -2750,10 +2750,18 @@
           if (data.error) { wrap.innerHTML = `<div class="calculating-card"><p style="color:#ef4444;">${escHtml(data.error)}</p></div>`; return; }
           if (data.done) {
             try {
-              ieState = JSON.parse(rawJson.trim());
+              let jsonStr = rawJson.trim();
+              // Strip markdown fences if Claude wrapped the output
+              jsonStr = jsonStr.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '');
+              // Extract from first { to last } to ignore any preamble/postamble
+              const start = jsonStr.indexOf('{');
+              const end   = jsonStr.lastIndexOf('}');
+              if (start !== -1 && end !== -1 && end > start) jsonStr = jsonStr.slice(start, end + 1);
+              ieState = JSON.parse(jsonStr);
               renderIE(ieState);
-            } catch {
-              wrap.innerHTML = '<div class="calculating-card"><p style="color:#ef4444;">Could not parse I&E result.</p></div>';
+            } catch (e) {
+              console.error('I&E parse failed. Raw output:', rawJson);
+              wrap.innerHTML = '<div class="calculating-card"><p style="color:#ef4444;">Could not parse I&E result. See browser console for raw output.</p></div>';
             }
           }
         }
