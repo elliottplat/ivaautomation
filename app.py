@@ -3345,12 +3345,37 @@ Map every expenditure line into exactly ONE of these SFS categories and subcateg
 Use the household composition values provided in the user message to compute the trigger for each category below. Compare the debtor's stated expenditure against the trigger. If it exceeds the trigger, set sfs_flag: true on that category with the computed trigger and a plain-English note.
 
 ### Food & Housekeeping
-- Base (1 adult, 0 children): £519/month
-- 2 adults, 0 children: £738/month
-- Per additional child aged 0–16: +£134/month each
-- Per additional child aged 16–18: +£155/month each
-- Formula: 519 + (additional_adults × 219) + (children_0_to_16 × 134) + (children_16_to_18 × 155)
-  where additional_adults = max(0, adults - 1)
+- First adult: £454/month
+- Per additional adult: +£333/month each
+- Per child aged 0–16: +£197/month each
+- Per child aged 16–18: +£235/month each
+- Formula: 454 + (additional_adults × 333) + (children_0_to_16 × 197) + (children_16_to_18 × 235)
+
+### Personal Costs
+- First adult: £95/month
+- Per additional adult: +£67/month each
+- Per child aged 0–16: +£47/month each
+- Per child aged 16–18: +£105/month each
+- Formula: 95 + (additional_adults × 67) + (children_0_to_16 × 47) + (children_16_to_18 × 105)
+
+### Communications & Leisure
+- First adult: £250/month
+- Per additional adult: +£179/month each
+- Per child aged 0–16: +£87/month each
+- Per child aged 16–18: +£140/month each
+- Formula: 250 + (additional_adults × 179) + (children_0_to_16 × 87) + (children_16_to_18 × 140)
+
+### Savings
+- £30/month (fixed)
+
+### Childcare
+- Under 5: flag if > £1,100/month per child
+- School-age: flag if > £600/month per child
+
+### Pet Costs
+- Flag if > £75/month
+
+NOTE: The Travel and Clothing & Footwear figures below are NOT from the SFS 2026/27 source tables. They are included as operational guidance only and should not be cited as official SFS triggers.
 
 ### Travel (total across all travel subcategories)
 - 0 vehicles: trigger = £0 — flag any travel expenditure > £0 as requiring justification
@@ -3358,28 +3383,12 @@ Use the household composition values provided in the user message to compute the
 - 2+ vehicles: trigger = £220/month × vehicles
 - Formula: vehicles × 220
 
-### Personal Costs (clothing, hairdressing, toiletries, prescriptions, other)
-- Per adult: £165/month
-- Formula: adults × 165
-
 ### Clothing & Footwear (subcategory of Personal Costs — use independently if itemised separately)
 - 1 adult, 0 children: £76/month
 - Per additional adult: +£22/month
 - Per child 0–16: +£25/month each
 - Per child 16–18: +£29/month each
 - Formula: 76 + (additional_adults × 22) + (children_0_to_16 × 25) + (children_16_to_18 × 29)
-
-### Communications & Leisure
-- Phone/internet total: £117/month (fixed — does not scale with household)
-- Leisure: £56/month per adult
-- Formula: 117 + (adults × 56)
-
-### Childcare
-- Only applicable if children present. Flag if > £1,100/month per child under 5, or > £600/month per school-age child.
-- If no children: trigger = £0 — flag any childcare expenditure.
-
-### Pet Costs (within Food & Housekeeping > Vet bills, or as a separate line)
-- If any pet costs claimed: flag if > £75/month.
 
 **If household composition is unknown:** assume 1 adult, 0 children, 0 vehicles, set "household_assumed": true, and add to "missing_information".
 
@@ -3451,7 +3460,7 @@ Return ONLY a valid JSON object. No preamble, no markdown fences, no commentary 
       "newspapers_magazines": null,
       "subtotal": 0.00,
       "trigger_figure": 0.00,
-      "trigger_calculation": "276 (1st adult) = 276",
+      "trigger_calculation": "250 (1st adult) = 250",
       "over_trigger": false,
       "variance_from_trigger": 0.00,
       "sfs_flag": false,

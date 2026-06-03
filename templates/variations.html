@@ -2750,18 +2750,22 @@
           if (data.error) { wrap.innerHTML = `<div class="calculating-card"><p style="color:#ef4444;">${escHtml(data.error)}</p></div>`; return; }
           if (data.done) {
             try {
-              let jsonStr = rawJson.trim();
-              // Strip markdown fences if Claude wrapped the output
-              jsonStr = jsonStr.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '');
-              // Extract from first { to last } to ignore any preamble/postamble
-              const start = jsonStr.indexOf('{');
-              const end   = jsonStr.lastIndexOf('}');
-              if (start !== -1 && end !== -1 && end > start) jsonStr = jsonStr.slice(start, end + 1);
-              ieState = JSON.parse(jsonStr);
+              let cleaned = rawJson.trim()
+                .replace(/^```json\s*/i, '')
+                .replace(/^```\s*/, '')
+                .replace(/```\s*$/, '')
+                .trim();
+              const first = cleaned.indexOf('{');
+              const last = cleaned.lastIndexOf('}');
+              if (first === -1 || last === -1 || last < first) {
+                throw new Error('No JSON object found in output');
+              }
+              cleaned = cleaned.slice(first, last + 1);
+              ieState = JSON.parse(cleaned);
               renderIE(ieState);
             } catch (e) {
               console.error('I&E parse failed. Raw output:', rawJson);
-              wrap.innerHTML = '<div class="calculating-card"><p style="color:#ef4444;">Could not parse I&E result. See browser console for raw output.</p></div>';
+              wrap.innerHTML = '<div class="calculating-card"><p style="color:#ef4444;">Could not parse I&E result.</p></div>';
             }
           }
         }
