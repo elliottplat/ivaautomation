@@ -12,3 +12,8 @@ sentry-sdk==2.59.0
 openpyxl>=3.1.0
 xlrd>=2.0.1
 resend>=2.0.0
+pdfplumber>=0.11.0
+python-docx>=1.1.0
+pytesseract>=0.3.10
+Pillow>=10.0.0
+pdf2image>=1.17.0

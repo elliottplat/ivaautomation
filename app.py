@@ -23,6 +23,30 @@ from functools import wraps
 from dotenv import load_dotenv
 import dss_calculations as dss_calc
 
+try:
+    import pdfplumber
+    _PDFPLUMBER = True
+except ImportError:
+    _PDFPLUMBER = False
+
+try:
+    from pdf2image import convert_from_bytes as _pdf2image
+    _PDF2IMAGE = True
+except ImportError:
+    _PDF2IMAGE = False
+
+try:
+    import pytesseract as _pytesseract
+    _PYTESSERACT = True
+except ImportError:
+    _PYTESSERACT = False
+
+try:
+    from docx import Document as _DocxDocument
+    _DOCX = True
+except ImportError:
+    _DOCX = False
+
 load_dotenv()
 
 # F-26: Structured logging
@@ -2504,6 +2528,81 @@ def variation_file_to_block(file):
     return {"type": "text", "text": f"[Attached file: {file.filename} ({media_type})]"}
 
 
+_OCR_SPARSE_THRESHOLD = 50  # chars per page below which a PDF page is treated as scanned
+
+
+def ie_doc_to_block(file):
+    """Content block for the I&E analysis route.
+
+    Images: delegated to variation_file_to_block (native vision block).
+    PDF:    pdfplumber text layer; sparse pages fall back to pytesseract OCR.
+    docx:   python-docx text extraction.
+    Other:  delegated to variation_file_to_block.
+    """
+    raw = file.read()
+    fname = file.filename or ""
+    ext = fname.rsplit(".", 1)[-1].lower() if "." in fname else ""
+    mt = (file.content_type or "").lower().split(";")[0].strip()
+    if not mt or mt == "application/octet-stream":
+        mt = {
+            "pdf": "application/pdf",
+            "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            "doc": "application/msword",
+        }.get(ext, mt)
+
+    # ── images → native vision block ──────────────────────────────────────────
+    if mt.startswith("image/"):
+        file.seek(0)
+        return variation_file_to_block(file)
+
+    # ── PDF → text extraction with OCR fallback ────────────────────────────────
+    if mt == "application/pdf" or ext == "pdf":
+        if not _PDFPLUMBER:
+            return {"type": "text", "text": f"[PDF attached: {fname} — pdfplumber not installed, cannot extract text]"}
+        pages_text = []
+        ocr_used = False
+        try:
+            with pdfplumber.open(io.BytesIO(raw)) as pdf:
+                for i, page in enumerate(pdf.pages):
+                    txt = (page.extract_text() or "").strip()
+                    if len(txt) >= _OCR_SPARSE_THRESHOLD:
+                        pages_text.append(txt)
+                    else:
+                        # Scanned page — rasterise and OCR
+                        if _PDF2IMAGE and _PYTESSERACT:
+                            try:
+                                imgs = _pdf2image(raw, first_page=i + 1, last_page=i + 1, dpi=200)
+                                ocr_txt = _pytesseract.image_to_string(imgs[0]).strip() if imgs else ""
+                                pages_text.append(ocr_txt)
+                                ocr_used = True
+                            except Exception:
+                                pages_text.append(txt)  # fall back to whatever pdfplumber got
+                        else:
+                            pages_text.append(f"[Page {i + 1}: scanned — pdf2image/pytesseract not available]")
+                            ocr_used = True
+        except Exception as e:
+            return {"type": "text", "text": f"[PDF attached: {fname} — extraction failed: {e}]"}
+        source_tag = "[source: ocr]" if ocr_used else "[source: text_layer]"
+        combined = "\n\n".join(pages_text).strip() or "[No text extracted from PDF]"
+        return {"type": "text", "text": f"{source_tag}\n{combined}"}
+
+    # ── docx → python-docx text extraction ────────────────────────────────────
+    if ext in ("docx", "doc") or "wordprocessingml" in mt or mt == "application/msword":
+        if not _DOCX:
+            return {"type": "text", "text": f"[Word document attached: {fname} — python-docx not installed, cannot extract text]"}
+        try:
+            doc = _DocxDocument(io.BytesIO(raw))
+            paragraphs = [p.text for p in doc.paragraphs if p.text.strip()]
+            combined = "\n".join(paragraphs).strip() or "[No text extracted from Word document]"
+        except Exception as e:
+            return {"type": "text", "text": f"[Word document attached: {fname} — extraction failed: {e}]"}
+        return {"type": "text", "text": f"[source: text_layer]\n{combined}"}
+
+    # ── everything else → existing handler ────────────────────────────────────
+    file.seek(0)
+    return variation_file_to_block(file)
+
+
 def extract_cashier_instruction(text):
     # Try JSON first (termination results)
     stripped = (text or "").strip()
@@ -3630,7 +3729,7 @@ def analyze_ie():
     content = []
     for page in pages:
         try:
-            block = variation_file_to_block(page)
+            block = ie_doc_to_block(page)
         except ValueError as e:
             return jsonify({"error": str(e)}), 400
         content.append(block)
